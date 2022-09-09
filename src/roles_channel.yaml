@@ -1,0 +1,150 @@
+presets:
+- name: bias role
+  type: button_opens_dropdown
+  text: Click here to pick which bias role you want!
+  dropdown_options:
+  - text: Main role
+    description: >-
+      This role affects your name color in chat!
+    name: Main
+  - text: Secondary role
+    description: >-
+      This role is only seen if people click your name.
+    name: Secondary
+  - text: Role icon (NEW)
+    description: >-
+      This gives you a role icon!
+    name: Icon
+  remove_role_option:
+    text: Remove roles
+    description: >-
+      Removes all the roles for this group of bias roles
+    emoji: ❌
+
+role_categories:
+  - name: Sub Unit
+    roles:
+    - name: loona
+      ids:
+        Main: 864118528185597980
+        Secondary: 864118528176422913
+    - name: loona 1/3
+      ids:
+        Main: 864118528185597979
+        Secondary: 864118528176422912
+    - name: loona oec
+      ids:
+        Main: 864118528185597978
+        Secondary: 864118528167510035
+    - name: loona yyxy
+      ids:
+        Main: 864118528185597977
+        Secondary: 864118528167510034
+  - name: Member
+    roles:
+    - name: heejin
+      ids:
+        Main: 864118528185597976
+        Secondary: 864118528167510033
+    - name: hyunjin
+      ids:
+        Main: 864118528185597975
+        Secondary: 864118528167510032
+    - name: haseul
+      ids:
+        Main: 864118528185597974
+        Secondary: 864118528167510031
+    - name: yeojin
+      ids:
+        Main: 864118528185597973
+        Secondary: 864118528167510030
+    - name: vivi
+      ids:
+        Main: 864118528185597972
+        Secondary: 864118528167510029
+    - name: kim lip
+      ids:
+        Main: 864118528176422921
+        Secondary: 864118528167510028
+    - name: jinsoul
+      ids:
+        Main: 864118528176422920
+        Secondary: 864118528167510027
+    - name: choerry
+      ids:
+        Main: 864118528176422919
+        Secondary: 864118528167510026
+    - name: yves
+      ids:
+        Main: 864118528176422918
+        Secondary: 864118528159514633
+    - name: chuu
+      ids:
+        Main: 864118528176422917
+        Secondary: 864118528159514632
+    - name: go won
+      ids:
+        Main: 864118528176422916
+        Secondary: 864118528159514631
+    - name: olivia hye
+      ids:
+        Main: 864118528176422915
+        Secondary: 864118528159514630
+
+messages:
+- 
+  text: >-
+    Press a button below to choose a member as your bias!
+    This will open a drop down to further 
+    choose which role you get.
+  view:
+    preset: bias role
+    action_rows:
+    -
+      - text: LOOΠΔ
+        role: loona
+      - text: LOOΠΔ 1/3
+        role: loona 1/3
+      - text: Odd Eye Circle
+        role: loona oec
+      - text: yyxy
+        role: loona yyxy
+    -
+      - text: HeeJin
+        emoji: <a:HeejinHacker:694847693977157632>
+        role: heejin
+      - text: HyunJin
+        emoji: <a:HyunjinCute:653293235820560405>
+        role: hyunjin
+      - text: HaSeul
+        emoji: <a:HaseulPeek:677141059754524672>
+        role: haseul
+      - text: YeoJin
+        emoji: <:yeojinsmile:482987253866692629>
+        role: yeojin
+      - text: ViVi
+        emoji: <a:viviwave:643126867003441188>
+        role: vivi
+    -
+      - text: Kim Lip
+        emoji: <a:kimlipwave:487088212892712970> 
+        role: kim lip
+      - text: JinSoul
+        emoji: <:jinsoulhmph:807640798082367529> 
+        role: jinsoul
+      - text: Choerry
+        emoji: <:choerryCantwatch:685911584886882355> 
+        role: choerry
+    -
+      - text: Yves
+        emoji: <:yvestea:482987253954641930>
+        role: yves
+      - text: Chuu
+        emoji: <a:ChuuEvil2:675881412251091035> 
+        role: chuu
+      - text: Go Won
+        emoji: <a:gOwOn:845603430030245888> 
+        role: go won
+      - text: Olivia Hye
+        emoji: <a:OliviaBlanket:643511595024252944>
+        role: olivia hye
