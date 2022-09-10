@@ -1,0 +1,22 @@
+{
+  "name": "orbot",
+  "version": "1.0.0",
+  "description": "Discord bot for the LOONA discord server",
+  "main": "src/__main__.py",
+  "scripts": {
+    "watch": "nodemon --exec python3 -um src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pixirora/orbot.git"
+  },
+  "author": "SpaceGliderr",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Pixirora/orbot/issues"
+  },
+  "homepage": "https://github.com/Pixirora/orbot#readme",
+  "devDependencies": {
+    "nodemon": "^2.0.19"
+  }
+}
