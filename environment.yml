@@ -7,3 +7,4 @@ dependencies:
       - discord.py
       - jishaku
       - ruamel.yaml
+      - python-dotenv
