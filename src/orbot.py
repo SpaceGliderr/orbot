@@ -4,8 +4,7 @@ import asyncpg
 import discord
 from discord.ext import commands
 
-from .config import TOKEN
-from os import walk
+import os
 
 
 intents = discord.Intents(
@@ -27,7 +26,7 @@ class Orbot(commands.Bot):
 
 
     def run(self):
-        super().run(TOKEN)
+        super().run(os.getenv('TOKEN'))
 
 
     async def start(self, *args, **kwargs):
@@ -45,7 +44,7 @@ class Orbot(commands.Bot):
 
 
     async def load_extensions(self):
-        cogs = map(lambda cog: f"{self.cogs_ext_prefix}{cog}", [filename.split('.', 1)[0] for filename in next(walk(self.cogs_path), (None, None, []))[2]])
+        cogs = map(lambda cog: f"{self.cogs_ext_prefix}{cog}", [filename.split('.', 1)[0] for filename in next(os.walk(self.cogs_path), (None, None, []))[2]])
 
         extensions = list(cogs) + self.exts
 
