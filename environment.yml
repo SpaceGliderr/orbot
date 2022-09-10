@@ -1,0 +1,9 @@
+name: orbot-venv
+dependencies:
+  - pip
+  - pip:
+      - aiohttp
+      - asyncpg
+      - discord.py
+      - jishaku
+      - ruamel.yaml
