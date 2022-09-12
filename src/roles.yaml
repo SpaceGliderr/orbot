@@ -1,0 +1,145 @@
+categories:
+  text: Click here to pick which bias role you want!
+  role_categories:
+    - name: main
+      label: LOOΠΔ (Main)
+    - name: sub
+      label: LOOΠΔ (Sub)
+    - name: pronouns
+      label: Pronouns
+    - name: others
+      label: Others
+
+members:
+  roles:
+    - name: loona
+      label: LOOΠΔ
+      ids:
+        main: 864118528185597980
+        sub: 864118528176422913
+    - name: loona 1/3
+      label: LOOΠΔ 1/3
+      ids:
+        main: 864118528185597979
+        sub: 864118528176422912
+    - name: loona oec
+      label: Odd Eye Circle
+      ids:
+        main: 864118528185597978
+        sub: 864118528167510035
+    - name: loona yyxy
+      label: yyxy
+      ids:
+        main: 864118528185597977
+        sub: 864118528167510034
+    - name: heejin
+      label: HeeJin
+      emoji: <a:HeejinHacker:694847693977157632>
+      ids:
+        main: 864118528185597976
+        sub: 864118528167510033
+    - name: hyunjin
+      label: HyunJin
+      emoji: <a:HyunjinCute:653293235820560405>
+      ids:
+        main: 864118528185597975
+        sub: 864118528167510032
+    - name: haseul
+      label: HaSeul
+      emoji: <a:HaseulPeek:677141059754524672>
+      ids:
+        main: 864118528185597974
+        sub: 864118528167510031
+    - name: yeojin
+      label: YeoJin
+      emoji: <:yeojinsmile:482987253866692629>
+      ids:
+        main: 864118528185597973
+        sub: 864118528167510030
+    - name: vivi
+      label: ViVi
+      emoji: <a:viviwave:643126867003441188>
+      ids:
+        main: 864118528185597972
+        sub: 864118528167510029
+    - name: kim lip
+      label: Kim Lip
+      emoji: <a:kimlipwave:487088212892712970>
+      ids:
+        main: 864118528176422921
+        sub: 864118528167510028
+    - name: jinsoul
+      label: JinSoul
+      emoji: <:jinsoulhmph:807640798082367529>
+      ids:
+        main: 864118528176422920
+        sub: 864118528167510027
+    - name: choerry
+      label: Choerry
+      emoji: <:choerryCantwatch:685911584886882355>
+      ids:
+        main: 864118528176422919
+        sub: 864118528167510026
+    - name: yves
+      label: Yves
+      emoji: <:yvestea:482987253954641930>
+      ids:
+        main: 864118528176422918
+        sub: 864118528159514633
+    - name: chuu
+      label: Chuu
+      emoji: <a:ChuuEvil2:675881412251091035>
+      ids:
+        main: 864118528176422917
+        sub: 864118528159514632
+    - name: go won
+      label: Go Won
+      emoji: <a:gOwOn:845603430030245888>
+      ids:
+        main: 864118528176422916
+        sub: 864118528159514631
+    - name: olivia hye
+      label: Olivia Hye
+      emoji: <a:OliviaBlanket:643511595024252944>
+      ids:
+        main: 864118528176422915
+        sub: 864118528159514630
+
+pronouns:
+  roles:
+    - name: he/him
+      label: He/Him
+      id: 864118528206045193
+    - name: she/her
+      label: She/Her
+      id: 864118528206045192
+    - name: they/them
+      label: They/Them
+      id: 864118528206045191
+    - name: any
+      label: Any Pronouns
+      id: 864118528206045190
+    - name: ask
+      label: Ask For Pronouns
+      id: 864118528206045189
+
+others:
+  roles:
+    - name: collector
+      label: Collector
+      id: 864118528197787656
+    - name: twitter
+      label: Twitter
+      id: 864118528206045186
+    - name: community
+      label: Community
+      id: 864118528159514624
+    - name: live
+      label: Live
+      id: 864118528206045185
+    - name: arcade
+      label: Arcade
+      id: 1018581580912013432
+    - name: comeback
+      label: Comeback
+      id: 1018581735056883814
