@@ -1,3 +1,4 @@
+import traceback
 from typing import Any, List, Optional, Union
 import discord
 
@@ -43,3 +44,24 @@ class View(discord.ui.View):
     def __init__(self, *, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
         self.values = None
+
+
+class Modal(discord.ui.Modal):
+    def __init__(self, *, title: str, timeout: Optional[float] = None, custom_id: Optional[str] = None) -> None:
+        super().__init__(title=title, timeout=timeout, custom_id=custom_id)
+
+    
+    def get_values(self):
+        return { child.custom_id: child.value for child in self.children if child.value }
+
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f'Thanks for your feedback!', ephemeral=True)
+
+        self.stop()
+
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        await interaction.response.send_message('Oops! Something went wrong.', ephemeral=True)
+
+        traceback.print_tb(error.__traceback__)
