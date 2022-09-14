@@ -68,8 +68,8 @@ class RolePickerConfig:
         return [self.generate_option(role, self.get_role_id(role, role_category), defaults) for role in self.get_roles(role_category)]
 
     
-    def generate_role_category_options(self, defaults: Optional[Any] = None):
-        return [self.generate_option(category, category["name"], defaults) for category in self.role_categories]
+    def generate_role_category_options(self, is_delete: bool = False, defaults: Optional[Any] = None):
+        return [self.generate_option(category, category["name"], defaults) for category in self.role_categories if is_delete and (not category["name"] == "main" or not category["sub"])]
 
     
     def dump(self, data):
