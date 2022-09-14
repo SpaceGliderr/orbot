@@ -4,3 +4,4 @@ discord.py @ git+https://github.com/Rapptz/discord.py@master
 jishaku
 ruamel.yaml
 python-dotenv
+stringcase

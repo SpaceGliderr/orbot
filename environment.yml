@@ -8,3 +8,4 @@ dependencies:
       - jishaku
       - ruamel.yaml
       - python-dotenv
+      - stringcase
