@@ -229,7 +229,7 @@ class RolePicker(commands.Cog):
 
         view = View()
         view.add_item(Dropdown(
-            min_values = 0, 
+            min_values = 1, 
             max_values = len(options),
             options = options,
             placeholder="Choose categories to add the role to"
