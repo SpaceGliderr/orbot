@@ -3,6 +3,7 @@ import asyncio
 import asyncpg
 import discord
 from discord.ext import commands
+from discord import app_commands
 
 import os
 
@@ -16,6 +17,7 @@ intents = discord.Intents(
     message_content=True,
 )
 
+MY_GUILD = discord.Object(id=864118528134742026)
 
 class Orbot(commands.Bot):
     def __init__(self):
@@ -41,6 +43,11 @@ class Orbot(commands.Bot):
         #         await asyncio.sleep(1)
 
         await super().start(*args, **kwargs)
+
+    
+    async def setup_hook(self):
+        self.tree.copy_global_to(guild=MY_GUILD)
+        await self.tree.sync(guild=MY_GUILD)
 
 
     async def load_extensions(self):
