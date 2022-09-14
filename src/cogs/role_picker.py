@@ -70,6 +70,15 @@ class RolePicker(commands.Cog):
 
     @commands.command(pass_context=True)
     async def role_picker(self, ctx: commands.Context):
+        """A message command that activates the role picker feature.
+
+        User Flow
+        ----------
+            * Sends user an array of role categories to choose from
+            * The user is presented a select menu with roles from the chosen role category
+            * User can use the select menu to add or remove roles
+        """
+
         rp_conf = RolePickerConfig()
 
         view = View()
@@ -130,6 +139,18 @@ class RolePicker(commands.Cog):
     @app_commands.command(name="add_role_category")
     @app_commands.default_permissions(manage_roles=True)
     async def add_role_category(self, interaction: discord.Interaction):
+        """A slash command that allows users with appropriate permissions to add Role Categories.
+
+        User Flow
+        ----------
+            * Sends user a modal of type `RoleCategoryModal`
+            * Takes user input and creates a new role category in the `roles.yaml` file
+
+        Permissions
+        ----------
+        `manage_roles`
+        """
+
         modal = RoleCategoryModal(title="Role Category", custom_id="role_modal")
 
         await interaction.response.send_modal(modal)
@@ -151,6 +172,18 @@ class RolePicker(commands.Cog):
     @app_commands.command(name="add_role")
     @app_commands.default_permissions(manage_roles=True)
     async def add_role(self, interaction: discord.Interaction):
+        """A slash command that allows users with appropriate permissions to add Roles to Role Categories.
+
+        User Flow
+        ----------
+            * Sends user a modal of type `RoleModal`
+            * Takes user input and adds a new role to one or many role category(ies) in the `roles.yaml` file
+
+        Permissions
+        ----------
+        `manage_roles`
+        """
+
         modal = RoleModal(title="Add Role", custom_id="add_role")
         
         await interaction.response.send_modal(modal)
