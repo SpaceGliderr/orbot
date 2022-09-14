@@ -1,4 +1,4 @@
 {
   "watch": ["*.*"],
-  "ext": "py, json, yaml"
+  "ext": "py, json"
 }
