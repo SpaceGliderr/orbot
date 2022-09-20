@@ -46,6 +46,17 @@ class RolePickerConfig:
         return [self.get_role_id(role, category) for role in roles]
 
 
+    def get_role_category(self, category_name: str):
+        return next(((idx, category) for idx, category in enumerate(self.role_categories) if category["name"] == category_name), None)
+
+
+    def get_role_by_id(self, role_category: str, role_id: int):
+        if role_category == "main" or role_category == "sub":
+            return next(((idx, { **role, "id": role["ids"][role_category] }) for idx, role in enumerate(self.get_roles(role_category)) if role["id"] == role_id), None)
+        else: 
+            return next(((idx, role) for idx, role in enumerate(self.get_roles(role_category)) if role["id"] == role_id), None)
+
+
     def generate_option(self, dic: dict, value: Any, defaults: Optional[Any] = None):
         option = discord.SelectOption(
             label=dic["label"],
@@ -70,6 +81,46 @@ class RolePickerConfig:
     
     def generate_role_category_options(self, is_delete: bool = False, defaults: Optional[Any] = None):
         return [self.generate_option(category, category["name"], defaults) for category in self.role_categories if is_delete and (not category["name"] == "main" or not category["sub"])]
+
+
+    def generate_all_embeds(self):
+        embeds = []
+
+        role_categories_embed = discord.Embed(title="Role Categories", description="Shows the role categories available in this server:\n\u200B")
+
+        for role_category in self.role_categories:
+            postfix_text = ""
+            if role_category != self.role_categories[-1]:
+                postfix_text = "\n\u200B"
+
+            role_categories_embed.add_field(name=role_category["label"], value=f"{role_category['description']}{postfix_text}" if dict_has_key(role_category, "description") else f"-No description-{postfix_text}", inline=False)
+            
+            roles = self.get_roles(role_category["name"])
+
+            embed = discord.Embed(title=role_category["label"], description=f"Shows all roles under the {role_category['label']} category")
+
+            for role in roles:
+                if role_category["name"] == "main" or role_category["name"] == "sub":
+                    value = f"Server Role: <@&{role['ids'][role_category['name']]}>"
+                else:
+                    value = f"Server Role: <@&{role['id']}>"
+
+                if dict_has_key(role, "description"):
+                    value += f"\nDescription: {role['description']}"
+
+                if dict_has_key(role, "emoji"):
+                    value += f"\nEmoji: {role['emoji']}"
+
+                if role != roles[-1]:
+                    value += "\n\u200B"
+
+                embed.add_field(name=role["label"], value=value, inline=False)
+            
+            embeds.append(embed)
+
+        embeds.insert(0, role_categories_embed)
+
+        return embeds
 
     
     def dump(self, data):
