@@ -97,7 +97,7 @@ class RolePickerConfig:
             
             roles = self.get_roles(role_category["name"])
 
-            embed = discord.Embed(title=role_category["label"], description=f"Shows all roles under the {role_category['label']} category")
+            embed = discord.Embed(title=role_category["label"], description=f"Shows all roles under the {role_category['label']} category\n\u200B")
 
             for role in roles:
                 if role_category["name"] == "main" or role_category["name"] == "sub":
