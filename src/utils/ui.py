@@ -27,6 +27,8 @@ class Button(discord.ui.Button):
 
 
     async def callback(self, interaction: discord.Interaction):
+        self.view.interaction = interaction
+        
         if self.message is not None:
             await interaction.response.send_message(f"{self.message}{self.label}", ephemeral=True)
         
@@ -44,6 +46,7 @@ class View(discord.ui.View):
     def __init__(self, *, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
         self.values = None
+        self.interaction: Optional[discord.Interaction] = None
 
 
 class Modal(discord.ui.Modal):
