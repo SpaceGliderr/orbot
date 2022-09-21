@@ -51,7 +51,7 @@ class Orbot(commands.Bot):
 
 
     async def load_extensions(self):
-        cogs = map(lambda cog: f"{self.cogs_ext_prefix}{cog}", [filename.split('.', 1)[0] for filename in next(os.walk(self.cogs_path), (None, None, []))[2]])
+        cogs = map(lambda cog: f"{self.cogs_ext_prefix}{cog}.{cog}", [dirname.split('.', 1)[0] for dirname in next(os.walk(self.cogs_path), (None, None, []))[1] if dirname.split('.', 1)[0] not in ["__pycache__"]])
 
         extensions = list(cogs) + self.exts
 
