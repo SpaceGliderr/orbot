@@ -69,14 +69,14 @@ class RoleModal(Modal):
 
 
 class RoleCategoryView(View):
-    def __init__(self, *, timeout: Optional[float] = None, input_type: Literal["button", "select"] = "button", max_value_type: Literal["single", "multiple"] = "multiple", is_delete: bool = False):
+    def __init__(self, *, timeout: Optional[float] = None, input_type: Literal["button", "select"] = "button", max_value_type: Literal["single", "multiple"] = "multiple"):
         super().__init__(timeout=timeout)
 
         if input_type == "button":
             for category in rp_conf.role_categories:
                 self.add_item(Button(label=category["label"], value=category["name"]))
         else:
-            options = rp_conf.generate_role_category_options(is_delete=is_delete)
+            options = rp_conf.generate_role_category_options()
             self.add_item(Dropdown(
                 min_values = 1, 
                 max_values = len(options) if max_value_type == "multiple" else 1,
