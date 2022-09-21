@@ -296,18 +296,13 @@ class RolePicker(commands.Cog):
         copied_data = ori_data.copy()
 
         for role_category in role_categories:
-            if role_category == "main" or role_category == "sub":
-                new_role["ids"][role_category] = int(new_role["id"])
-                new_role.pop("id", None)
-                copied_data["members"]["roles"].append(new_role)
-            else:
-                new_role["id"] = int(new_role["id"])
-                
-                if not dict_has_key(copied_data, role_category):
-                    copied_data[role_category] = {}
-                    copied_data[role_category]["roles"] = []
+            new_role["id"] = int(new_role["id"])
+            
+            if not dict_has_key(copied_data, role_category):
+                copied_data[role_category] = {}
+                copied_data[role_category]["roles"] = []
 
-                copied_data[role_category]["roles"].append(new_role)
+            copied_data[role_category]["roles"].append(new_role)
 
         rp_conf.dump(copied_data)
 
@@ -337,13 +332,8 @@ class RolePicker(commands.Cog):
         ori_data = rp_conf.get_data()
         copied_data = ori_data.copy()
 
-        if role_category == "main" or role_category == "sub":
-            for role in roles:
-                if role["ids"][role_category] in role_ids_to_remove:
-                    del copied_data["member"]["roles"]["ids"][role_category]
-        else:
-            roles_to_keep = [role for role in roles if role["id"] not in role_ids_to_remove]
-            copied_data[role_category]["roles"] = roles_to_keep
+        roles_to_keep = [role for role in roles if role["id"] not in role_ids_to_remove]
+        copied_data[role_category]["roles"] = roles_to_keep
 
         rp_conf.dump(copied_data)
 
@@ -368,6 +358,8 @@ class RolePicker(commands.Cog):
         for role_category in role_categories:
             copied_data["categories"]["role_categories"] = [rc for rc in rp_conf.role_categories if rc["name"] != role_category]
             del copied_data[role_category]
+
+        rp_conf.dump(copied_data)
 
 
     @app_commands.command(name="edit_role")
@@ -401,13 +393,10 @@ class RolePicker(commands.Cog):
         ori_data = rp_conf.get_data()
         copied_data = ori_data.copy()
 
-        if role_category == "main" or role_category == "sub":
-            edited_role["ids"][role_category] = int(edited_role["id"])
-            edited_role.pop("id", None)
-            copied_data["members"]["roles"][idx] = edited_role
-        else:
-            edited_role["id"] = int(edited_role["id"])
-            copied_data[role_category]["roles"][idx] = edited_role
+        edited_role["id"] = int(edited_role["id"])
+        copied_data[role_category]["roles"][idx] = edited_role
+
+        rp_conf.dump(copied_data)
 
 
     @app_commands.command(name="edit_role_category")

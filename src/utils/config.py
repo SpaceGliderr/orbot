@@ -28,17 +28,11 @@ class RolePickerConfig:
 
 
     def get_roles(self, category: str):
-        if category == "main" or category == "sub":
-            return get_from_dict(self.data, ["members", "roles"])
-        else:
-            return get_from_dict(self.data, [category, "roles"])
+        return get_from_dict(self.data, [category, "roles"])
 
 
     def get_role_id(self, role, category: str):
-        if category == "main" or category == "sub":
-            return role["ids"][category]
-        else:
-            return role["id"]
+        return role["id"]
 
     
     def get_role_ids(self, category: str):
@@ -51,10 +45,7 @@ class RolePickerConfig:
 
 
     def get_role_by_id(self, role_category: str, role_id: int):
-        if role_category == "main" or role_category == "sub":
-            return next(((idx, { **role, "id": role["ids"][role_category] }) for idx, role in enumerate(self.get_roles(role_category)) if role["id"] == role_id), None)
-        else: 
-            return next(((idx, role) for idx, role in enumerate(self.get_roles(role_category)) if role["id"] == role_id), None)
+        return next(((idx, role) for idx, role in enumerate(self.get_roles(role_category)) if role["id"] == role_id), None)
 
 
     def generate_option(self, dic: dict, value: Any, defaults: Optional[Any] = None):
@@ -80,7 +71,7 @@ class RolePickerConfig:
 
     
     def generate_role_category_options(self, is_delete: bool = False, defaults: Optional[Any] = None):
-        return [self.generate_option(category, category["name"], defaults) for category in self.role_categories if is_delete and (not category["name"] == "main" or not category["sub"])]
+        return [self.generate_option(category, category["name"], defaults) for category in self.role_categories]
 
 
     def generate_all_embeds(self):
@@ -100,10 +91,7 @@ class RolePickerConfig:
             embed = discord.Embed(title=role_category["label"], description=f"Shows all roles under the {role_category['label']} category\n\u200B")
 
             for role in roles:
-                if role_category["name"] == "main" or role_category["name"] == "sub":
-                    value = f"Server Role: <@&{role['ids'][role_category['name']]}>"
-                else:
-                    value = f"Server Role: <@&{role['id']}>"
+                value = f"Server Role: <@&{role['id']}>"
 
                 if dict_has_key(role, "description"):
                     value += f"\nDescription: {role['description']}"
