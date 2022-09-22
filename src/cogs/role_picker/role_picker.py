@@ -10,6 +10,9 @@ from src.utils.helper import dict_has_key
 from src.utils.ui import Dropdown, Button, View
 
 
+rp_conf = RolePickerConfig()
+
+
 class RolePicker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -25,8 +28,6 @@ class RolePicker(commands.Cog):
             * The user is presented a select menu with roles from the chosen role category
             * User can use the select menu to add or remove roles
         """
-
-        rp_conf = RolePickerConfig()
 
         view = View()
         for category in rp_conf.role_categories:
@@ -103,8 +104,6 @@ class RolePicker(commands.Cog):
         await interaction.response.send_modal(modal)
         await modal.wait()
 
-        rp_conf = RolePickerConfig()
-
         ori_data = rp_conf.get_data()
         copied_data = ori_data.copy()
         new_category = modal.get_values()
@@ -137,7 +136,6 @@ class RolePicker(commands.Cog):
         await modal.wait()
         
         # TODO: Change to Select menu when Discord py Modals support Select menus
-        rp_conf = RolePickerConfig()
         options = rp_conf.generate_role_category_options()
 
         view = View()
@@ -197,7 +195,6 @@ class RolePicker(commands.Cog):
         await message.delete()
 
         role_ids_to_remove = [int(role_id) for role_id in view.values]
-        rp_conf = RolePickerConfig()
         roles = rp_conf.get_roles(role_category)
 
         ori_data = rp_conf.get_data()
@@ -222,7 +219,6 @@ class RolePicker(commands.Cog):
         # TODO: Add double confirmation view
 
         role_categories = view.values
-        rp_conf = RolePickerConfig()
         ori_data = rp_conf.get_data()
         copied_data = ori_data.copy()
 
@@ -253,7 +249,6 @@ class RolePicker(commands.Cog):
         await message.delete()
 
         role_id = view.values[0]
-        rp_conf = RolePickerConfig()
         idx, role = rp_conf.get_role_by_id(role_category, role_id)
         
         modal = RoleModal(title="Edit Role", defaults=role)
@@ -281,8 +276,7 @@ class RolePicker(commands.Cog):
         await message.delete()
 
         role_category = view.values
-
-        rp_conf = RolePickerConfig()
+        
         idx, category_details = rp_conf.get_role_category(role_category)
 
         modal = RoleCategoryModal(title="Edit Role", defaults=category_details)
@@ -299,9 +293,7 @@ class RolePicker(commands.Cog):
 
 
     @app_commands.command(name="overview")
-    async def roles_overview(self, interaction: discord.Interaction):        
-        rp_conf = RolePickerConfig()
-
+    async def roles_overview(self, interaction: discord.Interaction):
         embeds = rp_conf.generate_all_embeds()
         view = RolesOverviewView(embeds=embeds)
 
