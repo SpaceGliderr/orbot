@@ -10,10 +10,12 @@ class Dropdown(discord.ui.Select):
 
 
     async def callback(self, interaction: discord.Interaction):
+        self.view.interaction = interaction
+        
         if self.message is not None:
             await interaction.response.send_message(f"{self.message}{self.values}")
 
-        await interaction.response.defer()
+        # await interaction.response.defer()
 
         self.view.values = self.values
         self.view.stop()
@@ -32,7 +34,7 @@ class Button(discord.ui.Button):
         if self.message is not None:
             await interaction.response.send_message(f"{self.message}{self.label}", ephemeral=True)
         
-        await interaction.response.defer()
+        # await interaction.response.defer()
 
         if self.value is not None:
             self.view.values = self.value

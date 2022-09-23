@@ -232,27 +232,27 @@ class RolePicker(commands.Cog):
     @app_commands.command(name="edit_role")
     @app_commands.default_permissions(manage_roles=True)
     async def edit_role(self, interaction: discord.Interaction):
-        view = RoleCategoryView(input_type="button")
+        role_category_view = RoleCategoryView(input_type="button")
 
-        await interaction.response.send_message("Select role category that the role is in", view=view)
-        await view.wait()
+        await interaction.response.send_message("Select role category that the role is in", view=role_category_view)
+        await role_category_view.wait()
         message = await interaction.original_response()
         await message.delete()
 
-        role_category = view.values
+        role_category = role_category_view.values
 
         view = RolesView(role_category=role_category, max_value_type="single")
 
-        await interaction.response.send_message("Select role to edit", view=view)
+        await role_category_view.interaction.response.send_message("Select role to edit", view=view)
         await view.wait()
-        message = await interaction.original_response()
+        message = await role_category_view.interaction.original_response()
         await message.delete()
 
-        role_id = view.values[0]
+        role_id = int(view.values[0])
         idx, role = rp_conf.get_role_by_id(role_category, role_id)
         
-        modal = RoleModal(title="Edit Role", defaults=role)
-        view.interaction.response.send_modal(modal)
+        modal = RoleModal(title="Edit Role", defaults=role, custom_id="edit_role")
+        await view.interaction.response.send_modal(modal)
         await modal.wait()
 
         edited_role = modal.get_values()
@@ -260,7 +260,7 @@ class RolePicker(commands.Cog):
         copied_data = ori_data.copy()
 
         edited_role["id"] = int(edited_role["id"])
-        copied_data[role_category]["roles"][idx] = edited_role
+        copied_data[role_category]["roles"][idx] = { **copied_data[role_category]["roles"][idx], **edited_role}
 
         rp_conf.dump(copied_data)
 
@@ -279,7 +279,7 @@ class RolePicker(commands.Cog):
         
         idx, category_details = rp_conf.get_role_category(role_category)
 
-        modal = RoleCategoryModal(title="Edit Role", defaults=category_details)
+        modal = RoleCategoryModal(title="Edit Role Category", defaults=category_details, custom_id="edit_role_category")
         await view.interaction.response.send_modal(modal)
         await modal.wait()
 
@@ -287,7 +287,7 @@ class RolePicker(commands.Cog):
         ori_data = rp_conf.get_data()
         copied_data = ori_data.copy()
 
-        copied_data["categories"]["role_categories"][idx] = edited_category
+        copied_data["categories"]["role_categories"][idx] = { **copied_data["categories"]["role_categories"][idx], **edited_category }
 
         rp_conf.dump(copied_data)
 
