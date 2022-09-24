@@ -9,3 +9,5 @@ dependencies:
       - ruamel.yaml
       - python-dotenv
       - stringcase
+      - black
+      - isort
