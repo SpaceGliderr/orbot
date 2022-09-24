@@ -3,7 +3,7 @@ import discord
 import stringcase
 from discord.ext import commands
 from discord import app_commands
-from src.cogs.role_picker.ui import RoleCategoryModal, RoleCategoryView, RoleModal, RolesOverviewView, RolesView
+from src.cogs.role_picker.ui import PersistentRolesView, RoleCategoryModal, RoleCategoryView, RoleModal, RolesOverviewView, RolesView
 
 from src.utils.config import RolePickerConfig
 from src.utils.helper import dict_has_key
@@ -16,6 +16,13 @@ rp_conf = RolePickerConfig()
 class RolePicker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    
+    @app_commands.command(name="setup")
+    @app_commands.default_permissions(manage_roles=True)
+    async def setup(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        await interaction.response.send_message(content=f"The role picker has been successfully setup in <#{channel.id}>!")
+        await channel.send(content="Welcome to the bias picker, please select a role category", view=PersistentRolesView())
 
 
     @commands.command(pass_context=True)
@@ -63,7 +70,7 @@ class RolePicker(commands.Cog):
             options = options
         ))
 
-        message = await ctx.send(f"Select roles!", view=view)
+        message = await ctx.send(f"Select roles!", view=view, ephemeral=True)
 
         await view.wait()
         await message.delete()
