@@ -1,14 +1,12 @@
 import asyncio
+import os
 
 import asyncpg
 import discord
-from discord.ext import commands
 from discord import app_commands
-
-import os
+from discord.ext import commands
 
 from src.cogs.role_picker.ui import PersistentRolesView
-
 
 intents = discord.Intents(
     guilds=True,
@@ -21,6 +19,7 @@ intents = discord.Intents(
 
 MY_GUILD = discord.Object(id=864118528134742026)
 
+
 class Orbot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=">", case_insensitive=True, intents=intents)
@@ -28,10 +27,8 @@ class Orbot(commands.Bot):
         self.cogs_path = "src/cogs"
         self.cogs_ext_prefix = "src.cogs."
 
-
     def run(self):
-        super().run(os.getenv('TOKEN'))
-
+        super().run(os.getenv("TOKEN"))
 
     async def start(self, *args, **kwargs):
         # self.pool = None
@@ -46,15 +43,20 @@ class Orbot(commands.Bot):
 
         await super().start(*args, **kwargs)
 
-    
     async def setup_hook(self):
         self.add_view(PersistentRolesView())
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
 
-
     async def load_extensions(self):
-        cogs = map(lambda cog: f"{self.cogs_ext_prefix}{cog}.{cog}", [dirname.split('.', 1)[0] for dirname in next(os.walk(self.cogs_path), (None, None, []))[1] if dirname.split('.', 1)[0] not in ["__pycache__"]])
+        cogs = map(
+            lambda cog: f"{self.cogs_ext_prefix}{cog}.{cog}",
+            [
+                dirname.split(".", 1)[0]
+                for dirname in next(os.walk(self.cogs_path), (None, None, []))[1]
+                if dirname.split(".", 1)[0] not in ["__pycache__"]
+            ],
+        )
 
         extensions = list(cogs) + self.exts
 

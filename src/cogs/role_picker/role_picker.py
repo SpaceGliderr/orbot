@@ -1,14 +1,21 @@
 from typing import List
+
 import discord
 import stringcase
-from discord.ext import commands
 from discord import app_commands
-from src.cogs.role_picker.ui import PersistentRolesView, RoleCategoryModal, RoleCategoryView, RoleModal, RolesOverviewView, RolesView
+from discord.ext import commands
 
+from src.cogs.role_picker.ui import (
+    PersistentRolesView,
+    RoleCategoryModal,
+    RoleCategoryView,
+    RoleModal,
+    RolesOverviewView,
+    RolesView,
+)
 from src.utils.config import RolePickerConfig
 from src.utils.helper import dict_has_key
-from src.utils.ui import Dropdown, Button, View
-
+from src.utils.ui import Button, Dropdown, View
 
 rp_conf = RolePickerConfig()
 
@@ -17,13 +24,15 @@ class RolePicker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    
     @app_commands.command(name="setup")
     @app_commands.default_permissions(manage_roles=True)
     async def setup(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        await interaction.response.send_message(content=f"The role picker has been successfully setup in <#{channel.id}>!")
-        await channel.send(content="Welcome to the bias picker, please select a role category", view=PersistentRolesView())
-
+        await interaction.response.send_message(
+            content=f"The role picker has been successfully setup in <#{channel.id}>!"
+        )
+        await channel.send(
+            content="Welcome to the bias picker, please select a role category", view=PersistentRolesView()
+        )
 
     @app_commands.command(name="add_role_category")
     @app_commands.default_permissions(manage_roles=True)
@@ -55,7 +64,6 @@ class RolePicker(commands.Cog):
 
         rp_conf.dump(copied_data)
 
-    
     @app_commands.command(name="add_role")
     @app_commands.default_permissions(manage_roles=True)
     async def add_role(self, interaction: discord.Interaction):
@@ -72,20 +80,22 @@ class RolePicker(commands.Cog):
         """
 
         modal = RoleModal(title="Add Role", custom_id="add_role")
-        
+
         await interaction.response.send_modal(modal)
         await modal.wait()
-        
+
         # TODO: Change to Select menu when Discord py Modals support Select menus
         options = rp_conf.generate_role_category_options()
 
         view = View()
-        view.add_item(Dropdown(
-            min_values = 1, 
-            max_values = len(options),
-            options = options,
-            placeholder="Choose categories to add the role to"
-        ))
+        view.add_item(
+            Dropdown(
+                min_values=1,
+                max_values=len(options),
+                options=options,
+                placeholder="Choose categories to add the role to",
+            )
+        )
 
         message = await interaction.followup.send("Please select categories to add the role to", view=view)
 
@@ -107,7 +117,7 @@ class RolePicker(commands.Cog):
 
         for role_category in role_categories:
             new_role["id"] = int(new_role["id"])
-            
+
             if not dict_has_key(copied_data, role_category):
                 copied_data[role_category] = {}
                 copied_data[role_category]["roles"] = []
@@ -115,7 +125,6 @@ class RolePicker(commands.Cog):
             copied_data[role_category]["roles"].append(new_role)
 
         rp_conf.dump(copied_data)
-
 
     @app_commands.command(name="remove_role")
     @app_commands.default_permissions(manage_roles=True)
@@ -146,7 +155,6 @@ class RolePicker(commands.Cog):
 
         rp_conf.dump(copied_data)
 
-
     @app_commands.command(name="delete_role_categories")
     @app_commands.default_permissions(manage_roles=True)
     async def delete_role_categories(self, interaction: discord.Interaction):
@@ -164,11 +172,12 @@ class RolePicker(commands.Cog):
         copied_data = ori_data.copy()
 
         for role_category in role_categories:
-            copied_data["categories"]["role_categories"] = [rc for rc in rp_conf.role_categories if rc["name"] != role_category]
+            copied_data["categories"]["role_categories"] = [
+                rc for rc in rp_conf.role_categories if rc["name"] != role_category
+            ]
             del copied_data[role_category]
 
         rp_conf.dump(copied_data)
-
 
     @app_commands.command(name="edit_role")
     @app_commands.default_permissions(manage_roles=True)
@@ -191,7 +200,7 @@ class RolePicker(commands.Cog):
 
         role_id = int(view.values[0])
         idx, role = rp_conf.get_role_by_id(role_category, role_id)
-        
+
         modal = RoleModal(title="Edit Role", defaults=role, custom_id="edit_role")
         await view.interaction.response.send_modal(modal)
         await modal.wait()
@@ -201,10 +210,9 @@ class RolePicker(commands.Cog):
         copied_data = ori_data.copy()
 
         edited_role["id"] = int(edited_role["id"])
-        copied_data[role_category]["roles"][idx] = { **copied_data[role_category]["roles"][idx], **edited_role}
+        copied_data[role_category]["roles"][idx] = {**copied_data[role_category]["roles"][idx], **edited_role}
 
         rp_conf.dump(copied_data)
-
 
     @app_commands.command(name="edit_role_category")
     @app_commands.default_permissions(manage_roles=True)
@@ -217,7 +225,7 @@ class RolePicker(commands.Cog):
         await message.delete()
 
         role_category = view.values
-        
+
         idx, category_details = rp_conf.get_role_category(role_category)
 
         modal = RoleCategoryModal(title="Edit Role Category", defaults=category_details, custom_id="edit_role_category")
@@ -228,10 +236,12 @@ class RolePicker(commands.Cog):
         ori_data = rp_conf.get_data()
         copied_data = ori_data.copy()
 
-        copied_data["categories"]["role_categories"][idx] = { **copied_data["categories"]["role_categories"][idx], **edited_category }
+        copied_data["categories"]["role_categories"][idx] = {
+            **copied_data["categories"]["role_categories"][idx],
+            **edited_category,
+        }
 
         rp_conf.dump(copied_data)
-
 
     @app_commands.command(name="overview")
     async def roles_overview(self, interaction: discord.Interaction):
