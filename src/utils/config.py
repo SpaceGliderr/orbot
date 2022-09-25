@@ -11,20 +11,24 @@ yaml = YAML(typ="safe")
 class RolePickerConfig:
     def __init__(self) -> None:
         with open("src/roles.yaml", "r") as roles_file:
-            self.data = yaml.load(roles_file)
+            self._data = yaml.load(roles_file)
 
     @property
     def role_categories(self):
-        return get_from_dict(self.data, ["categories", "role_categories"])
+        return get_from_dict(self._data, ["categories", "role_categories"])
+
+    @property
+    def data(self):
+        return self._data
 
     def get_data(self):
-        return self.data
+        return self._data.copy()
 
     def get_value(self, path: List[str]):
-        return get_from_dict(self.data, path)
+        return get_from_dict(self._data, path)
 
     def get_roles(self, category: str):
-        return get_from_dict(self.data, [category, "roles"])
+        return get_from_dict(self._data, [category, "roles"])
 
     def get_role_id(self, role, category: str):
         return role["id"]

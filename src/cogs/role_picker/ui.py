@@ -4,9 +4,7 @@ import discord
 
 from src.utils.config import RolePickerConfig
 from src.utils.helper import dict_has_key
-from src.utils.ui import Button, Dropdown, Modal, View
-
-rp_conf = RolePickerConfig()
+from src.utils.ui import Button, Modal, Select, View
 
 
 class RoleCategoryModal(Modal):
@@ -67,7 +65,7 @@ class RoleModal(Modal):
         self.add_item(
             discord.ui.TextInput(
                 label="Role Label",
-                placeholder="Enter role label (if no label is provided, the role name is taken)",
+                placeholder="Enter role label (defaults to role name)",
                 required=False,
                 custom_id="label",
                 default=defaults["label"] if defaults is not None else None,
@@ -106,20 +104,29 @@ class RoleCategoryView(View):
         timeout: Optional[float] = None,
         input_type: Literal["button", "select"] = "button",
         max_value_type: Literal["single", "multiple"] = "multiple",
+        stop_view: bool = False,
     ):
         super().__init__(timeout=timeout)
 
+        rp_conf = RolePickerConfig()
+
         if input_type == "button":
             for category in rp_conf.role_categories:
-                self.add_item(Button(label=category["label"], value=category["name"], custom_id=category["name"]))
+                self.add_item(
+                    Button(
+                        label=category["label"], value=category["name"], custom_id=category["name"], stop_view=stop_view
+                    )
+                )
         else:
             options = rp_conf.generate_role_category_options()
             self.add_item(
-                Dropdown(
+                Select(
                     min_values=1,
                     max_values=len(options) if max_value_type == "multiple" else 1,
                     options=options,
-                    placeholder="Choose categories to add the role to",
+                    placeholder="Choose role categories",
+                    stop_view=stop_view,
+                    custom_id="role_category_select",
                 )
             )
 
@@ -132,31 +139,39 @@ class RolesView(View):
         role_category: str,
         max_value_type: Literal["single", "multiple"] = "multiple",
         defaults: Optional[list] = None,
+        stop_view: bool = False,
     ):
         super().__init__(timeout=timeout)
+
+        rp_conf = RolePickerConfig()
 
         options = rp_conf.generate_role_options(role_category, defaults=defaults)
 
         self.add_item(
-            Dropdown(
+            Select(
                 min_values=1,
                 max_values=len(options) if max_value_type == "multiple" else 1,
                 options=options,
-                placeholder="Choose the roles to remove",
+                placeholder="Choose multiple roles" if max_value_type == "multiple" else "Choose a role",
                 row=1,
+                stop_view=stop_view,
+                custom_id="roles_select",
+                defer=True,
             )
         )
 
         self.is_confirmed = True
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, custom_id="confirm", emoji="✔", row=2)
-    async def confirm(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def confirm(self, interaction: discord.Interaction, *_):
         self.is_confirmed = True
+        self.interaction = interaction
         self.stop()
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, custom_id="cancel", emoji="✖️", row=2)
-    async def cancel(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def cancel(self, interaction: discord.Interaction, *_):
         self.is_confirmed = False
+        self.interaction = interaction
         self.stop()
 
 
@@ -177,17 +192,17 @@ class RolesOverviewView(View):
         return self.curr_idx
 
     @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, custom_id="prev", emoji="⬅️")
-    async def cancel(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def cancel(self, interaction: discord.Interaction, *_):
         self.value = False
         await interaction.response.edit_message(embed=self.embeds[self.update_curr_idx(-1)])
 
     @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, custom_id="next", emoji="➡️")
-    async def confirm(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def confirm(self, interaction: discord.Interaction, *_):
         self.value = True
         await interaction.response.edit_message(embed=self.embeds[self.update_curr_idx(1)])
 
     @discord.ui.button(style=discord.ButtonStyle.red, custom_id="lock", emoji="🔒")
-    async def lock(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def lock(self, interaction: discord.Interaction, *_):
         self.stop()
         await interaction.response.edit_message(view=None)
 
@@ -211,11 +226,17 @@ class PersistentRolesButton(discord.ui.Button):
         self.value = value
 
     async def callback(self, interaction: discord.Interaction):
+        rp_conf = RolePickerConfig()
+
         user_role_ids = [role.id for role in interaction.user.roles]
         role_category = self.value
 
         roles_view = RolesView(role_category=role_category, timeout=90, defaults=user_role_ids)
-        await interaction.response.send_message(content="Select roles!", view=roles_view, ephemeral=True)
+        await interaction.response.send_message(
+            content=f"Select your roles from the {rp_conf.get_role_category(role_category)['label']} category!",
+            view=roles_view,
+            ephemeral=True,
+        )
         await roles_view.wait()
 
         if roles_view.is_confirmed and roles_view.values is not None:
@@ -244,6 +265,8 @@ class PersistentRolesButton(discord.ui.Button):
 class PersistentRolesView(View):
     def __init__(self, *, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
+
+        rp_conf = RolePickerConfig()
 
         for category in rp_conf.role_categories:
             self.add_item(
