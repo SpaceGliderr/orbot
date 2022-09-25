@@ -22,16 +22,13 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         self.bot = bot
 
     add_group = app_commands.Group(
-        name="add", description="...", default_permissions=Permissions(manage_roles=True), guild_only=True
+        name="add", description="Add new elements to the role picker.", default_permissions=Permissions(manage_roles=True), guild_only=True
     )
     edit_group = app_commands.Group(
-        name="edit", description="...", default_permissions=Permissions(manage_roles=True), guild_only=True
+        name="edit", description="Edit existing elements in the role picker.", default_permissions=Permissions(manage_roles=True), guild_only=True
     )
     delete_group = app_commands.Group(
-        name="delete", description="...", default_permissions=Permissions(manage_roles=True), guild_only=True
-    )
-    remove_group = app_commands.Group(
-        name="remove", description="...", default_permissions=Permissions(manage_roles=True), guild_only=True
+        name="delete", description="Delete existing elements in the role picker", default_permissions=Permissions(manage_roles=True), guild_only=True
     )
 
     @app_commands.command(name="overview", description="Shows all categories and roles.")
@@ -235,7 +232,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
 
         rp_conf.dump(data)
 
-    @remove_group.command(name="role", description="Remove a role from a role category.")
+    @delete_group.command(name="role", description="Remove a role from a role category.")
     @app_commands.checks.has_permissions(manage_roles=True)
     async def remove_role(self, interaction: discord.Interaction):
         rp_conf = RolePickerConfig()
