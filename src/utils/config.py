@@ -67,10 +67,7 @@ class RolePickerConfig:
 
     def generate_role_options(self, role_category, defaults: Optional[Any] = None):
         """Generates a list of select options for roles."""
-        return [
-            self.generate_option(role, role["id"], defaults)
-            for role in self.get_roles(role_category)
-        ]
+        return [self.generate_option(role, role["id"], defaults) for role in self.get_roles(role_category)]
 
     def generate_role_category_options(self, defaults: Optional[Any] = None):
         """Generates a list of select options for role categories."""
