@@ -117,7 +117,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         rp_conf = RolePickerConfig()
 
         # Send RoleCategoryModal
-        modal = RoleCategoryModal(title="Add Role Category", custom_id="add_role_category_modal", timeout=90)
+        modal = RoleCategoryModal(title="Add Role Category", custom_id="add_role_category_modal", timeout=90, success_msg="A new role category was successfully added!", error_msg="A few problems were encountered when adding a new role category, please try again!")
 
         await interaction.response.send_modal(modal)
         await modal.wait()
@@ -172,7 +172,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             defaults["emoji"] = emoji
 
         # Send RoleModal
-        role_modal = RoleModal(title="Add Role", custom_id="add_role_modal", timeout=90, defaults=defaults)
+        role_modal = RoleModal(title="Add Role", custom_id="add_role_modal", timeout=90, defaults=defaults, success_msg="A new role was successfully added!", error_msg="A few problems were encountered when adding a new role, please try again!")
 
         await role_category_view.interaction.response.send_modal(role_modal)
         await role_modal.wait()
@@ -234,7 +234,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
 
         # Send RoleCategoryModal
         role_category_modal = RoleCategoryModal(
-            title="Edit Role Category", defaults=category_details, custom_id="edit_role_category", timeout=90
+            title="Edit Role Category", defaults=category_details, custom_id="edit_role_category", timeout=90, success_msg="The role category was successfully edited!", error_msg="A few problems were encountered when editing the role category, please try again!"
         )
         await role_category_view.interaction.response.send_modal(role_category_modal)
         await role_category_modal.wait()
@@ -292,7 +292,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             idx, role = rp_conf.get_role_by_id(role_category, role_id)
 
             # Send RoleModal
-            role_modal = RoleModal(title="Edit Role", defaults=role, custom_id="edit_role")
+            role_modal = RoleModal(title="Edit Role", defaults=role, custom_id="edit_role", success_msg="The role was successfully edited!", error_msg="A few problems were encountered when editing the role, please try again!")
             await roles_view.interaction.response.send_modal(role_modal)
             await role_modal.wait()
 

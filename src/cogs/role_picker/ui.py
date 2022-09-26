@@ -24,9 +24,11 @@ class RoleCategoryModal(Modal):
         title: str,
         timeout: Optional[float] = None,
         custom_id: Optional[str] = None,
+        success_msg: Optional[str] = None,
+        error_msg: Optional[str] = None,
         defaults: Optional[dict] = None,
     ) -> None:
-        super().__init__(title=title, timeout=timeout, custom_id=custom_id)
+        super().__init__(title=title, timeout=timeout, custom_id=custom_id, success_msg=success_msg, error_msg=error_msg)
 
         self.add_item(
             discord.ui.TextInput(
@@ -68,9 +70,11 @@ class RoleModal(Modal):
         title: str,
         timeout: Optional[float] = None,
         custom_id: Optional[str] = None,
+        success_msg: Optional[str] = None,
+        error_msg: Optional[str] = None,
         defaults: Optional[dict] = None,
     ) -> None:
-        super().__init__(title=title, timeout=timeout, custom_id=custom_id)
+        super().__init__(title=title, timeout=timeout, custom_id=custom_id, success_msg=success_msg, error_msg=error_msg)
 
         self.add_item(
             discord.ui.TextInput(
