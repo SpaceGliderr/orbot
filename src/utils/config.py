@@ -80,8 +80,9 @@ class RolePickerConfig:
         role_categories_embed = discord.Embed(
             title="Role Categories", description="Shows the role categories available in this server:\n\u200B"
         )
+        role_categories_embed.set_footer(text=f"Page 1 of {len(self.role_categories) + 1}")
 
-        for role_category in self.role_categories:
+        for idx, role_category in enumerate(self.role_categories):
             postfix_text = ""
             if role_category != self.role_categories[-1]:
                 postfix_text = "\n\u200B"
@@ -114,7 +115,8 @@ class RolePickerConfig:
                     value += "\n\u200B"
 
                 embed.add_field(name=role["label"], value=value, inline=False)
-
+                
+            embed.set_footer(text=f"Page {idx + 2} of {len(self.role_categories) + 1}")
             embeds.append(embed)
 
         embeds.insert(0, role_categories_embed)

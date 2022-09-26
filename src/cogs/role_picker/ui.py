@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 
 import discord
 
@@ -245,7 +245,7 @@ class RolesOverviewView(View):
             - List of embeds to iterate through.
     """
 
-    def __init__(self, *, timeout: Optional[float] = None, embeds: list):
+    def __init__(self, *, timeout: Optional[float] = None, embeds: List[discord.Embed]):
         super().__init__(timeout=timeout)
         self.embeds = embeds
         self.curr_idx = 0
