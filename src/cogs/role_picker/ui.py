@@ -7,6 +7,9 @@ from src.utils.helper import dict_has_key
 from src.utils.ui import Button, Modal, Select, View
 
 
+# =================================================================================================================
+# ROLE PICKER MODALS
+# =================================================================================================================
 class RoleCategoryModal(Modal):
     """Creates a modal popup window to add or edit a Role Category by inheriting the `Modal` class.
 
@@ -123,6 +126,9 @@ class RoleModal(Modal):
         )
 
 
+# =================================================================================================================
+# ROLE PICKER VIEWS
+# =================================================================================================================
 class RoleCategoryView(View):
     """Creates a view to select Role Category(ies) by inheriting the `View` class.
 
@@ -266,6 +272,9 @@ class RolesOverviewView(View):
         await interaction.response.edit_message(view=None)
 
 
+# =================================================================================================================
+# ROLE PICKER PERSISTENT ITEMS AND VIEWS
+# =================================================================================================================
 class PersistentRoleCategoryButton(discord.ui.Button):
     """Creates a persistent button by inheriting the `discord.ui.Button` class.
 
