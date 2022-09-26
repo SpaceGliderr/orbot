@@ -364,7 +364,7 @@ class PersistentRolePickerView(View):
         rp_conf = RolePickerConfig()
 
         for category in rp_conf.role_categories:
-            if rp_conf.get_roles(category["name"]) is not None: # Not supposed to show categories with empty roles
+            if rp_conf.get_roles(category["name"]) is not None:  # Not supposed to show categories with empty roles
                 self.add_item(
                     PersistentRoleCategoryButton(
                         label=category["label"], value=category["name"], custom_id=f"persistent:{category['name']}"

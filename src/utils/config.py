@@ -115,13 +115,44 @@ class RolePickerConfig:
                     value += "\n\u200B"
 
                 embed.add_field(name=role["label"], value=value, inline=False)
-                
+
             embed.set_footer(text=f"Page {idx + 2} of {len(self.role_categories) + 1}")
             embeds.append(embed)
 
         embeds.insert(0, role_categories_embed)
 
         return embeds
+
+    def generate_role_picker_content(self):
+        content = "Welcome to the LOONA Discord server's own Role Picker!\n\n__**Role Categories**__\n"
+
+        embed = discord.Embed(title="**__Available Roles__**")
+
+        for role_category in self.role_categories:
+            content += f'`{role_category["label"]}`'
+
+            if dict_has_key(role_category, "description"):
+                content += f' ➡️ {role_category["description"]}'
+
+            content += "\n"
+
+            roles = self.get_roles(role_category["name"])
+
+            value = ""
+            for role in roles:
+                value += f'`{role["label"]}`'
+
+                if role != roles[-1]:
+                    value += ", "
+
+            if role_category != self.role_categories[-1]:
+                value += "\n\u200B"
+
+            embed.add_field(name=f"{role_category['label']} Roles", value=value, inline=False)
+
+        content += "\n⚠️ For more information on specific roles, descriptions are provided in the select menus"
+
+        return content, embed
 
     def dump(self, data):
         """Dump data into the `roles.yaml` file."""

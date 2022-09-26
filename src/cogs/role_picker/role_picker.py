@@ -93,9 +93,11 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         await interaction.response.send_message(
             content=f"The role picker has been successfully setup in <#{channel.id}>!"
         )
-        await channel.send(
-            content="Welcome to the bias picker, please select a role category", view=PersistentRolePickerView()
-        )
+
+        rp_conf = RolePickerConfig()
+        content, embed = rp_conf.generate_role_picker_content()
+
+        await channel.send(content=content, embed=embed, view=PersistentRolePickerView())
 
     # =================================================================================================================
     # ADD OPERATION SLASH COMMANDS
@@ -235,9 +237,9 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         rp_conf = RolePickerConfig()
 
         # Send RoleCategoryView
-        role_category_view = RoleCategoryView(input_type="button")
+        role_category_view = RoleCategoryView(input_type="button", timeout=90, stop_view=True)
 
-        await interaction.response.send_message("Select role category to edit", view=role_category_view, timeout=90)
+        await interaction.response.send_message("Select role category to edit", view=role_category_view)
         await role_category_view.wait()
         await interaction.delete_original_response()
 
@@ -268,6 +270,8 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             **data["categories"]["role_categories"][idx],
             **edited_category,
         }
+
+        data[edited_category["name"]] = data.pop(role_category)  # Replace the old key with the new key
 
         rp_conf.dump(data)
 
