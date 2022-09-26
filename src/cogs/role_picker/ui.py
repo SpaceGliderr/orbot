@@ -180,6 +180,10 @@ class RolesView(View):
 
     Additional Parameters
     ----------
+        * min_values: :class:`int` | `1`
+            - Minimum number of selectable items in the select menu.
+        * role_category: :class:`str`
+            - The role category to extract the list of roles from.
         * defaults: Optional[:class:`list`]
             - Automatically selects the default roles for the select menu.
         * max_value_type: Literal[`single`, `multiple`] | `multiple`
@@ -190,6 +194,7 @@ class RolesView(View):
         self,
         *,
         timeout: Optional[float] = None,
+        min_values: int = 1,
         role_category: str,
         max_value_type: Literal["single", "multiple"] = "multiple",
         defaults: Optional[list] = None,
@@ -203,7 +208,7 @@ class RolesView(View):
 
         self.add_item(
             Select(
-                min_values=1,
+                min_values=min_values,
                 max_values=len(options) if max_value_type == "multiple" else 1,
                 options=options,
                 placeholder="Choose multiple roles" if max_value_type == "multiple" else "Choose a role",
@@ -310,7 +315,7 @@ class PersistentRoleCategoryButton(discord.ui.Button):
         role_category = self.value
 
         # Send RolesView
-        roles_view = RolesView(role_category=role_category, timeout=90, defaults=user_role_ids)
+        roles_view = RolesView(role_category=role_category, timeout=90, defaults=user_role_ids, min_values=0)
         await interaction.response.send_message(
             content=f"Select your roles from the {rp_conf.get_role_category(role_category)[1]['label']} category!",
             view=roles_view,
@@ -359,8 +364,9 @@ class PersistentRolePickerView(View):
         rp_conf = RolePickerConfig()
 
         for category in rp_conf.role_categories:
-            self.add_item(
-                PersistentRoleCategoryButton(
-                    label=category["label"], value=category["name"], custom_id=f"persistent:{category['name']}"
+            if rp_conf.get_roles(category["name"]) is not None: # Not supposed to show categories with empty roles
+                self.add_item(
+                    PersistentRoleCategoryButton(
+                        label=category["label"], value=category["name"], custom_id=f"persistent:{category['name']}"
+                    )
                 )
-            )
