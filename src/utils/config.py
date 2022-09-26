@@ -35,8 +35,7 @@ class RolePickerConfig:
 
     def get_role_ids(self, category: str):
         """Get a list of role ids from the roles in a role category."""
-        roles = self.get_roles(category)
-        return [self.get_role_id(role, category) for role in roles]
+        return [role["id"] for role in self.get_roles(category)]
 
     def get_role_category(self, category_name: str):
         """Get the entire role category. Returns a tuple with the structure (`index`, `category`)."""
@@ -69,7 +68,7 @@ class RolePickerConfig:
     def generate_role_options(self, role_category, defaults: Optional[Any] = None):
         """Generates a list of select options for roles."""
         return [
-            self.generate_option(role, self.get_role_id(role, role_category), defaults)
+            self.generate_option(role, role["id"], defaults)
             for role in self.get_roles(role_category)
         ]
 

@@ -295,7 +295,7 @@ class PersistentRoleCategoryButton(discord.ui.Button):
         # Send RolesView
         roles_view = RolesView(role_category=role_category, timeout=90, defaults=user_role_ids)
         await interaction.response.send_message(
-            content=f"Select your roles from the {rp_conf.get_role_category(role_category)['label']} category!",
+            content=f"Select your roles from the {rp_conf.get_role_category(role_category)[1]['label']} category!",
             view=roles_view,
             ephemeral=True,
         )
