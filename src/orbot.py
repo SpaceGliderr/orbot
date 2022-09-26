@@ -6,7 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from src.cogs.role_picker.ui import PersistentRolesView
+from src.cogs.role_picker.ui import PersistentRolePickerView
 
 intents = discord.Intents(
     guilds=True,
@@ -44,7 +44,7 @@ class Orbot(commands.Bot):
         await super().start(*args, **kwargs)
 
     async def setup_hook(self):
-        self.add_view(PersistentRolesView())
+        self.add_view(PersistentRolePickerView())
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
 

@@ -9,46 +9,50 @@ yaml = YAML(typ="safe")
 
 
 class RolePickerConfig:
+    """The RolePickerConfig class helps load the `roles.yaml` file and provides other util methods to manipulate the extracted data."""
+
     def __init__(self) -> None:
         with open("src/roles.yaml", "r") as roles_file:
             self._data = yaml.load(roles_file)
 
     @property
     def role_categories(self):
+        """Get the role categories."""
         return get_from_dict(self._data, ["categories", "role_categories"])
 
     @property
     def data(self):
+        """Get the extracted data."""
         return self._data
 
     def get_data(self):
+        """Get a copied version of the extracted data."""
         return self._data.copy()
 
-    def get_value(self, path: List[str]):
-        return get_from_dict(self._data, path)
-
     def get_roles(self, category: str):
+        """Get the list of roles in a role category."""
         return get_from_dict(self._data, [category, "roles"])
 
-    def get_role_id(self, role, category: str):
-        return role["id"]
-
     def get_role_ids(self, category: str):
+        """Get a list of role ids from the roles in a role category."""
         roles = self.get_roles(category)
         return [self.get_role_id(role, category) for role in roles]
 
     def get_role_category(self, category_name: str):
+        """Get the entire role category. Returns a tuple with the structure (`index`, `category`)."""
         return next(
             ((idx, category) for idx, category in enumerate(self.role_categories) if category["name"] == category_name),
             None,
         )
 
     def get_role_by_id(self, role_category: str, role_id: int):
+        """Get the entire role by role ID. Returns a tuple with the structure (`index`, `role`)."""
         return next(
             ((idx, role) for idx, role in enumerate(self.get_roles(role_category)) if role["id"] == role_id), None
         )
 
     def generate_option(self, dic: dict, value: Any, defaults: Optional[Any] = None):
+        """Generates a list of select options."""
         option = discord.SelectOption(label=dic["label"], value=value)
 
         if defaults is not None and option.value in defaults:
@@ -63,15 +67,18 @@ class RolePickerConfig:
         return option
 
     def generate_role_options(self, role_category, defaults: Optional[Any] = None):
+        """Generates a list of select options for roles."""
         return [
             self.generate_option(role, self.get_role_id(role, role_category), defaults)
             for role in self.get_roles(role_category)
         ]
 
     def generate_role_category_options(self, defaults: Optional[Any] = None):
+        """Generates a list of select options for role categories."""
         return [self.generate_option(category, category["name"], defaults) for category in self.role_categories]
 
     def generate_all_embeds(self):
+        """Generates a list of role category and role embeds."""
         embeds = []
 
         role_categories_embed = discord.Embed(
@@ -119,5 +126,6 @@ class RolePickerConfig:
         return embeds
 
     def dump(self, data):
+        """Dump data into the `roles.yaml` file."""
         with open("src/roles.yaml", "w") as roles_file:
             yaml.dump(data, roles_file)
