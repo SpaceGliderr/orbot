@@ -323,32 +323,35 @@ class PersistentRoleCategoryButton(discord.ui.Button):
         )
         await roles_view.wait()
 
-        selected_role_ids = [int(role_id) for role_id in roles_view.values]  # The selected role IDs
-        common_current_role_ids = list(
-            set(user_role_ids).intersection(set(rp_conf.get_role_ids(role_category)))
-        )  # The same previous user role IDs compared to the category role IDs
+        if roles_view.is_confirmed and roles_view.values is not None:
+            selected_role_ids = [int(role_id) for role_id in roles_view.values]  # The selected role IDs
+            common_current_role_ids = list(
+                set(user_role_ids).intersection(set(rp_conf.get_role_ids(role_category)))
+            )  # The same previous user role IDs compared to the selected category role IDs
 
-        if roles_view.is_confirmed and roles_view.values is not None and set(selected_role_ids) != set(common_current_role_ids):
-            common_selected_role_ids = list(
-                set(selected_role_ids).intersection(set(user_role_ids))
-            )  # The same selected role IDs compared to the previous user role IDs
+            if set(selected_role_ids) != set(common_current_role_ids):
+                common_selected_role_ids = list(
+                    set(selected_role_ids).intersection(set(user_role_ids))
+                )  # The same selected role IDs compared to the previous user role IDs
 
-            # Filter out role IDs to add and delete
-            role_ids_to_add = [int(role_id) for role_id in selected_role_ids if role_id not in common_selected_role_ids]
-            role_ids_to_del = [
-                int(role_id) for role_id in common_current_role_ids if role_id not in common_selected_role_ids
-            ]
+                # Filter out role IDs to add and delete
+                role_ids_to_add = [int(role_id) for role_id in selected_role_ids if role_id not in common_selected_role_ids]
+                role_ids_to_del = [
+                    int(role_id) for role_id in common_current_role_ids if role_id not in common_selected_role_ids
+                ]
 
-            # Add / Remove roles
-            for role_id in role_ids_to_add:
-                role = interaction.guild.get_role(int(role_id))
-                await interaction.user.add_roles(role)
+                # Add / Remove roles
+                for role_id in role_ids_to_add:
+                    role = interaction.guild.get_role(int(role_id))
+                    await interaction.user.add_roles(role)
 
-            for role_id in role_ids_to_del:
-                role = interaction.guild.get_role(int(role_id))
-                await interaction.user.remove_roles(role)
+                for role_id in role_ids_to_del:
+                    role = interaction.guild.get_role(int(role_id))
+                    await interaction.user.remove_roles(role)
 
-            await interaction.edit_original_response(content="Your roles have been successfully changed!", view=None)
+                await interaction.edit_original_response(content="Your roles have been successfully changed!", view=None)
+            else:
+                await interaction.edit_original_response(content="Your roles were not changed!", view=None)
         else:
             await interaction.edit_original_response(content="Your roles were not changed!", view=None)
 
