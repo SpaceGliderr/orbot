@@ -323,11 +323,12 @@ class PersistentRoleCategoryButton(discord.ui.Button):
         )
         await roles_view.wait()
 
-        if roles_view.is_confirmed and roles_view.values is not None:
-            selected_role_ids = [int(role_id) for role_id in roles_view.values]  # The selected role IDs
-            common_current_role_ids = list(
-                set(user_role_ids).intersection(set(rp_conf.get_role_ids(role_category)))
-            )  # The same previous user role IDs compared to the selected category role IDs
+        selected_role_ids = [int(role_id) for role_id in roles_view.values]  # The selected role IDs
+        common_current_role_ids = list(
+            set(user_role_ids).intersection(set(rp_conf.get_role_ids(role_category)))
+        )  # The same previous user role IDs compared to the category role IDs
+
+        if roles_view.is_confirmed and roles_view.values is not None and set(selected_role_ids) != set(common_current_role_ids):
             common_selected_role_ids = list(
                 set(selected_role_ids).intersection(set(user_role_ids))
             )  # The same selected role IDs compared to the previous user role IDs
