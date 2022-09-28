@@ -128,12 +128,17 @@ class Modal(discord.ui.Modal):
 
     This class has all the constructor and attributes of the `discord.ui.Modal` class.
 
-    Additional Parameters and Attributes
+    Additional Parameters
     ----------
         * success_msg: Optional[:class:`str`]
             - Displays a success response. If `None` is provided, the Interaction is deferred.
         * error_msg: Optional[:class:`str`]
             - Displays an error response. If `None` is provided, the Interaction is deferred.
+        
+    Additional Attributes
+    ----------
+        * interaction: Optional[:class:`discord.Interaction`]
+            - Returns the Interaction object from the modal. Can be `None` type.
     """
 
     def __init__(
@@ -148,6 +153,7 @@ class Modal(discord.ui.Modal):
         super().__init__(title=title, timeout=timeout, custom_id=custom_id)
         self.success_msg = success_msg
         self.error_msg = error_msg
+        self.interaction = None
 
     def get_values(self):
         return {child.custom_id: child.value for child in self.children if child.value}
@@ -157,7 +163,8 @@ class Modal(discord.ui.Modal):
             await interaction.response.send_message(f"{self.success_msg}", ephemeral=True)
         else:
             await interaction.response.defer()
-
+        
+        self.interaction = interaction
         self.stop()
 
     async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
@@ -166,4 +173,5 @@ class Modal(discord.ui.Modal):
         else:
             await interaction.response.defer()
 
+        self.interaction = interaction
         traceback.print_tb(error.__traceback__)

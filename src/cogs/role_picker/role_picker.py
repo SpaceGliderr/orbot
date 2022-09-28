@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 import discord
 import stringcase
@@ -14,7 +14,7 @@ from src.cogs.role_picker.ui import (
     RolesView,
 )
 from src.utils.config import RolePickerConfig
-from src.utils.helper import dict_has_key
+from src.utils.helper import dict_has_key, get_from_dict
 
 
 class RolePicker(commands.GroupCog, name="role-picker"):
@@ -42,6 +42,59 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         default_permissions=Permissions(manage_roles=True),
         guild_only=True,
     )
+
+    # =================================================================================================================
+    # FUNCTIONS
+    # =================================================================================================================
+    async def setup_or_refresh(self, scope: Union[discord.Guild, discord.TextChannel]):
+        """A method to either setup or refresh the Role Picker message and view. 
+
+        Parameters
+        ----------
+            * scope: Union[:class:`discord.Guild`, :class:`discord.TextChannel`]
+                - If a `Guild` instance is provided, the Role Picker will be updated in the original text channel it was setup in.
+                - If a `TextChannel` instance is provided and it is the same text channel it was setup in, the Role Picker will update in that respective channel.
+                - If a different `TextChannel` is provided compared to the one in the setup, the message in the old channel is deleted and replaced with a new message in the new specified channel.
+        """
+        rp_conf = RolePickerConfig()
+        content, embed = rp_conf.generate_role_picker_content()
+
+        send_new_msg_flag = True # A flag that signifies whether a new message should be sent to the channel + whether the `roles.yaml` setup object must be updated
+
+        setup = get_from_dict(rp_conf.data, ["role_picker", "setup"])
+        if setup is not None:
+            channel_id = setup["channel_id"]
+            message_id = setup["message_id"]
+
+            if isinstance(scope, discord.TextChannel) and scope.id != channel_id:
+                # When the scope is a TextChannel instance and the role picker is being setup in a new channel,
+                #   delete the old message in the old channel.
+                # The `send_new_msg_flag` will be True, signifying that a new message must be sent and the setup in `roles.yaml` must be updated
+                old_channel = await scope.guild.fetch_channel(channel_id)
+                old_message = await old_channel.fetch_message(message_id)
+                await old_message.delete()
+            else:
+                # Regardless of the scope instance, if the role picker is being updated in the same channel, 
+                #   the message in the respective channel is edited with the new content.
+                # The `send_new_msg_flag` is set to False, no need to send a new message
+                channel = await scope.fetch_channel(channel_id) if isinstance(scope, discord.Guild) else scope
+                message = await channel.fetch_message(message_id)
+                await message.edit(content=content, embed=embed, view=PersistentRolePickerView())
+                send_new_msg_flag = False
+
+        if send_new_msg_flag and isinstance(scope, discord.TextChannel):
+            # The scope needs to be of a TextChannel instance as the bot needs to send a new message into that channel
+            message = await scope.send(content=content, embed=embed, view=PersistentRolePickerView())
+
+            # Updating the setup object in `roles.yaml`
+            data = rp_conf.get_data()
+            data["role_picker"] = {}
+            data["role_picker"]["setup"] = {
+                "message_id": message.id,
+                "channel_id": scope.id
+            }
+
+            rp_conf.dump(data)
 
     # =================================================================================================================
     # GENERAL SLASH COMMANDS
@@ -93,11 +146,20 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         await interaction.response.send_message(
             content=f"The role picker has been successfully setup in <#{channel.id}>!"
         )
+        await self.setup_or_refresh(channel)
 
-        rp_conf = RolePickerConfig()
-        content, embed = rp_conf.generate_role_picker_content()
+    @app_commands.command(name="refresh", description="Refresh the role picker in the setup text channel. Must run the `setup` command beforehand.")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(manage_roles=True)
+    @app_commands.checks.has_permissions(manage_roles=True)
+    async def refresh(self, interaction: discord.Interaction):
+        """A slash command that refreshes the persistent Role Picker in the text channel specified during the setup.
 
-        await channel.send(content=content, embed=embed, view=PersistentRolePickerView())
+        Permissions
+        ----------
+        `manage_roles`
+        """
+        await self.setup_or_refresh(interaction.guild)
 
     # =================================================================================================================
     # ADD OPERATION SLASH COMMANDS
@@ -140,6 +202,9 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         data["categories"]["role_categories"].append(new_category)
 
         rp_conf.dump(data)
+
+        # Update Role Picker message
+        await self.setup_or_refresh(modal.interaction.guild)
 
     @add_group.command(name="role", description="Add a role to role category(ies).")
     @app_commands.describe(role="the server role to add", emoji="the role emoji")
@@ -216,6 +281,9 @@ class RolePicker(commands.GroupCog, name="role-picker"):
 
         rp_conf.dump(data)
 
+        # Update Role Picker message
+        await self.setup_or_refresh(role_modal.interaction.guild)
+
     # =================================================================================================================
     # EDIT OPERATION SLASH COMMANDS
     # =================================================================================================================
@@ -274,6 +342,9 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         data[edited_category["name"]] = data.pop(role_category)  # Replace the old key with the new key
 
         rp_conf.dump(data)
+
+        # Update Role Picker message
+        await self.setup_or_refresh(role_category_modal.interaction.guild)
 
     @edit_group.command(name="role", description="Edit an existing role.")
     @app_commands.checks.has_permissions(manage_roles=True)
@@ -335,6 +406,9 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             data[role_category]["roles"][idx] = {**data[role_category]["roles"][idx], **edited_role}
 
             rp_conf.dump(data)
+
+            # Update Role Picker message
+            await self.setup_or_refresh(role_modal.interaction.guild)
         else:
             await roles_view.interaction.response.send_message(content="No roles were edited")
 
@@ -374,9 +448,13 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             data["categories"]["role_categories"] = [
                 rc for rc in rp_conf.role_categories if rc["name"] != role_category
             ]  # Delete element from the `role_categories` list
-            del data[role_category]  # Delete key | attribute from the `roles.yaml` file itself
+            if dict_has_key(data, role_category):
+                del data[role_category]  # Delete key | attribute from the `roles.yaml` file itself
 
         rp_conf.dump(data)
+        
+        # Update Role Picker message
+        await self.setup_or_refresh(role_category_view.interaction.guild)
 
     @delete_group.command(name="role", description="Remove a role from a role category.")
     @app_commands.checks.has_permissions(manage_roles=True)
@@ -425,9 +503,15 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             roles_to_keep = [
                 role for role in roles if role["id"] not in role_ids_to_remove
             ]  # Keep role object if role ID is not to be removed
-            data[role_category]["roles"] = roles_to_keep
+            if len(roles_to_keep) == 0:
+                del data[role_category]
+            else:
+                data[role_category]["roles"] = roles_to_keep
 
             rp_conf.dump(data)
+
+            # Update Role Picker message
+            await self.setup_or_refresh(roles_view.interaction.guild)
         else:
             await roles_view.interaction.response.send_message(content="No roles were removed")
 
