@@ -128,7 +128,9 @@ class RolePickerConfig:
 
         embed = discord.Embed(title="**__Available Roles__**")
 
-        for role_category in self.role_categories:
+        role_categories = [role_category for role_category in self.role_categories if self.get_roles(role_category["name"]) is not None] # Filter out role categories that do not have roles
+
+        for role_category in role_categories:
             content += f'`{role_category["label"]}`'
 
             if dict_has_key(role_category, "description"):
@@ -145,12 +147,12 @@ class RolePickerConfig:
                 if role != roles[-1]:
                     value += ", "
 
-            if role_category != self.role_categories[-1]:
+            if role_category != role_categories[-1]:
                 value += "\n\u200B"
 
             embed.add_field(name=f"{role_category['label']} Roles", value=value, inline=False)
 
-        content += "\n⚠️ For more information on specific roles, descriptions are provided in the select menus"
+        content += "\n⚠️ For more information on specific roles, descriptions are provided in the select menus\n⚠️ Roles in the LOOΠΔ (Main) category are ordered from OT12 - subunits - individual member roles. The exact order is shown in the select menu. If you'd like your role to be a specific color, make sure all the roles before that aren't selected"
 
         return content, embed
 

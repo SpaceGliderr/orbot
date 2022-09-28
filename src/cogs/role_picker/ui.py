@@ -335,7 +335,9 @@ class PersistentRoleCategoryButton(discord.ui.Button):
                 )  # The same selected role IDs compared to the previous user role IDs
 
                 # Filter out role IDs to add and delete
-                role_ids_to_add = [int(role_id) for role_id in selected_role_ids if role_id not in common_selected_role_ids]
+                role_ids_to_add = [
+                    int(role_id) for role_id in selected_role_ids if role_id not in common_selected_role_ids
+                ]
                 role_ids_to_del = [
                     int(role_id) for role_id in common_current_role_ids if role_id not in common_selected_role_ids
                 ]
@@ -349,7 +351,9 @@ class PersistentRoleCategoryButton(discord.ui.Button):
                     role = interaction.guild.get_role(int(role_id))
                     await interaction.user.remove_roles(role)
 
-                await interaction.edit_original_response(content="Your roles have been successfully changed!", view=None)
+                await interaction.edit_original_response(
+                    content="Your roles have been successfully changed!", view=None
+                )
             else:
                 await interaction.edit_original_response(content="Your roles were not changed!", view=None)
         else:
