@@ -141,7 +141,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         `manage_roles`
         """
         await interaction.response.send_message(
-            content=f"The role picker has been successfully setup in <#{channel.id}>!"
+            content=f"The role picker has been successfully setup in <#{channel.id}>!", ephemeral=True
         )
         await self.setup_or_refresh(channel)
 
@@ -193,21 +193,24 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         await interaction.response.send_modal(modal)
         timeout = await modal.wait()
 
-        if not timeout:
-            # Process and dump data
-            data = rp_conf.get_data()
-            new_category = modal.get_values()
-            new_category["name"] = stringcase.snakecase(
-                str(new_category["label"])
-            )  # Generates a snakecased `name` attribute from the label
-            new_category["limit"] = new_category["limit"].lower()
+        if timeout:
+            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
+            return
 
-            data["categories"]["role_categories"].append(new_category)
+        # Process and dump data
+        data = rp_conf.get_data()
+        new_category = modal.get_values()
+        new_category["name"] = stringcase.snakecase(
+            str(new_category["label"])
+        )  # Generates a snakecased `name` attribute from the label
+        new_category["limit"] = new_category["limit"].lower()
 
-            rp_conf.dump(data)
+        data["categories"]["role_categories"].append(new_category)
 
-            # Update Role Picker message
-            await self.setup_or_refresh(modal.interaction.guild)
+        rp_conf.dump(data)
+
+        # Update Role Picker message
+        await self.setup_or_refresh(modal.interaction.guild)
 
     @add_group.command(name="role", description="Add a role to role category(ies).")
     @app_commands.describe(role="the server role to add", emoji="the role emoji")
@@ -239,8 +242,12 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         await interaction.response.send_message(
             content="Please select the role categories to add the role to", view=role_category_view
         )
-        await role_category_view.wait()
+        timeout = await role_category_view.wait()
         await interaction.delete_original_response()
+
+        if timeout:
+            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
+            return
 
         # Generates the defaults based on the user entered role and emoji
         defaults = {"id": role.id, "label": role.name}
@@ -258,7 +265,13 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         )
 
         await role_category_view.interaction.response.send_modal(role_modal)
-        await role_modal.wait()
+        timeout = await role_modal.wait()
+
+        if timeout:
+            await role_category_view.interaction.followup.send(
+                content="The command has timed out, please try again!", ephemeral=True
+            )
+            return
 
         # Process data
         role_categories = role_category_view.values
@@ -311,8 +324,12 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         role_category_view = RoleCategoryView(input_type="button", timeout=90, stop_view=True)
 
         await interaction.response.send_message("Select role category to edit", view=role_category_view)
-        await role_category_view.wait()
+        timeout = await role_category_view.wait()
         await interaction.delete_original_response()
+
+        if timeout:
+            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
+            return
 
         role_category = role_category_view.values
 
@@ -332,26 +349,31 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         await role_category_view.interaction.response.send_modal(role_category_modal)
         timeout = await role_category_modal.wait()
 
-        if not timeout:
-            # Process and dump data
-            edited_category = role_category_modal.get_values()
-            edited_category["name"] = stringcase.snakecase(
-                str(edited_category["label"])
-            )  # Generates a snakecased `name` attribute from the label
-            edited_category["limit"] = edited_category["limit"].lower()
+        if timeout:
+            await role_category_view.interaction.followup.send(
+                content="The command has timed out, please try again!", ephemeral=True
+            )
+            return
 
-            data = rp_conf.get_data()
-            data["categories"]["role_categories"][idx] = {
-                **data["categories"]["role_categories"][idx],
-                **edited_category,
-            }
+        # Process and dump data
+        edited_category = role_category_modal.get_values()
+        edited_category["name"] = stringcase.snakecase(
+            str(edited_category["label"])
+        )  # Generates a snakecased `name` attribute from the label
+        edited_category["limit"] = edited_category["limit"].lower()
 
-            data[edited_category["name"]] = data.pop(role_category)  # Replace the old key with the new key
+        data = rp_conf.get_data()
+        data["categories"]["role_categories"][idx] = {
+            **data["categories"]["role_categories"][idx],
+            **edited_category,
+        }
 
-            rp_conf.dump(data)
+        data[edited_category["name"]] = data.pop(role_category)  # Replace the old key with the new key
 
-            # Update Role Picker message
-            await self.setup_or_refresh(role_category_modal.interaction.guild)
+        rp_conf.dump(data)
+
+        # Update Role Picker message
+        await self.setup_or_refresh(role_category_modal.interaction.guild)
 
     @edit_group.command(name="role", description="Edit an existing role.")
     @app_commands.checks.has_permissions(manage_roles=True)
@@ -375,8 +397,12 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         role_category_view = RoleCategoryView(input_type="button", stop_view=True, timeout=90)
 
         await interaction.response.send_message("Select role category that the role is in", view=role_category_view)
-        await role_category_view.wait()
+        timeout = await role_category_view.wait()
         await interaction.delete_original_response()
+
+        if timeout:
+            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
+            return
 
         role_category = role_category_view.values
 
@@ -384,8 +410,14 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         roles_view = RolesView(role_category=role_category, max_value_type="single", timeout=90)
 
         await role_category_view.interaction.response.send_message("Select role to edit", view=roles_view)
-        await roles_view.wait()
+        timeout = await roles_view.wait()
         await role_category_view.interaction.delete_original_response()
+
+        if timeout:
+            await role_category_view.interaction.followup.send(
+                content="The command has timed out, please try again!", ephemeral=True
+            )
+            return
 
         if roles_view.is_confirmed:
             role_id = int(roles_view.values[0])
@@ -442,8 +474,12 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         role_category_view = RoleCategoryView(input_type="select", stop_view=True, timeout=90)
 
         await interaction.response.send_message("Select role category(ies) to delete", view=role_category_view)
-        await role_category_view.wait()
+        timeout = await role_category_view.wait()
         await interaction.delete_original_response()
+
+        if timeout:
+            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
+            return
 
         # TODO: Add double confirmation view
 
@@ -484,8 +520,12 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         role_category_view = RoleCategoryView(input_type="button", stop_view=True, timeout=90)
 
         await interaction.response.send_message("Select a role category to remove a role from", view=role_category_view)
-        await role_category_view.wait()
+        timeout = await role_category_view.wait()
         await interaction.delete_original_response()
+
+        if timeout:
+            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
+            return
 
         role_category = role_category_view.values
 
@@ -495,8 +535,14 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         await role_category_view.interaction.response.send_message(
             f"Select role(s) to remove from {role_category} category", view=roles_view
         )
-        await roles_view.wait()
+        timeout = await roles_view.wait()
         await role_category_view.interaction.delete_original_response()
+
+        if timeout:
+            await role_category_view.interaction.followup.send(
+                content="The command has timed out, please try again!", ephemeral=True
+            )
+            return
 
         if roles_view.is_confirmed:
             # Process and dump data

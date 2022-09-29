@@ -344,9 +344,13 @@ class PersistentRoleCategoryButton(discord.ui.Button):
             view=roles_view,
             ephemeral=True,
         )
-        await roles_view.wait()
+        timeout = await roles_view.wait()
 
-        if roles_view.is_confirmed and roles_view.values is not None:
+        if timeout:
+            await interaction.edit_original_response(
+                content="The role picker has timed out, please click on a category again!", view=None
+            )
+        elif roles_view.is_confirmed and roles_view.values is not None:
             selected_role_ids = [int(role_id) for role_id in roles_view.values]  # The selected role IDs
             common_current_role_ids = list(
                 set(user_role_ids).intersection(set(rp_conf.get_role_ids(role_category)))
