@@ -1,43 +1,48 @@
 version: "3"
-networks:
-  rina-bot:
+# networks:
+#   default:
+# driver: weavemesh
 
 services:
-  db:
-    image: postgres
-    restart: always
-    networks:
-      rina-bot:
-    volumes:
-      - ./postgres:/var/lib/postgresql/data
-      - ./sql:/docker-entrypoint-initdb.d
-    environment:
-      POSTGRES_HOST_AUTH_METHOD: trust
+  # db:
+  #   container_name: orbot_postgres
+  #   image: postgres
+  #   restart: always
+  #   # networks:
+  #   #   orbot:
+  #   environment:
+  #     POSTGRES_HOST_AUTH_METHOD: trust
+  #   # ports:
+  #   #   - 5432:5432
+  #   volumes:
+  #     - ./postgres:/var/lib/postgresql/data
+  #     # - ./sql:/docker-entrypoint-initdb.d
   bot:
+    container_name: orbot_bot
     command: python -um src
+    restart: always
+    # networks:
+    #   orbot:
+    env_file: .env
     volumes:
       - ./src:/app/src/
-      - ./rclone/data/kikadrive:/app/kikadrive:shared
-    restart: always
-    networks:
-      rina-bot:
-    env_file: .env
-    depends_on:
-      - db
+      # - ./rclone/data/kikadrive:/app/kikadrive:shared
+    # depends_on:
+    #   - db
     build: .
-  kikadrive:
-    image: mumiehub/rclone-mount
-    restart: unless-stopped
-    cap_add: 
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
-    volumes:
-      - ./rclone/config/:/config/
-      - ./rclone/data/kikadrive:/mnt/kikadrive:shared
-    environment:
-      RemotePath: kikadrive:/
-      MountCommands: --allow-other --uid 1000 --gid 1000 --umask 022 --default-permissions --allow-non-empty --dir-cache-time 168h --poll-interval 5m --buffer-size 128M
-      MountPoint: /mnt/kikadrive
+  # kikadrive:
+  #   image: mumiehub/rclone-mount
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - SYS_ADMIN
+  #   devices:
+  #     - /dev/fuse
+  #   security_opt:
+  #     - apparmor:unconfined
+  #   volumes:
+  #     - ./rclone/config/:/config/
+  #     - ./rclone/data/kikadrive:/mnt/kikadrive:shared
+  #   environment:
+  #     RemotePath: kikadrive:/
+  #     MountCommands: --allow-other --uid 1000 --gid 1000 --umask 022 --default-permissions --allow-non-empty --dir-cache-time 168h --poll-interval 5m --buffer-size 128M
+  #     MountPoint: /mnt/kikadrive

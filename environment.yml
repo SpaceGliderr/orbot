@@ -1,0 +1,13 @@
+name: orbot-venv
+dependencies:
+  - pip
+  - pip:
+      - aiohttp
+      - asyncpg
+      - discord.py
+      - jishaku
+      - ruamel.yaml
+      - python-dotenv
+      - stringcase
+      - black
+      - isort
