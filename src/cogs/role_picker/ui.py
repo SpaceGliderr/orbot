@@ -30,9 +30,15 @@ class RoleCategoryModal(Modal):
         success_msg: Optional[str] = None,
         error_msg: Optional[str] = None,
         defaults: Optional[dict] = None,
+        checks: Optional[List[dict]] = None,
     ) -> None:
         super().__init__(
-            title=title, timeout=timeout, custom_id=custom_id, success_msg=success_msg, error_msg=error_msg
+            title=title,
+            timeout=timeout,
+            custom_id=custom_id,
+            success_msg=success_msg,
+            error_msg=error_msg,
+            checks=checks,
         )
 
         self.add_item(
@@ -41,6 +47,15 @@ class RoleCategoryModal(Modal):
                 placeholder="Enter category name",
                 custom_id="label",
                 default=defaults["label"] if defaults is not None else None,
+            )
+        )
+
+        self.add_item(
+            discord.ui.TextInput(
+                label="Number of Selectable Roles",
+                placeholder="Enter 'Single' or 'Multiple'",
+                custom_id="limit",
+                default=defaults["limit"] if defaults is not None else "Multiple",
             )
         )
 
@@ -204,7 +219,9 @@ class RolesView(View):
 
         rp_conf = RolePickerConfig()
 
-        options = rp_conf.generate_role_options(role_category, defaults=defaults)
+        options = rp_conf.generate_role_options(
+            role_category, defaults=[defaults[0]] if max_value_type == "single" and defaults is not None else defaults
+        )
 
         self.add_item(
             Select(
@@ -315,7 +332,13 @@ class PersistentRoleCategoryButton(discord.ui.Button):
         role_category = self.value
 
         # Send RolesView
-        roles_view = RolesView(role_category=role_category, timeout=90, defaults=user_role_ids, min_values=0)
+        roles_view = RolesView(
+            role_category=role_category,
+            timeout=90,
+            defaults=user_role_ids,
+            min_values=0,
+            max_value_type=rp_conf.get_role_category(role_category)[1]["limit"],
+        )
         await interaction.response.send_message(
             content=f"Select your roles from the {rp_conf.get_role_category(role_category)[1]['label']} category!",
             view=roles_view,

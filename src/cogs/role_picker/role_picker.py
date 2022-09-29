@@ -47,7 +47,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
     # FUNCTIONS
     # =================================================================================================================
     async def setup_or_refresh(self, scope: Union[discord.Guild, discord.TextChannel]):
-        """A method to either setup or refresh the Role Picker message and view. 
+        """A method to either setup or refresh the Role Picker message and view.
 
         Parameters
         ----------
@@ -59,7 +59,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         rp_conf = RolePickerConfig()
         content, embed = rp_conf.generate_role_picker_content()
 
-        send_new_msg_flag = True # A flag that signifies whether a new message should be sent to the channel + whether the `roles.yaml` setup object must be updated
+        send_new_msg_flag = True  # A flag that signifies whether a new message should be sent to the channel + whether the `roles.yaml` setup object must be updated
 
         setup = get_from_dict(rp_conf.data, ["role_picker", "setup"])
         if setup is not None:
@@ -74,7 +74,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
                 old_message = await old_channel.fetch_message(message_id)
                 await old_message.delete()
             else:
-                # Regardless of the scope instance, if the role picker is being updated in the same channel, 
+                # Regardless of the scope instance, if the role picker is being updated in the same channel,
                 #   the message in the respective channel is edited with the new content.
                 # The `send_new_msg_flag` is set to False, no need to send a new message
                 channel = await scope.fetch_channel(channel_id) if isinstance(scope, discord.Guild) else scope
@@ -89,10 +89,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             # Updating the setup object in `roles.yaml`
             data = rp_conf.get_data()
             data["role_picker"] = {}
-            data["role_picker"]["setup"] = {
-                "message_id": message.id,
-                "channel_id": scope.id
-            }
+            data["role_picker"]["setup"] = {"message_id": message.id, "channel_id": scope.id}
 
             rp_conf.dump(data)
 
@@ -148,7 +145,10 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         )
         await self.setup_or_refresh(channel)
 
-    @app_commands.command(name="refresh", description="Refresh the role picker in the setup text channel. Must run the `setup` command beforehand.")
+    @app_commands.command(
+        name="refresh",
+        description="Refresh the role picker in the setup text channel. Must run the `setup` command beforehand.",
+    )
     @app_commands.guild_only()
     @app_commands.default_permissions(manage_roles=True)
     @app_commands.checks.has_permissions(manage_roles=True)
@@ -187,24 +187,27 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             timeout=90,
             success_msg="A new role category was successfully added!",
             error_msg="A few problems were encountered when adding a new role category, please try again!",
+            checks=[{"custom_id": "limit", "regex": "(single|multiple)"}],
         )
 
         await interaction.response.send_modal(modal)
-        await modal.wait()
+        timeout = await modal.wait()
 
-        # Process and dump data
-        data = rp_conf.get_data()
-        new_category = modal.get_values()
-        new_category["name"] = stringcase.snakecase(
-            str(new_category["label"])
-        )  # Generates a snakecased `name` attribute from the label
+        if not timeout:
+            # Process and dump data
+            data = rp_conf.get_data()
+            new_category = modal.get_values()
+            new_category["name"] = stringcase.snakecase(
+                str(new_category["label"])
+            )  # Generates a snakecased `name` attribute from the label
+            new_category["limit"] = new_category["limit"].lower()
 
-        data["categories"]["role_categories"].append(new_category)
+            data["categories"]["role_categories"].append(new_category)
 
-        rp_conf.dump(data)
+            rp_conf.dump(data)
 
-        # Update Role Picker message
-        await self.setup_or_refresh(modal.interaction.guild)
+            # Update Role Picker message
+            await self.setup_or_refresh(modal.interaction.guild)
 
     @add_group.command(name="role", description="Add a role to role category(ies).")
     @app_commands.describe(role="the server role to add", emoji="the role emoji")
@@ -323,28 +326,32 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             timeout=90,
             success_msg="The role category was successfully edited!",
             error_msg="A few problems were encountered when editing the role category, please try again!",
+            checks=[{"custom_id": "limit", "regex": "(single|multiple)"}],
         )
+
         await role_category_view.interaction.response.send_modal(role_category_modal)
-        await role_category_modal.wait()
+        timeout = await role_category_modal.wait()
 
-        # Process and dump data
-        edited_category = role_category_modal.get_values()
-        edited_category["name"] = stringcase.snakecase(
-            str(edited_category["label"])
-        )  # Generates a snakecased `name` attribute from the label
+        if not timeout:
+            # Process and dump data
+            edited_category = role_category_modal.get_values()
+            edited_category["name"] = stringcase.snakecase(
+                str(edited_category["label"])
+            )  # Generates a snakecased `name` attribute from the label
+            edited_category["limit"] = edited_category["limit"].lower()
 
-        data = rp_conf.get_data()
-        data["categories"]["role_categories"][idx] = {
-            **data["categories"]["role_categories"][idx],
-            **edited_category,
-        }
+            data = rp_conf.get_data()
+            data["categories"]["role_categories"][idx] = {
+                **data["categories"]["role_categories"][idx],
+                **edited_category,
+            }
 
-        data[edited_category["name"]] = data.pop(role_category)  # Replace the old key with the new key
+            data[edited_category["name"]] = data.pop(role_category)  # Replace the old key with the new key
 
-        rp_conf.dump(data)
+            rp_conf.dump(data)
 
-        # Update Role Picker message
-        await self.setup_or_refresh(role_category_modal.interaction.guild)
+            # Update Role Picker message
+            await self.setup_or_refresh(role_category_modal.interaction.guild)
 
     @edit_group.command(name="role", description="Edit an existing role.")
     @app_commands.checks.has_permissions(manage_roles=True)
@@ -452,7 +459,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
                 del data[role_category]  # Delete key | attribute from the `roles.yaml` file itself
 
         rp_conf.dump(data)
-        
+
         # Update Role Picker message
         await self.setup_or_refresh(role_category_view.interaction.guild)
 

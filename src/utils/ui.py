@@ -1,7 +1,10 @@
+import re
 import traceback
 from typing import Any, List, Optional, Union
 
 import discord
+
+from src.utils.helper import dict_has_key
 
 
 class Select(discord.ui.Select):
@@ -134,7 +137,12 @@ class Modal(discord.ui.Modal):
             - Displays a success response. If `None` is provided, the Interaction is deferred.
         * error_msg: Optional[:class:`str`]
             - Displays an error response. If `None` is provided, the Interaction is deferred.
-        
+        * checks: Optional[List[:class:`dict`]]
+            - Denotes the validation to be made to inputs with custom IDs. Has the dictionary has the keys of `custom_id` and `regex`.
+            - The type of checks supported: RegEx string matching
+            - `custom_id` key: Denotes the `custom_id` of the input to apply the check to
+            - `regex` key: The string to be matched
+
     Additional Attributes
     ----------
         * interaction: Optional[:class:`discord.Interaction`]
@@ -149,21 +157,36 @@ class Modal(discord.ui.Modal):
         custom_id: Optional[str] = None,
         success_msg: Optional[str] = None,
         error_msg: Optional[str] = None,
+        checks: Optional[List[dict]] = None,
     ) -> None:
         super().__init__(title=title, timeout=timeout, custom_id=custom_id)
         self.success_msg = success_msg
         self.error_msg = error_msg
+        self.checks = checks
         self.interaction = None
 
     def get_values(self):
         return {child.custom_id: child.value for child in self.children if child.value}
 
+    def validate(self):
+        values = self.get_values()
+        return all(
+            [
+                bool(re.match(check["regex"], values[check["custom_id"]], re.I))
+                for check in self.checks
+                if dict_has_key(values, check["custom_id"])
+            ]
+        )
+
     async def on_submit(self, interaction: discord.Interaction):
+        if self.checks is not None and not self.validate():
+            raise Exception("Invalid form input")
+
         if self.success_msg is not None:
             await interaction.response.send_message(f"{self.success_msg}", ephemeral=True)
         else:
             await interaction.response.defer()
-        
+
         self.interaction = interaction
         self.stop()
 

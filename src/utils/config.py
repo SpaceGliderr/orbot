@@ -128,7 +128,9 @@ class RolePickerConfig:
 
         embed = discord.Embed(title="**__Available Roles__**")
 
-        role_categories = [role_category for role_category in self.role_categories if self.get_roles(role_category["name"]) is not None] # Filter out role categories that do not have roles
+        role_categories = [
+            role_category for role_category in self.role_categories if self.get_roles(role_category["name"]) is not None
+        ]  # Filter out role categories that do not have roles
 
         for role_category in role_categories:
             content += f'`{role_category["label"]}`'
