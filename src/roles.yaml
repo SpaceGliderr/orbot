@@ -1,11 +1,20 @@
 categories:
   role_categories:
-  - {label: LOOΠΔ (Main), name: main}
-  - {label: LOOΠΔ (Sub), name: sub}
-  - {label: Pronouns, name: pronouns}
-  - {label: Others, name: others}
+  - {description: Support your main biases and change your server colour!, label: LOOΠΔ
+      (Main), limit: multiple, name: l_o_oΠΔ_(_main)}
+  - {description: Show your never-ending support for the members and subunits of LOONA!,
+    label: LOOΠΔ (Sub), limit: multiple, name: l_o_oΠΔ_(_sub)}
+  - {description: 'Roles that include SNS, social media, notification roles!', label: Others,
+    limit: multiple, name: others}
+  - {description: Pick your pronouns!, label: Pronouns, limit: multiple, name: pronouns}
+  - {description: Select a role to get a role icon!, label: Role Icons, limit: single,
+    name: role__icons}
+  - {label: Era, limit: multiple, name: era}
   text: Click here to pick which bias role you want!
-main:
+era:
+  roles:
+  - {id: 1019632291246526574, label: "\U0001F98B Butterfly", name: "\U0001F98B__butterfly"}
+l_o_oΠΔ_(_main):
   roles:
   - {id: 864118528185597980, label: LOOΠΔ, name: loona}
   - {id: 864118528185597979, label: LOOΠΔ 1/3, name: loona 1/3}
@@ -35,22 +44,7 @@ main:
     name: go won}
   - {emoji: '<a:OliviaBlanket:643511595024252944>', id: 864118528176422915, label: Olivia
       Hye, name: olivia hye}
-others:
-  roles:
-  - {id: 864118528197787656, label: Collector, name: collector}
-  - {id: 864118528206045186, label: Twitter, name: twitter}
-  - {id: 864118528159514624, label: Community, name: community}
-  - {id: 864118528206045185, label: Live, name: live}
-  - {id: 1018581580912013432, label: Arcade, name: arcade}
-  - {id: 1018581735056883814, label: Comeback, name: comeback}
-pronouns:
-  roles:
-  - {id: 864118528206045193, label: He/Him, name: he/him}
-  - {id: 864118528206045192, label: She/Her, name: she/her}
-  - {id: 864118528206045191, label: They/Them, name: they/them}
-  - {id: 864118528206045190, label: Any Pronouns, name: any}
-  - {id: 864118528206045189, label: Ask For Pronouns, name: ask}
-sub:
+l_o_oΠΔ_(_sub):
   roles:
   - {id: 864118528176422913, label: LOOΠΔ, name: loona}
   - {id: 864118528176422912, label: LOOΠΔ 1/3, name: loona 1/3}
@@ -80,3 +74,40 @@ sub:
     name: go won}
   - {emoji: '<a:OliviaBlanket:643511595024252944>', id: 864118528159514630, label: Olivia
       Hye, name: olivia hye}
+others:
+  roles:
+  - {description: 'Gives permission to post in #buy-sell-trade', id: 864118528197787656,
+    label: Collector, name: collector}
+  - {description: 'Get notified on new Twitter updates in #sns-feed', id: 864118528206045186,
+    label: Twitter, name: twitter}
+  - {description: Get notified when there are community events in the server, id: 864118528159514624,
+    label: Community, name: community}
+  - {description: 'Get notified when LOONA does a live stream in #sns-feed', id: 864118528206045185,
+    label: Live, name: live}
+  - {description: Unlocks game-related bot channels, id: 1018581580912013432, label: Arcade,
+    name: arcade}
+  - {description: Get notified on LOONA's comeback news, id: 1018581735056883814,
+    label: Comeback, name: comeback}
+pronouns:
+  roles:
+  - {id: 864118528206045193, label: He/Him, name: he/him}
+  - {id: 864118528206045192, label: She/Her, name: she/her}
+  - {id: 864118528206045191, label: They/Them, name: they/them}
+  - {id: 864118528206045190, label: Any Pronouns, name: any}
+  - {id: 864118528206045189, label: Ask For Pronouns, name: ask}
+role__icons:
+  roles:
+  - {emoji: "\U0001F407", id: 1024328663057039530, label: Heejin, name: heejin}
+  - {emoji: "\U0001F431", id: 1024328837179379712, label: Hyunjin, name: hyunjin}
+  - {emoji: "\U0001F54A️", id: 1024333733081383053, label: Haseul, name: haseul}
+  - {emoji: "\U0001F438", id: 1024333851608236092, label: Yeojin, name: yeojin}
+  - {emoji: "\U0001F98C", id: 1024333936895197204, label: Vivi, name: vivi}
+  - {emoji: "\U0001F989", id: 1024333980474023976, label: Kim Lip, name: kim__lip}
+  - {emoji: "\U0001F41F", id: 1024334057661792296, label: Jinsoul, name: jinsoul}
+  - {emoji: "\U0001F987", id: 1024334135453564948, label: Choerry, name: choerry}
+  - {emoji: "\U0001F9A2", id: 1024334193150394488, label: Yves, name: yves}
+  - {emoji: "\U0001F427", id: 1024334275656552458, label: Chuu, name: chuu}
+  - {emoji: "\U0001F98B", id: 1024334332531322951, label: Go Won, name: go__won}
+  - {emoji: "\U0001F43A", id: 1024334388013568000, label: Olivia Hye, name: olivia__hye}
+role_picker:
+  setup: {channel_id: 864118528395575300, message_id: 1024611762202492949}
