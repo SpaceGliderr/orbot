@@ -162,3 +162,25 @@ class RolePickerConfig:
         """Dump data into the `roles.yaml` file."""
         with open("src/roles.yaml", "w") as roles_file:
             yaml.dump(data, roles_file)
+
+
+class CMAutoPostConfig:
+    """The CMAutoPostConfig class helps load the `cm_auto_post.yaml` file and provides other util methods to manipulate the extracted data."""
+
+    def __init__(self) -> None:
+        with open("src/cm_auto_post.yaml", "r") as cm_auto_post_file:
+            self._data = yaml.load(cm_auto_post_file)
+
+    @property
+    def data(self):
+        """Get the extracted data."""
+        return self._data
+
+    def get_data(self):
+        """Get a copied version of the extracted data."""
+        return self._data.copy()
+
+    def dump(self, data):
+        """Dump data into the `cm_auto_post.yaml` file."""
+        with open("src/cm_auto_post.yaml", "w") as cm_auto_post_file:
+            yaml.dump(data, cm_auto_post_file)

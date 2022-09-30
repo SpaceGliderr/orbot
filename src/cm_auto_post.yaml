@@ -1,0 +1,4 @@
+config:
+  feed_channel_id:
+  member_channels: []
+  whitelist: []
