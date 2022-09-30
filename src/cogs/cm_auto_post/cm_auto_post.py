@@ -1,3 +1,4 @@
+from os import walk
 import discord
 from discord import Permissions, app_commands
 from discord.ext import commands
@@ -37,8 +38,15 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
     @app_commands.guild_only()
     async def mock_post(self, interaction: discord.Interaction):
         """Mocks an incoming Twitter post"""
-        # TODO: Create a folder with multiple images, when command is called, send the folder as a tweet
-        pass
+        files = [discord.File(fp=f"loonatheworld/{filename}", filename=filename) for filename in next(walk("loonatheworld"), (None, [], []))[2]]
+
+        cmap_conf = CMAutoPostConfig()
+
+        await interaction.response.send_message("Mock Post created", ephemeral=True)
+
+        channel = await interaction.guild.fetch_channel(cmap_conf.data["config"]["feed_channel_id"])
+        await channel.send(content="@loonatheworld", files=files)
+
 
     
     @app_commands.command(name="setup-feed", description="Setup the Twitter feed in a text channel.")
