@@ -46,8 +46,13 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
     @app_commands.describe(channel="the text channel to setup in")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def setup_feed(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        pass
-    
+        await interaction.response.send_message(content=f"The Twitter fansite feed has been successfully setup in <#{channel.id}>")
+
+        cmap_conf = CMAutoPostConfig()
+        data = cmap_conf.get_data()
+        data["config"]["feed_channel_id"] = channel.id
+        cmap_conf.dump(data)
+
 
     @app_commands.command(name="follow", description="Follow a Twitter account.")
     @app_commands.guild_only()
