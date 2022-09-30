@@ -2,7 +2,7 @@ import discord
 from discord import Permissions, app_commands
 from discord.ext import commands
 
-from utils.config import CMAutoPostConfig
+from src.utils.config import CMAutoPostConfig
 
 
 class CMAutoPost(commands.GroupCog, name="cm-post"):
@@ -58,7 +58,7 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
     @app_commands.guild_only()
     @app_commands.describe(handle="the users Twitter handle")
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def follow(self, handle: str):
+    async def follow(self, interaction: discord.Interaction, handle: str):
         pass
 
 
@@ -66,7 +66,7 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
     @app_commands.guild_only()
     @app_commands.describe(handle="the users Twitter handle")
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def unfollow(self, handle: str):
+    async def unfollow(self, interaction: discord.Interaction, handle: str):
         pass
 
 
@@ -74,7 +74,7 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
     @app_commands.guild_only()
     @app_commands.describe(handle="the users Twitter handle")
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def check(self, handle: str):
+    async def check(self, interaction: discord.Interaction, handle: str):
         pass
 
     
@@ -89,14 +89,14 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
     @edit_group.command(name="post-channel", description="Edit details of an existing posting channel in the Auto-Poster.")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def edit_post_channel(self):
+    async def edit_post_channel(self, interaction: discord.Interaction):
         pass
 
 
     @delete_group.command(name="post-channel", description="Delete an existing posting channel in the Auto-Poster.")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def delete_post_channel(self):
+    async def delete_post_channel(self, interaction: discord.Interaction):
         pass
 
 
@@ -104,7 +104,7 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
     @app_commands.guild_only()
     @app_commands.describe(message="the message posted by the bot")
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def edit_post(self, message: discord.Message):
+    async def edit_post(self, interaction: discord.Interaction, message: str):
         pass
 
 
