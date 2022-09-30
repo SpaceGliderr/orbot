@@ -172,6 +172,11 @@ class CMAutoPostConfig:
             self._data = yaml.load(cm_auto_post_file)
 
     @property
+    def post_channels(self):
+        """Get the post channels."""
+        return get_from_dict(self._data, ["config", "post_channels"])
+
+    @property
     def data(self):
         """Get the extracted data."""
         return self._data
@@ -179,6 +184,13 @@ class CMAutoPostConfig:
     def get_data(self):
         """Get a copied version of the extracted data."""
         return self._data.copy()
+
+    def get_post_channel(self, channel_id: str):
+        """Search for a post channel. Returns a tuple with the structure (`index`, `channel`)."""
+        return next(
+            ((idx, channel) for idx, channel in enumerate(self.post_channels) if channel["id"] == channel_id),
+            None,
+        )
 
     def dump(self, data):
         """Dump data into the `cm_auto_post.yaml` file."""
