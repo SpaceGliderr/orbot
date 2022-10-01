@@ -53,6 +53,7 @@ class Select(discord.ui.Select):
             await interaction.response.defer()
 
         self.view.values = self.values
+        self.view.dict_values[self.custom_id] = self.values
         self.view.interaction = interaction
 
 
@@ -124,6 +125,7 @@ class View(discord.ui.View):
         super().__init__(timeout=timeout)
         self.values = None
         self.interaction: Optional[discord.Interaction] = None
+        self.dict_values = {} # TODO: Replace original values attribute with this
 
 
 class Modal(discord.ui.Modal):
