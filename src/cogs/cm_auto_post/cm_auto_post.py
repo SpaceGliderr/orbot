@@ -1,8 +1,10 @@
+import asyncio
 from os import walk
+from typing import List, Literal, Union
 import discord
 from discord import Permissions, app_commands
 from discord.ext import commands
-from src.cogs.cm_auto_post.ui import PostChannelModal, PostChannelView
+from src.cogs.cm_auto_post.ui import PersistentPostView, PersistentTweetView, PostChannelModal, PostChannelView
 
 from src.utils.config import CMAutoPostConfig
 
@@ -36,20 +38,53 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
         guild_only=True,
     )
 
+
+    async def send_cm_post(self, channel: discord.TextChannel, files: Union[str, list]):
+        if isinstance(files, list):
+            message = await channel.send(content="@loonatheworld")
+        else:
+            message = await channel.send(file=discord.File(fp=f"loonatheworld/{files}"))
+        
+        view = PersistentPostView(message_id=message.id, files=files)
+        await message.edit(view=view)
+
+        await view.wait()
+        await message.edit(view=None)
+
     
     @app_commands.command(name="mock-post", description="Sends a mock post to the channel provided by the setup.")
     @app_commands.guild_only()
     async def mock_post(self, interaction: discord.Interaction):
         """Mocks an incoming Twitter post"""
-        files = [discord.File(fp=f"loonatheworld/{filename}", filename=filename) for filename in next(walk("loonatheworld"), (None, [], []))[2]]
-
-        cmap_conf = CMAutoPostConfig()
+        # files = [discord.File(fp=f"loonatheworld/{filename}", filename=filename) for filename in next(walk("loonatheworld"), (None, [], []))[2]]
+        filenames = next(walk("loonatheworld"), (None, [], []))[2]
 
         await interaction.response.send_message("Mock Post created", ephemeral=True)
 
+        cmap_conf = CMAutoPostConfig()
         channel = await interaction.guild.fetch_channel(cmap_conf.data["config"]["feed_channel_id"])
-        await channel.send(content="@loonatheworld", files=files)
 
+        message = await channel.send(content="@loonatheworld", files=[discord.File(fp=f"loonatheworld/{f}") for f in filenames])
+        view = PersistentTweetView(message_id=message.id, filenames=filenames, bot=self.bot)
+        await message.edit(view=view)
+
+        await view.wait()
+        await message.edit(view=None)
+
+        # await self.send_cm_post(channel=channel, files=files)
+        # await self.send_cm_post(channel=channel, files=files[0])
+        # cm_posts = [self.send_cm_post(channel=channel, files=f) for f in files]
+
+        # await asyncio.gather(
+        #     [self.send_cm_post(channel=channel, files=files), *cm_posts]
+        # )
+        # await channel.send(content="@loonatheworld", files=files)
+        # message = await channel.send(content="@loonatheworld")
+        # view = PersistentPostView(message_id=message.id, files=files)
+        # await message.edit(view=view)
+        # print(view.is_persistent())
+
+        # TODO: For each file, create a new message + attach persistent view
 
     
     @app_commands.command(name="setup-feed", description="Setup the Twitter feed in a text channel.")
