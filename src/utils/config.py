@@ -181,6 +181,22 @@ class CMAutoPostConfig:
         """Get the extracted data."""
         return self._data
 
+    @staticmethod
+    def generate_post_caption(post_details: Optional[dict] = None):
+        if post_details is not None and post_details != {}:
+            if dict_has_key(post_details, "caption"):
+                return f"```ml\n{post_details['caption']}\n```"
+
+            caption = "```ml\n"
+
+            if dict_has_key(post_details, "event_details"):
+                caption += f'{post_details["event_details"]} '
+
+            caption += '| cr: INSERT TWITTER DISPLAY NAME (@INSERT TWITTER HANDLE)\n```'
+
+            return caption
+        return None
+
     def get_data(self):
         """Get a copied version of the extracted data."""
         return self._data.copy()
@@ -191,6 +207,10 @@ class CMAutoPostConfig:
             ((idx, channel) for idx, channel in enumerate(self.post_channels) if channel["id"] == channel_id),
             None,
         )
+
+    def generate_post_channel_options(self):
+        """Generates a list of select options for post channels."""
+        return [discord.SelectOption(label=post_channel["label"], value=post_channel["id"]) for post_channel in self.post_channels]
 
     def dump(self, data):
         """Dump data into the `cm_auto_post.yaml` file."""
