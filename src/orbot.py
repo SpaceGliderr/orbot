@@ -3,10 +3,8 @@ import os
 
 import asyncpg
 import discord
-from discord import app_commands
 from discord.ext import commands
 
-from src.cogs.cm_auto_post.ui import PersistentPostView, PersistentTweetView
 from src.cogs.role_picker.ui import PersistentRolePickerView
 
 intents = discord.Intents(
@@ -46,8 +44,6 @@ class Orbot(commands.Bot):
 
     async def setup_hook(self):
         self.add_view(PersistentRolePickerView())
-        self.add_view(PersistentPostView())
-        self.add_view(PersistentTweetView())
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
 
