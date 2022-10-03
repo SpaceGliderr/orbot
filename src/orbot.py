@@ -18,7 +18,6 @@ intents = discord.Intents(
 
 MY_GUILD = discord.Object(id=864118528134742026)
 
-
 class Orbot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=">", case_insensitive=True, intents=intents)
@@ -61,3 +60,5 @@ class Orbot(commands.Bot):
 
         for extension in extensions:
             await self.load_extension(extension)
+
+client = Orbot()
