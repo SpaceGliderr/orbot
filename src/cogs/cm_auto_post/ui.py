@@ -1,4 +1,5 @@
 import asyncio
+from operator import itemgetter
 from typing import Any, List, Literal, Optional, Union
 from src.utils.ui import Button, Modal, Select, View
 
@@ -455,3 +456,214 @@ class PersistentTweetView(View):
                     bot=self.bot
                 )
             )
+
+
+class EditPostButton(discord.ui.Button):
+    def __init__(
+        self,
+        callback_type: Literal["edit_caption", "add_image", "remove_image", "stop"],
+        bot: Any,
+        *args,
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.callback_type = callback_type
+        self.callbacks = {
+            "edit_caption": self.edit_caption,
+            "add_image": self.add_image,
+            "remove_image": self.remove_image,
+            "save": self.save,
+            "stop": self.stop
+        }
+        self.bot = bot
+        self.is_cancelled = False
+
+    async def edit_caption(self, interaction: discord.Interaction):
+        await interaction.response.send_message(embed=PostEmbed(title="Post Details", description="Post details for post INSERT TWITTER LINK HERE by @loonatheworld\n\u200B"))
+        embedded_message = await interaction.original_response()
+        view = PostView(bot=self.bot, embedded_message=embedded_message, timeout=90)
+        await interaction.edit_original_response(view=view)
+
+        timeout = await view.wait()
+
+        await interaction.edit_original_response(view=None)
+
+        if timeout:
+            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
+        elif view.is_confirmed:
+            caption = CMAutoPostConfig.generate_post_caption(view.post_details)
+            self.view.post_details["caption"] = caption
+            await self.view.embedded_message.edit(embed=EditPostEmbed(post_details=self.view.post_details))
+            await embedded_message.delete()
+
+    async def add_image(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        
+        cmap_conf = CMAutoPostConfig()
+
+        feed_channel = await interaction.guild.fetch_channel(cmap_conf.data["config"]["feed_channel_id"])
+        
+        embed = discord.Embed(title=f"Enter the new images", description=f"The next message you send in <#{feed_channel.id}> will be recorded as the new images")
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
+        embed.set_footer(text="Data is recorded successfully when the previous embed is updated with the data.")
+
+        view = CancelView(timeout=30)
+        message = await feed_channel.send(embed=embed, view=view) # TODO: Do an embed
+
+        self.input_message = message
+
+        finished, unfinished = await asyncio.wait([self.bot.wait_for('message', check=lambda message: message.author == interaction.user and message.channel == feed_channel), view.wait()], return_when=asyncio.FIRST_COMPLETED)
+
+        for task in unfinished:
+            task.cancel()
+
+        # TODO: Keep track of unfinished tasks and message sent, when the cancel button is clicked, delete all of that and remove the coroutines
+        if self.is_cancelled:
+            print("Cancelled effective")
+            return
+
+        if isinstance(list(finished)[0].result(), discord.Message):
+            user_input = list(finished)[0].result()
+            self.view.post_details["files"].extend([await attachment.to_file() for attachment in user_input.attachments])
+            await user_input.delete()
+            await message.delete()
+            
+            # TODO: Add Twitter link to the Embed
+            await self.view.embedded_message.edit(embed=EditPostEmbed(post_details=self.view.post_details))
+            # await self.embedded_message.edit(embed=PostEmbed(title="Post Details", description="Post details for post INSERT TWITTER LINK HERE by @loonatheworld\n\u200B", post_details=self.post_details))
+            return
+
+        elif list(finished)[0].result(): # True signifies that it is timed out
+            await interaction.followup.send(content=f"The user input timed out, please try again!", ephemeral=True)
+        else: # False signifies the cancel button was clicked
+            await interaction.followup.send(content=f"The images was not entered", ephemeral=True)
+        
+        await message.delete()
+
+    async def remove_image(self, interaction: discord.Interaction):
+        view = View()
+        options = [discord.SelectOption(label=f"Image {idx + 1}", description=f.filename, value=idx, default=True) for idx, f in enumerate(self.view.post_details["files"])]
+        view.add_item(
+            Select(
+                min_values=0,
+                max_values=len(options),
+                options=options,
+                placeholder="Choose image(s) to remove",
+                stop_view=True,
+                custom_id="keep_image_select",
+                defer=True
+            )
+        )
+        
+        await interaction.response.send_message(content="Please select the image(s) to keep", view=view)
+        await view.wait()
+        await interaction.delete_original_response()
+
+        print(view.dict_values)
+
+        if dict_has_key(view.dict_values, "keep_image_select"):
+            index_list = [int(idx) for idx in view.dict_values["keep_image_select"]]
+            self.view.post_details["files"] = list(map(list(self.view.post_details["files"]).__getitem__, index_list))
+
+            await self.view.embedded_message.edit(embed=EditPostEmbed(post_details=self.view.post_details))
+            return
+        
+        await interaction.followup.send(content="No images were removed")
+        
+
+    async def save(self, interaction: discord.Interaction):
+        
+
+        # TODO: Edit original post
+        if len(self.view.post_details["files"]) != 0:
+            print("SUCCESS")
+            await interaction.response.defer()
+            await self.view.post_details["message"].edit(content=self.view.post_details["caption"], attachments=self.view.post_details["files"])
+            print(interaction)
+            print(self.view.interaction)
+            self.view.is_confirmed = True
+            self.view.interaction = interaction
+            self.view.stop()
+        else:
+            await interaction.response.send_message(content="Please upload at least one image")
+
+    async def stop(self, interaction: discord.Interaction):
+        self.view.stop()
+        self.view.interaction = interaction
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.callbacks.get(self.callback_type, None)(interaction)
+        self.view.interaction = interaction
+
+
+class EditPostView(View):
+    def __init__(self, *, timeout: Optional[float] = None, post_details: dict, embedded_message: Union[discord.Message, discord.InteractionMessage], bot: discord.Client):
+        super().__init__(timeout=timeout)
+
+        self.post_details = post_details
+        self.embedded_message = embedded_message
+        self.message_id = embedded_message.id
+        self.bot = bot
+        self.is_confirmed = False
+        print(post_details["files"])
+
+        self.add_item(
+            EditPostButton(
+                label="Edit Caption",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"{self.message_id}:edit_caption",
+                callback_type="edit_caption",
+                bot=self.bot
+            )
+        )
+
+        self.add_item(
+            EditPostButton(
+                label="Add Image(s)",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"{self.message_id}:add_image",
+                callback_type="add_image",
+                bot=self.bot
+            )
+        )
+
+        self.add_item(
+            EditPostButton(
+                label="Remove Image(s)",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"{self.message_id}:remove_image",
+                callback_type="remove_image",
+                bot=self.bot
+            )
+        )
+
+        self.add_item(
+            EditPostButton(
+                style=discord.ButtonStyle.green,
+                custom_id=f"{self.message_id}:save",
+                emoji="✔️",
+                callback_type="save",
+                bot=self.bot
+            )
+        )
+        
+        self.add_item(
+            EditPostButton(
+                style=discord.ButtonStyle.red,
+                custom_id=f"{self.message_id}:stop",
+                emoji="✖️",
+                callback_type="stop",
+                bot=self.bot
+            )
+        )
+
+
+class EditPostEmbed(discord.Embed):
+    def __init__(self, post_details: dict, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.title = "Edit Post"
+        self.description = f"Edits the post made in <#{post_details['message'].channel.id}> with a message ID of {post_details['message'].id}"
+
+        self.add_field(name="Caption", value=post_details["caption"], inline=False)
+        self.add_field(name="Files", value=', '.join([f.filename for f in post_details["files"]]) if len(post_details["files"]) != 0 else "-No files were uploaded-", inline=False)

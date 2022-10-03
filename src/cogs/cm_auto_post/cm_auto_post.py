@@ -2,9 +2,10 @@ from os import walk
 import discord
 from discord import Permissions, app_commands
 from discord.ext import commands
-from src.cogs.cm_auto_post.ui import PersistentTweetView, PostChannelModal, PostChannelView
+from src.cogs.cm_auto_post.ui import EditPostEmbed, EditPostView, PersistentTweetView, PostChannelModal, PostChannelView
 
 from src.utils.config import CMAutoPostConfig
+from src.orbot import client
 
 import stringcase
 
@@ -12,6 +13,9 @@ import stringcase
 class CMAutoPost(commands.GroupCog, name="cm-post"):
     def __init__(self, bot):
         self.bot = bot
+
+        global global_bot
+        global_bot = bot
     
 
     # =================================================================================================================
@@ -208,12 +212,30 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
         cmap_conf.dump(data)
 
 
-    @edit_group.command(name="post", description="Edit a post sent by the Auto-Poster.")
+    @client.tree.context_menu(name="Edit Post")
     @app_commands.guild_only()
-    @app_commands.describe(message="the message posted by the bot")
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def edit_post(self, interaction: discord.Interaction, message: str):
-        pass
+    async def edit_post_ctx_menu(interaction: discord.Interaction, message: discord.Message):
+        cmap_conf = CMAutoPostConfig()
+        feed_channel = await message.channel.guild.fetch_channel(cmap_conf.data["config"]["feed_channel_id"])
+        await interaction.response.send_message(content=f"Edit this post in <#{feed_channel.id}>", ephemeral=True)
+
+        files = [await attachment.to_file() for attachment in message.attachments]
+        post_details = {
+            "message": message,
+            "caption": message.content,
+            "files": files
+        }
+
+        embedded_message = await feed_channel.send(embed=EditPostEmbed(post_details))
+        view = EditPostView(post_details=post_details, embedded_message=embedded_message, bot=global_bot)
+        await embedded_message.edit(view=view)
+
+        await view.wait()
+        await embedded_message.edit(view=None)
+
+        if view.is_confirmed:
+            await view.interaction.followup.send(content=f"The post was successfully edited in <#{message.channel.id}>. {message.jump_url}")
 
 
 async def setup(bot):
