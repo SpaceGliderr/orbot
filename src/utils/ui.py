@@ -46,15 +46,16 @@ class Select(discord.ui.Select):
         self.defer = defer
 
     async def callback(self, interaction: discord.Interaction):
-        if self.stop_view:
-            self.view.stop()
-
         if self.defer:
             await interaction.response.defer()
 
         self.view.values = self.values
         self.view.dict_values[self.custom_id] = self.values
         self.view.interaction = interaction
+
+        if self.stop_view:
+            self.view.stop()
+        # print("AFTER DEFER ", self.values)
 
 
 class Button(discord.ui.Button):
