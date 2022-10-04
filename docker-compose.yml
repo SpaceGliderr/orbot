@@ -19,16 +19,21 @@ services:
   #     # - ./sql:/docker-entrypoint-initdb.d
   bot:
     container_name: orbot_bot
-    command: python -um src
+    # command: python -um src
     restart: always
     # networks:
     #   orbot:
-    env_file: .env
+    # env_file: .env
     volumes:
-      - ./src:/app/src/
-      # - ./rclone/data/kikadrive:/app/kikadrive:shared
+      - .:/app
+    # - ./rclone/data/kikadrive:/app/kikadrive:shared
     # depends_on:
     #   - db
+    # environment:
+    #   - PYTHONPATH=./src:/app/src/
+    # tty: true
+    ports:
+      - 3000:3000
     build: .
   # kikadrive:
   #   image: mumiehub/rclone-mount
@@ -45,4 +50,4 @@ services:
   #   environment:
   #     RemotePath: kikadrive:/
   #     MountCommands: --allow-other --uid 1000 --gid 1000 --umask 022 --default-permissions --allow-non-empty --dir-cache-time 168h --poll-interval 5m --buffer-size 128M
-  #     MountPoint: /mnt/kikadrive
+  #     MountPoint: /mnt/kikadrive\
