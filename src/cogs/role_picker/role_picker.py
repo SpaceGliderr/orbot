@@ -59,6 +59,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         rp_conf = RolePickerConfig()
         content, embed = rp_conf.generate_role_picker_content()
 
+        global send_new_msg_flag
         send_new_msg_flag = True  # A flag that signifies whether a new message should be sent to the channel + whether the `roles.yaml` setup object must be updated
 
         setup = get_from_dict(rp_conf.data, ["role_picker", "setup"])
@@ -78,9 +79,13 @@ class RolePicker(commands.GroupCog, name="role-picker"):
                 #   the message in the respective channel is edited with the new content.
                 # The `send_new_msg_flag` is set to False, no need to send a new message
                 channel = await scope.fetch_channel(channel_id) if isinstance(scope, discord.Guild) else scope
-                message = await channel.fetch_message(message_id)
-                await message.edit(content=content, embed=embed, view=PersistentRolePickerView())
-                send_new_msg_flag = False
+
+                try:
+                    message = await channel.fetch_message(message_id)
+                    await message.edit(content=content, embed=embed, view=PersistentRolePickerView())
+                    send_new_msg_flag = False
+                except:
+                    send_new_msg_flag = True
 
         if send_new_msg_flag and isinstance(scope, discord.TextChannel):
             # The scope needs to be of a TextChannel instance as the bot needs to send a new message into that channel
@@ -140,10 +145,11 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         ----------
         `manage_roles`
         """
-        await interaction.response.send_message(
-            content=f"The role picker has been successfully setup in <#{channel.id}>!", ephemeral=True
-        )
+        await interaction.response.send_message("Setting up role picker...", ephemeral=True)
         await self.setup_or_refresh(channel)
+        await interaction.edit_original_response(
+            content=f"The role picker has been successfully setup in <#{channel.id}>!"
+        )
 
     @app_commands.command(
         name="refresh",
@@ -159,7 +165,11 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         ----------
         `manage_roles`
         """
+        await interaction.response.send_message("Refreshing role picker...", ephemeral=True)
         await self.setup_or_refresh(interaction.guild)
+        await interaction.edit_original_response(
+            content=f"The role picker has been successfully refreshed!"
+        )
 
     # =================================================================================================================
     # ADD OPERATION SLASH COMMANDS
@@ -183,7 +193,6 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         # Send RoleCategoryModal
         modal = RoleCategoryModal(
             title="Add Role Category",
-            custom_id="add_role_category_modal",
             timeout=90,
             success_msg="A new role category was successfully added!",
             error_msg="A few problems were encountered when adding a new role category, please try again!",
@@ -257,7 +266,6 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         # Send RoleModal
         role_modal = RoleModal(
             title="Add Role",
-            custom_id="add_role_modal",
             timeout=90,
             defaults=defaults,
             success_msg="A new role was successfully added!",
@@ -274,7 +282,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             return
 
         # Process data
-        role_categories = role_category_view.values
+        role_categories = role_category_view.ret_val
         new_role = role_modal.get_values()
 
         if not dict_has_key(new_role, "label"):
@@ -331,7 +339,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
             return
 
-        role_category = role_category_view.values
+        role_category = role_category_view.ret_val
 
         idx, category_details = rp_conf.get_role_category(role_category)
 
@@ -339,7 +347,6 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         role_category_modal = RoleCategoryModal(
             title="Edit Role Category",
             defaults=category_details,
-            custom_id="edit_role_category",
             timeout=90,
             success_msg="The role category was successfully edited!",
             error_msg="A few problems were encountered when editing the role category, please try again!",
@@ -404,7 +411,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
             return
 
-        role_category = role_category_view.values
+        role_category = role_category_view.ret_val
 
         # Send RolesView
         roles_view = RolesView(role_category=role_category, max_value_type="single", timeout=90)
@@ -420,14 +427,13 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             return
 
         if roles_view.is_confirmed:
-            role_id = int(roles_view.values[0])
+            role_id = int(roles_view.ret_val[0])
             idx, role = rp_conf.get_role_by_id(role_category, role_id)
 
             # Send RoleModal
             role_modal = RoleModal(
                 title="Edit Role",
                 defaults=role,
-                custom_id="edit_role",
                 success_msg="The role was successfully edited!",
                 error_msg="A few problems were encountered when editing the role, please try again!",
             )
@@ -484,7 +490,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         # TODO: Add double confirmation view
 
         # Process and dump data
-        role_categories = role_category_view.values
+        role_categories = role_category_view.ret_val
         data = rp_conf.get_data()
 
         for role_category in role_categories:
@@ -527,7 +533,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
             await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
             return
 
-        role_category = role_category_view.values
+        role_category = role_category_view.ret_val
 
         # Send RolesView
         roles_view = RolesView(role_category=role_category, timeout=90)
@@ -547,7 +553,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         if roles_view.is_confirmed:
             # Process and dump data
             role_ids_to_remove = [
-                int(role_id) for role_id in roles_view.values
+                int(role_id) for role_id in roles_view.ret_val
             ]  # Make sure to convert it to `int` data type because views return `str`
             roles = rp_conf.get_roles(role_category)
 

@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, List, Literal, Optional, Union
 
 import discord
@@ -21,25 +22,8 @@ class RoleCategoryModal(Modal):
             - Fills the default values for each text input. Possible keys: `label`, `description`.
     """
 
-    def __init__(
-        self,
-        *,
-        title: str,
-        timeout: Optional[float] = None,
-        custom_id: Optional[str] = None,
-        success_msg: Optional[str] = None,
-        error_msg: Optional[str] = None,
-        defaults: Optional[dict] = None,
-        checks: Optional[List[dict]] = None,
-    ) -> None:
-        super().__init__(
-            title=title,
-            timeout=timeout,
-            custom_id=custom_id,
-            success_msg=success_msg,
-            error_msg=error_msg,
-            checks=checks,
-        )
+    def __init__(self, defaults: Optional[dict] = None, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         self.add_item(
             discord.ui.TextInput(
@@ -84,19 +68,8 @@ class RoleModal(Modal):
             - Fills the default values for each text input. Possible keys: `id`, `label`, `description`, `emoji`.
     """
 
-    def __init__(
-        self,
-        *,
-        title: str,
-        timeout: Optional[float] = None,
-        custom_id: Optional[str] = None,
-        success_msg: Optional[str] = None,
-        error_msg: Optional[str] = None,
-        defaults: Optional[dict] = None,
-    ) -> None:
-        super().__init__(
-            title=title, timeout=timeout, custom_id=custom_id, success_msg=success_msg, error_msg=error_msg
-        )
+    def __init__(self, defaults: Optional[dict] = None, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         self.add_item(
             discord.ui.TextInput(
@@ -155,15 +128,8 @@ class RoleCategoryView(View):
             - Controls the number of maximum values for the select menu. The `multiple` option takes the total number of options as the maximum selectable values in the select menu.
     """
 
-    def __init__(
-        self,
-        *,
-        timeout: Optional[float] = None,
-        input_type: Literal["button", "select"] = "button",
-        max_value_type: Literal["single", "multiple"] = "multiple",
-        stop_view: bool = False,
-    ):
-        super().__init__(timeout=timeout)
+    def __init__(self, input_type: Literal["button", "select"] = "button", max_value_type: Literal["single", "multiple"] = "multiple", stop_view: bool = False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         rp_conf = RolePickerConfig()
 
@@ -171,7 +137,7 @@ class RoleCategoryView(View):
             for category in rp_conf.role_categories:
                 self.add_item(
                     Button(
-                        label=category["label"], value=category["name"], custom_id=category["name"], stop_view=stop_view
+                        label=category["label"], value=category["name"], stop_view=stop_view, style=discord.ButtonStyle.primary
                     )
                 )
         else:
@@ -183,7 +149,6 @@ class RoleCategoryView(View):
                     options=options,
                     placeholder="Choose role categories",
                     stop_view=stop_view,
-                    custom_id="role_category_select",
                 )
             )
 
@@ -205,23 +170,11 @@ class RolesView(View):
             - Controls the number of maximum values for the select menu. The `multiple` option takes the total number of options as the maximum selectable values in the select menu.
     """
 
-    def __init__(
-        self,
-        *,
-        timeout: Optional[float] = None,
-        min_values: int = 1,
-        role_category: str,
-        max_value_type: Literal["single", "multiple"] = "multiple",
-        defaults: Optional[list] = None,
-        stop_view: bool = False,
-    ):
-        super().__init__(timeout=timeout)
+    def __init__(self, role_category: str, min_values: int = 1, max_value_type: Literal["single", "multiple"] = "multiple", defaults: Optional[list] = None, stop_view: bool = False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         rp_conf = RolePickerConfig()
-
-        options = rp_conf.generate_role_options(
-            role_category, defaults=[defaults[0]] if max_value_type == "single" and defaults is not None else defaults
-        )
+        options = rp_conf.generate_role_options(role_category, defaults=defaults)
 
         self.add_item(
             Select(
@@ -231,20 +184,19 @@ class RolesView(View):
                 placeholder="Choose multiple roles" if max_value_type == "multiple" else "Choose a role",
                 row=1,
                 stop_view=stop_view,
-                custom_id="roles_select",
                 defer=True,
             )
         )
 
         self.is_confirmed = True
 
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, custom_id="confirm", emoji="✔", row=2)
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, emoji="✔", row=2)
     async def confirm(self, interaction: discord.Interaction, *_):
         self.is_confirmed = True
         self.interaction = interaction
         self.stop()
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, custom_id="cancel", emoji="✖️", row=2)
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, emoji="✖️", row=2)
     async def cancel(self, interaction: discord.Interaction, *_):
         self.is_confirmed = False
         self.interaction = interaction
@@ -278,17 +230,17 @@ class RolesOverviewView(View):
 
         return self.curr_idx
 
-    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, custom_id="prev", emoji="⬅️")
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, emoji="⬅️")
     async def previous(self, interaction: discord.Interaction, *_):
         self.value = False
         await interaction.response.edit_message(embed=self.embeds[self.update_curr_idx(-1)])
 
-    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, custom_id="next", emoji="➡️")
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, emoji="➡️")
     async def next(self, interaction: discord.Interaction, *_):
         self.value = True
         await interaction.response.edit_message(embed=self.embeds[self.update_curr_idx(1)])
 
-    @discord.ui.button(style=discord.ButtonStyle.red, custom_id="lock", emoji="🔒")
+    @discord.ui.button(style=discord.ButtonStyle.red, emoji="🔒")
     async def lock(self, interaction: discord.Interaction, *_):
         self.stop()
         await interaction.response.edit_message(view=None)
@@ -308,21 +260,8 @@ class PersistentRoleCategoryButton(discord.ui.Button):
             - The value that the button holds.
     """
 
-    def __init__(
-        self,
-        *,
-        style: discord.ButtonStyle = discord.ButtonStyle.primary,
-        label: Optional[str] = None,
-        disabled: bool = False,
-        custom_id: Optional[str] = None,
-        url: Optional[str] = None,
-        emoji: Optional[Union[str, discord.Emoji, discord.PartialEmoji]] = None,
-        row: Optional[int] = None,
-        value: Any,
-    ):
-        super().__init__(
-            style=style, label=label, disabled=disabled, custom_id=custom_id, url=url, emoji=emoji, row=row
-        )
+    def __init__(self, value: Any, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.value = value
 
     async def callback(self, interaction: discord.Interaction):
@@ -344,39 +283,44 @@ class PersistentRoleCategoryButton(discord.ui.Button):
             view=roles_view,
             ephemeral=True,
         )
+
         timeout = await roles_view.wait()
+        await roles_view.interaction.response.defer()
 
         if timeout:
             await interaction.edit_original_response(
                 content="The role picker has timed out, please click on a category again!", view=None
             )
-        elif roles_view.is_confirmed and roles_view.values is not None:
-            selected_role_ids = [int(role_id) for role_id in roles_view.values]  # The selected role IDs
+            return
+        
+        if roles_view.is_confirmed and roles_view.ret_val is not None:
+            selected_role_ids = [int(role_id) for role_id in roles_view.ret_val]  # The selected role IDs
             common_current_role_ids = list(
                 set(user_role_ids).intersection(set(rp_conf.get_role_ids(role_category)))
             )  # The same previous user role IDs compared to the selected category role IDs
 
             if set(selected_role_ids) != set(common_current_role_ids):
+                await interaction.edit_original_response(
+                    content="Changing your roles...", view=None
+                )
+
                 common_selected_role_ids = list(
                     set(selected_role_ids).intersection(set(user_role_ids))
                 )  # The same selected role IDs compared to the previous user role IDs
 
                 # Filter out role IDs to add and delete
-                role_ids_to_add = [
-                    int(role_id) for role_id in selected_role_ids if role_id not in common_selected_role_ids
+                roles_to_add = [
+                    interaction.guild.get_role(int(role_id)) for role_id in selected_role_ids if role_id not in common_selected_role_ids
                 ]
-                role_ids_to_del = [
-                    int(role_id) for role_id in common_current_role_ids if role_id not in common_selected_role_ids
+                roles_to_del = [
+                    interaction.guild.get_role(int(role_id)) for role_id in common_current_role_ids if role_id not in common_selected_role_ids
                 ]
 
                 # Add / Remove roles
-                for role_id in role_ids_to_add:
-                    role = interaction.guild.get_role(int(role_id))
-                    await interaction.user.add_roles(role)
-
-                for role_id in role_ids_to_del:
-                    role = interaction.guild.get_role(int(role_id))
-                    await interaction.user.remove_roles(role)
+                await asyncio.gather(
+                    interaction.user.add_roles(*roles_to_add),
+                    interaction.user.remove_roles(*roles_to_del)
+                )
 
                 await interaction.edit_original_response(
                     content="Your roles have been successfully changed!", view=None
@@ -402,6 +346,6 @@ class PersistentRolePickerView(View):
             if rp_conf.get_roles(category["name"]) is not None:  # Not supposed to show categories with empty roles
                 self.add_item(
                     PersistentRoleCategoryButton(
-                        label=category["label"], value=category["name"], custom_id=f"persistent:{category['name']}"
+                        label=category["label"], value=category["name"], custom_id=f"persistent:{category['name']}", style=discord.ButtonStyle.primary
                     )
                 )
