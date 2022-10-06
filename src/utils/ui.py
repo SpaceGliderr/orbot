@@ -1,3 +1,4 @@
+from code import interact
 import re
 import traceback
 from typing import Any, List, Optional, Union
@@ -20,42 +21,25 @@ class Select(discord.ui.Select):
             - Defers the Interaction in the Buttons callback.
     """
 
-    def __init__(
-        self,
-        *,
-        placeholder: Optional[str] = None,
-        min_values: int = 1,
-        max_values: int = 1,
-        options: List[discord.SelectOption],
-        disabled: bool = False,
-        custom_id: Optional[str] = None,
-        row: Optional[int] = None,
-        stop_view: bool = False,
-        defer: bool = False,
-    ) -> None:
-        super().__init__(
-            placeholder=placeholder,
-            min_values=min_values,
-            max_values=max_values,
-            options=options,
-            disabled=disabled,
-            row=row,
-            custom_id=custom_id,
-        )
+    def __init__(self, stop_view: bool = False, defer: bool = False, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.stop_view = stop_view
         self.defer = defer
+        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else None
 
     async def callback(self, interaction: discord.Interaction):
         if self.defer:
             await interaction.response.defer()
 
-        self.view.values = self.values
-        self.view.dict_values[self.custom_id] = self.values
+        self.view.ret_val = self.values
+
+        if self.user_declared_id is not None:
+            self.view.ret_dict[self.user_declared_id] = self.values
+
         self.view.interaction = interaction
 
         if self.stop_view:
             self.view.stop()
-        # print("AFTER DEFER ", self.values)
 
 
 class Button(discord.ui.Button):
@@ -73,40 +57,29 @@ class Button(discord.ui.Button):
             - Defers the Interaction in the Buttons callback.
     """
 
-    def __init__(
-        self,
-        *,
-        style: discord.ButtonStyle = discord.ButtonStyle.primary,
-        label: Optional[str] = None,
-        disabled: bool = False,
-        custom_id: Optional[str] = None,
-        url: Optional[str] = None,
-        emoji: Optional[Union[str, discord.Emoji, discord.PartialEmoji]] = None,
-        row: Optional[int] = None,
-        value: Optional[Any] = None,
-        stop_view: bool = False,
-        defer: bool = False,
-    ):
-        super().__init__(
-            label=label, disabled=disabled, custom_id=custom_id, url=url, emoji=emoji, row=row, style=style
-        )
+    def __init__(self, value: Optional[Any] = None, stop_view: bool = False, defer: bool = False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.value = value
         self.stop_view = stop_view
         self.defer = defer
+        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else None
 
     async def callback(self, interaction: discord.Interaction):
-        if self.stop_view:
-            self.view.stop()
-
         if self.defer:
             await interaction.response.defer()
 
         if self.value is not None:
-            self.view.values = self.value
+            self.view.ret_val = self.value
         else:
-            self.view.values = self.label
+            self.view.ret_val = self.label
 
+        if self.user_declared_id is not None:
+            self.view.ret_dict[self.user_declared_id] = self.values
+        
         self.view.interaction = interaction
+
+        if self.stop_view:
+            self.view.stop()
 
 
 class View(discord.ui.View):
@@ -116,15 +89,18 @@ class View(discord.ui.View):
 
     Additional Attributes
     ----------
-        * values: Optional[:class:`Any`]
+        * ret_val: Optional[:class:`Any`]
             - Stores the values from an item. Can only store results from one item. Can be `None` type.
+        * ret_dict: dict
+            - Stores the values for items with a user defined custom ID. Can store results for multiple items.
         * interaction: Optional[:class:`discord.Interaction`]
             - Returns the Interaction object from an item. Can only return one Interaction object from one item. Can be `None` type.
     """
 
     def __init__(self, *, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
-        self.values = None
+        self.ret_val = None
+        self.ret_dict = {}
         self.interaction: Optional[discord.Interaction] = None
         self.dict_values = {} # TODO: Replace original values attribute with this
 
@@ -152,17 +128,8 @@ class Modal(discord.ui.Modal):
             - Returns the Interaction object from the modal. Can be `None` type.
     """
 
-    def __init__(
-        self,
-        *,
-        title: str,
-        timeout: Optional[float] = None,
-        custom_id: Optional[str] = None,
-        success_msg: Optional[str] = None,
-        error_msg: Optional[str] = None,
-        checks: Optional[List[dict]] = None,
-    ) -> None:
-        super().__init__(title=title, timeout=timeout, custom_id=custom_id)
+    def __init__(self, success_msg: Optional[str] = None, error_msg: Optional[str] = None, checks: Optional[List[dict]] = None, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.success_msg = success_msg
         self.error_msg = error_msg
         self.checks = checks
