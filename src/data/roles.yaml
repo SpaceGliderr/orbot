@@ -4,12 +4,12 @@ categories:
       (Main), limit: multiple, name: l_o_oΠΔ_(_main)}
   - {description: Show your never-ending support for the members and subunits of LOONA!,
     label: LOOΠΔ (Sub), limit: multiple, name: l_o_oΠΔ_(_sub)}
-  - {description: Roles that get you notified when LOOΠΔ updates their SNS or goes
-      live!, label: LOOΠΔ Activity, limit: multiple, name: l_o_oΠΔ__activity}
-  - {description: These roles grant you access to other parts of the server!, label: Server
-      Roles, limit: multiple, name: server__roles}
+  - {description: Roles that notify you on various LOOΠΔ related updates!, label: LOOΠΔ
+      Activity, limit: multiple, name: l_o_oΠΔ__activity}
+  - {description: Roles that give you notifications and access to various server activities!,
+    label: Server, limit: multiple, name: server}
   - {description: Pick your pronouns!, label: Pronouns, limit: multiple, name: pronouns}
-  - {description: 'Roles that give a fancy role icon, only 1 per member!', label: Role
+  - {description: 'Roles that give a fancy role icon, you may only choose one!', label: Role
       Icons, limit: single, name: role__icons}
   text: Click here to pick which bias role you want!
 l_o_oΠΔ_(_main):
@@ -69,6 +69,8 @@ l_o_oΠΔ_(_sub):
     name: choerry}
   - {emoji: '<:YvesExcuseMe:749233140454785055>', id: 482772122914127881, label: Yves,
     name: yves}
+  - {emoji: '<:chuusmile:861615892172242945>', id: 482772121949306900, label: Chuu,
+    name: chuu}
   - {emoji: '<:gowonkek:598499763154845715>', id: 482772120384831488, label: Go Won,
     name: go__won}
   - {emoji: '<:oliviafeels:944674386043105341>', id: 482772117457469452, label: Olivia
@@ -116,7 +118,7 @@ role__icons:
       Hye, name: punchivia__hye}
 role_picker:
   setup: {channel_id: 1028016165747949639, message_id: 1028033318194794496}
-server__roles:
+server:
   roles:
   - {description: 'Gives permission to post in #buy-sell-trade', id: 482769649898094593,
     label: Collector, name: collector}
