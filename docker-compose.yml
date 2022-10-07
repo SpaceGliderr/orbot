@@ -25,7 +25,8 @@ services:
     #   orbot:
     # env_file: .env
     volumes:
-      - orbot-data:/app/src/data
+      - ./src/data:/app/src/data
+      # - orbot-data:/app/src/data
     # - .:/app
     # - ./rclone/data/kikadrive:/app/kikadrive:shared
     # depends_on:
@@ -52,6 +53,6 @@ services:
   #     RemotePath: kikadrive:/
   #     MountCommands: --allow-other --uid 1000 --gid 1000 --umask 022 --default-permissions --allow-non-empty --dir-cache-time 168h --poll-interval 5m --buffer-size 128M
   #     MountPoint: /mnt/kikadrive
-volumes:
-  orbot-data:
-    driver: local
+# volumes:
+#   orbot-data:
+#     driver: local

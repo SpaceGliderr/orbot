@@ -28,7 +28,7 @@ class Orbot(commands.Bot):
         self.cogs_ext_prefix = "src.cogs."
 
     def run(self):
-        super().run(os.getenv("DEV_TOKEN"))
+        super().run(os.getenv("PROD_TOKEN"))
 
     async def start(self, *args, **kwargs):
         # self.pool = None
