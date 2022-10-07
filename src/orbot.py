@@ -17,7 +17,7 @@ intents = discord.Intents(
     message_content=True,
 )
 
-MY_GUILD = discord.Object(id=864118528134742026)
+MY_GUILD = discord.Object(id=482594344390623240)
 
 
 class Orbot(commands.Bot):
