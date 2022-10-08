@@ -174,7 +174,15 @@ class RolesView(View):
         super().__init__(*args, **kwargs)
 
         rp_conf = RolePickerConfig()
-        options = rp_conf.generate_role_options(role_category, defaults=defaults)
+        filtered_defaults = list(set(defaults).intersection(set(rp_conf.get_role_ids(role_category))))
+
+        # TODO: This is just a temp fix for the discord caching bug
+        if len(filtered_defaults) == 0:
+            filtered_defaults = None
+        elif max_value_type == "single":
+            filtered_defaults = [filtered_defaults[0]]
+
+        options = rp_conf.generate_role_options(role_category, defaults=filtered_defaults)
 
         self.add_item(
             Select(
