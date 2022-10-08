@@ -174,8 +174,7 @@ class RolesView(View):
         super().__init__(*args, **kwargs)
 
         rp_conf = RolePickerConfig()
-        filtered_defaults = list(set(defaults).intersection(set(rp_conf.get_role_ids(role_category))))
-        options = rp_conf.generate_role_options(role_category, defaults=filtered_defaults if max_value_type == "multiple" else [filtered_defaults[0]])
+        options = rp_conf.generate_role_options(role_category, defaults=defaults)
 
         self.add_item(
             Select(
