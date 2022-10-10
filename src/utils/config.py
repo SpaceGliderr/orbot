@@ -12,7 +12,7 @@ class RolePickerConfig:
     """The RolePickerConfig class helps load the `roles.yaml` file and provides other util methods to manipulate the extracted data."""
 
     def __init__(self) -> None:
-        with open("src/roles.yaml", "r") as roles_file:
+        with open("src/data/roles.yaml", "r") as roles_file:
             self._data = yaml.load(roles_file)
 
     @property
@@ -160,7 +160,7 @@ class RolePickerConfig:
 
     def dump(self, data):
         """Dump data into the `roles.yaml` file."""
-        with open("src/roles.yaml", "w") as roles_file:
+        with open("src/data/roles.yaml", "w") as roles_file:
             yaml.dump(data, roles_file)
 
 

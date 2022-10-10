@@ -9,11 +9,7 @@ categories:
   - {description: Pick your pronouns!, label: Pronouns, limit: multiple, name: pronouns}
   - {description: Select a role to get a role icon!, label: Role Icons, limit: single,
     name: role__icons}
-  - {label: Era, limit: multiple, name: era}
   text: Click here to pick which bias role you want!
-era:
-  roles:
-  - {id: 1019632291246526574, label: "\U0001F98B Butterfly", name: "\U0001F98B__butterfly"}
 l_o_oΠΔ_(_main):
   roles:
   - {id: 864118528185597980, label: LOOΠΔ, name: loona}
@@ -110,4 +106,4 @@ role__icons:
   - {emoji: "\U0001F98B", id: 1024334332531322951, label: Go Won, name: go__won}
   - {emoji: "\U0001F43A", id: 1024334388013568000, label: Olivia Hye, name: olivia__hye}
 role_picker:
-  setup: {channel_id: 864118528395575300, message_id: 1024611762202492949}
+  setup: {channel_id: 864118528395575300, message_id: 1026767962662772806}

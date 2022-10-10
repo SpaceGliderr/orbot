@@ -174,7 +174,15 @@ class RolesView(View):
         super().__init__(*args, **kwargs)
 
         rp_conf = RolePickerConfig()
-        options = rp_conf.generate_role_options(role_category, defaults=defaults)
+        filtered_defaults = list(set(defaults).intersection(set(rp_conf.get_role_ids(role_category))))
+
+        # TODO: This is just a temp fix for the discord caching bug
+        if len(filtered_defaults) == 0:
+            filtered_defaults = None
+        elif max_value_type == "single":
+            filtered_defaults = [filtered_defaults[0]]
+
+        options = rp_conf.generate_role_options(role_category, defaults=filtered_defaults)
 
         self.add_item(
             Select(
@@ -285,13 +293,14 @@ class PersistentRoleCategoryButton(discord.ui.Button):
         )
 
         timeout = await roles_view.wait()
-        await roles_view.interaction.response.defer()
 
         if timeout:
             await interaction.edit_original_response(
                 content="The role picker has timed out, please click on a category again!", view=None
             )
             return
+
+        await roles_view.interaction.response.defer()
         
         if roles_view.is_confirmed and roles_view.ret_val is not None:
             selected_role_ids = [int(role_id) for role_id in roles_view.ret_val]  # The selected role IDs
