@@ -157,14 +157,14 @@ class PostChannelView(View):
         # TODO: Add a check here to see whether user actually selected anything
         missing_fields = []
         if self.images is not None: 
-            if not dict_has_key(self.dict_values, "post_channel_image_select"):
+            if not dict_has_key(self.ret_dict, "post_channel_image_select"):
                 missing_fields.append("image(s)")
-            elif len(self.dict_values["post_channel_image_select"]) == 0:
+            elif len(self.ret_dict["post_channel_image_select"]) == 0:
                 missing_fields.append("image(s)")
 
-        if not dict_has_key(self.dict_values, "post_channel_select"):
+        if not dict_has_key(self.ret_dict, "post_channel_select"):
             missing_fields.append("channel(s)")
-        elif len(self.dict_values["post_channel_select"]) == 0:
+        elif len(self.ret_dict["post_channel_select"]) == 0:
             missing_fields.append("channel(s)")
         
         if len(missing_fields) != 0:
@@ -333,13 +333,13 @@ class PersistentTweetButton(discord.ui.Button):
         emoji: Optional[Union[str, discord.Emoji, discord.PartialEmoji]] = None,
         row: Optional[int] = None,
         callback_type: Literal["select", "all", "stop"],
-        filenames: List[str],
+        files: List[discord.File],
         bot: Any,
     ):
         super().__init__(
             style=style, label=label, disabled=disabled, custom_id=custom_id, url=url, emoji=emoji, row=row
         )
-        self.filenames = filenames
+        self.files = files
         self.callback_type = callback_type
         self.callbacks = {
             "select": self.select,
@@ -371,12 +371,12 @@ class PersistentTweetButton(discord.ui.Button):
         elif not post_channel_view.is_confirmed:
             await interaction.followup.send(content="No post was sent", ephemeral=True)
         else:
-            await self.send_post_view(post_channel_view.interaction, post_channel_view.dict_values, images)
+            await self.send_post_view(post_channel_view.interaction, post_channel_view.ret_dict, images)
 
 
     async def send_post_view(self, interaction: discord.Interaction, values: dict, images: Optional[List[str]] = None):
         post_channel_ids = values["post_channel_select"]
-        images_to_post = values["post_channel_image_select"] if images is not None and self.callback_type == "select" else self.filenames
+        images_to_post = values["post_channel_image_select"] if images is not None and self.callback_type == "select" else self.files
 
         await interaction.response.send_message(embed=PostEmbed(title="Post Details", description="Post details for post INSERT TWITTER LINK HERE by @loonatheworld\n\u200B"))
         embedded_message = await interaction.original_response()
@@ -395,14 +395,14 @@ class PersistentTweetButton(discord.ui.Button):
             post_channels = []
             for post_channel_id in post_channel_ids:
                 post_channel = await interaction.guild.fetch_channel(int(post_channel_id))
-                await post_channel.send(content=caption, files=[discord.File(fp=f"loonatheworld/{fp}") for fp in images_to_post])
+                await post_channel.send(content=caption, files=images_to_post)
                 post_channels.append(f"<#{post_channel.id}>")
 
             await interaction.followup.send(content=f"Post(s) successfully created in {', '.join(post_channels)}")
     
 
     async def select(self, interaction: discord.Interaction):
-        await self.send_post_channel_view(interaction, self.filenames)
+        await self.send_post_channel_view(interaction, self.files)
 
     async def all(self, interaction: discord.Interaction):
         await self.send_post_channel_view(interaction)
@@ -421,7 +421,7 @@ class PersistentTweetView(View):
 
         if kwargs != {}:
             self.message_id = kwargs["message_id"]
-            self.filenames = kwargs["filenames"]
+            self.files = kwargs["files"]
             self.bot = kwargs["bot"]
 
             self.add_item(
@@ -430,7 +430,7 @@ class PersistentTweetView(View):
                     style=discord.ButtonStyle.primary,
                     custom_id=f"persistent:{self.message_id}:select",
                     callback_type="select",
-                    filenames=self.filenames,
+                    files=self.files,
                     bot=self.bot
                 )
             )
@@ -441,7 +441,7 @@ class PersistentTweetView(View):
                     style=discord.ButtonStyle.primary,
                     custom_id=f"persistent:{self.message_id}:all",
                     callback_type="all",
-                    filenames=self.filenames,
+                    files=self.files,
                     bot=self.bot
                 )
             )
@@ -452,7 +452,7 @@ class PersistentTweetView(View):
                     custom_id=f"persistent:{self.message_id}:stop",
                     emoji="✖️",
                     callback_type="stop",
-                    filenames=self.filenames,
+                    files=self.files,
                     bot=self.bot
                 )
             )
@@ -559,10 +559,10 @@ class EditPostButton(discord.ui.Button):
         await view.wait()
         await interaction.delete_original_response()
 
-        print(view.dict_values)
+        print(view.ret_dict)
 
-        if dict_has_key(view.dict_values, "keep_image_select"):
-            index_list = [int(idx) for idx in view.dict_values["keep_image_select"]]
+        if dict_has_key(view.ret_dict, "keep_image_select"):
+            index_list = [int(idx) for idx in view.ret_dict["keep_image_select"]]
             self.view.post_details["files"] = list(map(list(self.view.post_details["files"]).__getitem__, index_list))
 
             await self.view.embedded_message.edit(embed=EditPostEmbed(post_details=self.view.post_details))
