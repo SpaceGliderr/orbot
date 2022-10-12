@@ -5,3 +5,5 @@ jishaku
 ruamel.yaml
 python-dotenv
 stringcase
+tweepy[async]
+python-dateutil
