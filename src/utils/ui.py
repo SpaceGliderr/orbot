@@ -102,7 +102,6 @@ class View(discord.ui.View):
         self.ret_val = None
         self.ret_dict = {}
         self.interaction: Optional[discord.Interaction] = None
-        self.dict_values = {} # TODO: Replace original values attribute with this
 
 
 class Modal(discord.ui.Modal):
