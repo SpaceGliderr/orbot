@@ -1,9 +1,9 @@
-import asyncio
 import os
 
 import asyncpg
 import discord
 from discord.ext import commands
+from src.cogs.cm_auto_post.fansite import FansiteFeed
 
 from src.cogs.role_picker.ui import PersistentRolePickerView
 
@@ -24,6 +24,7 @@ class Orbot(commands.Bot):
         self.exts = ["jishaku"]
         self.cogs_path = "src/cogs"
         self.cogs_ext_prefix = "src.cogs."
+        self.twitter_stream = FansiteFeed()
 
     def run(self):
         super().run(os.getenv("DEV_TOKEN"))
@@ -40,6 +41,16 @@ class Orbot(commands.Bot):
         #         await asyncio.sleep(1)
 
         await super().start(*args, **kwargs)
+
+    async def close(self):
+        # TODO: Change these print statements to log statements
+        if self.twitter_stream.stream is not None and self.twitter_stream.stream.task is not None:
+            print("Closing Stream...")
+            await self.twitter_stream.close_stream()
+            print("Stream Closed!")
+
+        print("Closing the server...")
+        await super().close()
 
     async def setup_hook(self):
         self.add_view(PersistentRolePickerView())
@@ -60,5 +71,11 @@ class Orbot(commands.Bot):
 
         for extension in extensions:
             await self.load_extension(extension)
+
+    async def on_ready(self):
+        # TODO: Change these print statements to log statements
+        await self.twitter_stream.start_stream(self)
+        print("Ready")
+
 
 client = Orbot()
