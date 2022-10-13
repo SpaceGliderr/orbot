@@ -7,7 +7,7 @@ import discord
 from tweepy.asynchronous import AsyncStreamingClient
 from src.cogs.cm_auto_post.ui import PersistentTweetView
 
-from src.utils.helper import download_files, get_from_dict
+from src.utils.helper import convert_files_to_zip, download_files, get_from_dict
 from src.utils.config import CMAutoPostConfig
 
 
@@ -24,11 +24,13 @@ class FansiteStreamingClient(AsyncStreamingClient):
         print(urls)
         
         files = await download_files(urls)
+        zip_file = await convert_files_to_zip(files)
+        cm_list = [*files, zip_file]
         
         cmap_conf = CMAutoPostConfig()
         channel = await self.client.fetch_channel(cmap_conf.data["config"]["feed_channel_id"])
         
-        message = await channel.send(content=user["name"], files=files)
+        message = await channel.send(content=user["name"], files=cm_list)
         
         # The following for loop is to make it so that the Discord files are read from the first byte again after being sent as a message earlier
         # Being sent as a message initially means the byte-file pointer is at the end
