@@ -1,7 +1,7 @@
 import asyncio
 import json
 import os
-from typing import List
+from typing import List, Literal
 import tweepy
 import discord
 from tweepy.asynchronous import AsyncStreamingClient
@@ -73,12 +73,27 @@ class FansiteFeed():
         self.follow = ["1578046589578661888"]
         self.stream: FansiteStreamingClient = None
         self.task: asyncio.Task = None
+        self.client: discord.Client = None
 
         self.rule_prefix = "(from:"
         self.rule_postfix = ") has:media"
         self.rule_connector = " OR from:"
         self.max_rule_content_length = 512 - (len(self.rule_prefix) + len(self.rule_postfix))
+
     
+    def save_user_id(self, purpose: Literal["add", "remove"], user_id: str):
+        with open("src/cogs/cm_auto_post/IDs.txt", "r+") as data:
+            lines = data.read().splitlines()
+            data.seek(0) # Moves the file pointer to the first index so it replaces the content
+
+            if purpose == "remove":
+                lines.remove(user_id)
+            else:
+                lines.append(user_id)
+            
+            data.write("\n".join(lines))
+            data.truncate()
+        
 
     def generate_rule_contents(self, user_id: str, user_ids: List[str], rule_content: str = "", rule_contents: List[str] = []):
         content = f"{user_id}" if rule_content == "" else f"{self.rule_connector}{user_id}"
@@ -109,6 +124,8 @@ class FansiteFeed():
 
 
     async def start_stream(self, client: discord.Client):
+        self.client = client
+
         # ! Can't setup more than 1 stream concurrently if there are more than a certain amount of user IDs
         self.stream = FansiteStreamingClient(client)
 
@@ -125,3 +142,9 @@ class FansiteFeed():
     async def close_stream(self):
         self.stream.disconnect() # Doesn't force a direct disconnection as it waits until the next cycle in the event loop to disconnect
         await self.stream.session.close() # Close the websocket connection to Twitter's API - this forces a direct disconnection
+
+
+    async def restart_stream(self):
+        if self.stream is not None and self.client is not None:
+            await self.close_stream()
+            await self.start_stream(self.client)

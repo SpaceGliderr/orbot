@@ -182,6 +182,13 @@ class CMAutoPostConfig:
         return self._data
 
     @staticmethod
+    def get_user_ids():
+        # TODO: Move this to fansite.py
+        with open("src/cogs/cm_auto_post/IDs.txt") as data:
+            lines = data.read().splitlines()
+            return [user_id for user_id in lines]
+
+    @staticmethod
     def generate_post_caption(post_details: Optional[dict] = None):
         if post_details is not None and post_details != {}:
             if dict_has_key(post_details, "caption"):
