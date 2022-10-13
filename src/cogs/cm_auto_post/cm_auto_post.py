@@ -1,4 +1,5 @@
 from os import walk
+from typing import Literal
 import discord
 from discord import Permissions, app_commands
 from discord.ext import commands
@@ -8,11 +9,19 @@ from src.utils.config import CMAutoPostConfig
 from src.orbot import client
 
 import stringcase
+import tweepy
+import os
 
 
 class CMAutoPost(commands.GroupCog, name="cm-post"):
     def __init__(self, bot):
         self.bot = bot
+        self.twitter_client = tweepy.Client(bearer_token=os.getenv("TWITTER_BEARER_TOKEN"))
+        self.account_action_callbacks = {
+            "check": self.check,
+            "follow": self.follow,
+            "unfollow": self.unfollow
+        }
 
         global global_bot
         global_bot = bot
@@ -39,6 +48,68 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
         default_permissions=Permissions(manage_messages=True),
         guild_only=True,
     )
+
+    def is_following(self, username: str) -> tuple[bool, str]:
+        user_ids = CMAutoPostConfig.get_user_ids()
+        user = self.twitter_client.get_user(username=username)
+
+        if len(user.errors) != 0:
+            raise Exception("Can't find username")
+        
+        user_id = str(user.data.id)
+        return (user_id in user_ids, user_id) 
+
+
+    async def _check(self, interaction: discord.Interaction, username: str):
+        try:
+            res = self.is_following(username)
+        except:
+            await interaction.response.send_message(content="No user found with that username")
+            return None
+        else:
+            return res
+
+
+    async def check(self, interaction: discord.Interaction, username: str):
+        res = await self._check(interaction, username)
+        if res is None:
+            return
+
+        is_following, _ = res
+        if is_following:
+            await interaction.response.send_message(content="This account is already being followed!")
+        else:
+            await interaction.response.send_message(content="This account is not being followed!")
+
+
+    async def follow(self, interaction: discord.Interaction, username: str):
+        res = await self._check(interaction, username)
+        if res is None:
+            return
+
+        is_following, user_id = res
+        if not is_following:
+            # Write to file
+            self.bot.twitter_stream.save_user_id(purpose="add", user_id=user_id)
+            # Restart stream
+            await self.bot.twitter_stream.restart_stream()
+        else:
+            await interaction.response.send_message(content="This account is already being followed!")
+        
+
+    async def unfollow(self, interaction: discord.Interaction, username: str):
+        res = await self._check(interaction, username)
+        if res is None:
+            return
+
+        is_following, user_id = res
+        if is_following:
+            # Remove from file
+            self.bot.twitter_stream.save_user_id(purpose="remove", user_id=user_id)
+            # Restart stream
+            await self.bot.twitter_stream.restart_stream()
+        else:
+            await interaction.response.send_message(content="This account is not being followed!")
 
     
     @app_commands.command(name="mock-post", description="Sends a mock post to the channel provided by the setup.")
@@ -74,29 +145,14 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
         data["config"]["feed_channel_id"] = channel.id
         cmap_conf.dump(data)
 
-
-    @app_commands.command(name="follow", description="Follow a Twitter account.")
+    
+    @app_commands.command(name="account", description="Check whether a Twitter account is being followed.")
     @app_commands.guild_only()
-    @app_commands.describe(handle="the users Twitter handle")
+    @app_commands.describe(username="the users Twitter handle")
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def follow(self, interaction: discord.Interaction, handle: str):
-        pass
-
-
-    @app_commands.command(name="unfollow", description="Unfollow a Twitter account.")
-    @app_commands.guild_only()
-    @app_commands.describe(handle="the users Twitter handle")
-    @app_commands.checks.has_permissions(manage_messages=True)
-    async def unfollow(self, interaction: discord.Interaction, handle: str):
-        pass
-
-
-    @app_commands.command(name="check", description="Check whether a Twitter account is being followed.")
-    @app_commands.guild_only()
-    @app_commands.describe(handle="the users Twitter handle")
-    @app_commands.checks.has_permissions(manage_messages=True)
-    async def check(self, interaction: discord.Interaction, handle: str):
-        pass
+    async def account(self, interaction: discord.Interaction, action: Literal["follow", "unfollow", "check"], username: str):
+        # TODO: Handle interaction defer properly
+        await self.account_action_callbacks[action](interaction, username)
 
     
     @add_group.command(name="post-channel", description="Add a posting channel to the Auto-Poster.")
