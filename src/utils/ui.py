@@ -21,11 +21,12 @@ class Select(discord.ui.Select):
             - Defers the Interaction in the Buttons callback.
     """
 
-    def __init__(self, stop_view: bool = False, defer: bool = False, *args, **kwargs) -> None:
+    def __init__(self, name: Optional[str], stop_view: bool = False, defer: bool = False, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.name = name
         self.stop_view = stop_view
         self.defer = defer
-        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else None
+        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else name
 
     async def callback(self, interaction: discord.Interaction):
         if self.defer:
@@ -57,12 +58,13 @@ class Button(discord.ui.Button):
             - Defers the Interaction in the Buttons callback.
     """
 
-    def __init__(self, value: Optional[Any] = None, stop_view: bool = False, defer: bool = False, *args, **kwargs):
+    def __init__(self, name: Optional[str], value: Optional[Any] = None, stop_view: bool = False, defer: bool = False, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.name = name
         self.value = value
         self.stop_view = stop_view
         self.defer = defer
-        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else None
+        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else name
 
     async def callback(self, interaction: discord.Interaction):
         if self.defer:
