@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 from typing import List, Literal
 import tweepy
 import discord
@@ -20,8 +21,8 @@ class FansiteStreamingClient(AsyncStreamingClient):
     async def send_post(self, data):
         medias = get_from_dict(data, ["includes", "media"])
         user = get_from_dict(data, ["includes", "users"])[0]
+        tweet_text = get_from_dict(data, ["data", "text"])
         urls = [media["url"] for media in medias]
-        print(urls)
         
         files = await download_files(urls)
         zip_file = await convert_files_to_zip(files)
@@ -39,7 +40,12 @@ class FansiteStreamingClient(AsyncStreamingClient):
             f.fp.seek(0)
 
         # Update the message with the post view
-        view = PersistentTweetView(message_id=message.id, files=files, bot=self.client)
+        url = re.search(r"https://t.co/\S+", tweet_text)
+        tweet_details = {
+            "user": user,
+            "url": url.group()
+        }
+        view = PersistentTweetView(message_id=message.id, files=files, bot=self.client, tweet_details=tweet_details)
         self.client.add_view(view=view)
         await message.edit(view=view)
 
