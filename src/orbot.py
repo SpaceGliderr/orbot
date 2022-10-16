@@ -3,8 +3,8 @@ import os
 import asyncpg
 import discord
 from discord.ext import commands
-from src.cogs.cm_auto_post.fansite import FansiteFeed
 
+from src.cogs.cm_auto_post.fansite import FansiteFeed
 from src.cogs.role_picker.ui import PersistentRolePickerView
 
 intents = discord.Intents(
@@ -17,6 +17,7 @@ intents = discord.Intents(
 )
 
 MY_GUILD = discord.Object(id=864118528134742026)
+
 
 class Orbot(commands.Bot):
     def __init__(self):

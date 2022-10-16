@@ -1,31 +1,30 @@
-from os import walk
+import os
 from typing import Literal
+
 import discord
-from discord import Permissions, app_commands
-from discord.ext import commands
-from src.cogs.cm_auto_post.ui import EditPostEmbed, EditPostView, PersistentTweetView, PostChannelModal, PostChannelView
-
-from src.utils.config import CMAutoPostConfig
-from src.orbot import client
-
 import stringcase
 import tweepy
-import os
+from discord import Permissions, app_commands
+from discord.ext import commands
+
+from src.cogs.cm_auto_post.ui import (
+    EditPostEmbed,
+    EditPostView,
+    PostChannelModal,
+    PostChannelView,
+)
+from src.orbot import client
+from src.utils.config import CMAutoPostConfig
 
 
 class CMAutoPost(commands.GroupCog, name="cm-post"):
     def __init__(self, bot):
         self.bot = bot
         self.twitter_client = tweepy.Client(bearer_token=os.getenv("TWITTER_BEARER_TOKEN"))
-        self.account_action_callbacks = {
-            "check": self.check,
-            "follow": self.follow,
-            "unfollow": self.unfollow
-        }
+        self.account_action_callbacks = {"check": self.check, "follow": self.follow, "unfollow": self.unfollow}
 
         global global_bot
         global_bot = bot
-    
 
     # =================================================================================================================
     # COMMAND GROUPS
@@ -55,10 +54,9 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
 
         if len(user.errors) != 0:
             raise Exception("Can't find username")
-        
-        user_id = str(user.data.id)
-        return (user_id in user_ids, user_id) 
 
+        user_id = str(user.data.id)
+        return (user_id in user_ids, user_id)
 
     async def _check(self, interaction: discord.Interaction, username: str):
         try:
@@ -68,7 +66,6 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
             return None
         else:
             return res
-
 
     async def check(self, interaction: discord.Interaction, username: str):
         res = await self._check(interaction, username)
@@ -80,7 +77,6 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
             await interaction.response.send_message(content="This account is already being followed!")
         else:
             await interaction.response.send_message(content="This account is not being followed!")
-
 
     async def follow(self, interaction: discord.Interaction, username: str):
         res = await self._check(interaction, username)
@@ -95,7 +91,6 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
             await self.bot.twitter_stream.restart_stream()
         else:
             await interaction.response.send_message(content="This account is already being followed!")
-        
 
     async def unfollow(self, interaction: discord.Interaction, username: str):
         res = await self._check(interaction, username)
@@ -111,29 +106,30 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
         else:
             await interaction.response.send_message(content="This account is not being followed!")
 
-
     @app_commands.command(name="setup-feed", description="Setup the Twitter feed in a text channel.")
     @app_commands.guild_only()
     @app_commands.describe(channel="the text channel to setup in")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def setup_feed(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        await interaction.response.send_message(content=f"The Twitter fansite feed has been successfully setup in <#{channel.id}>")
+        await interaction.response.send_message(
+            content=f"The Twitter fansite feed has been successfully setup in <#{channel.id}>"
+        )
 
         cmap_conf = CMAutoPostConfig()
         data = cmap_conf.get_data()
         data["config"]["feed_channel_id"] = channel.id
         cmap_conf.dump(data)
 
-    
     @app_commands.command(name="account", description="Check whether a Twitter account is being followed.")
     @app_commands.guild_only()
     @app_commands.describe(username="the users Twitter handle")
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def account(self, interaction: discord.Interaction, action: Literal["follow", "unfollow", "check"], username: str):
+    async def account(
+        self, interaction: discord.Interaction, action: Literal["follow", "unfollow", "check"], username: str
+    ):
         # TODO: Handle interaction defer properly
         await self.account_action_callbacks[action](interaction, username)
 
-    
     @add_group.command(name="post-channel", description="Add a posting channel to the Auto-Poster.")
     @app_commands.guild_only()
     @app_commands.describe(channel="the post-able text channel")
@@ -148,7 +144,7 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
             timeout=90,
             success_msg="A new post channel was successfully added!",
             error_msg="A few problems were encountered when adding a post channel, please try again!",
-            defaults={ "id": channel.id, "label": channel.name }
+            defaults={"id": channel.id, "label": channel.name},
         )
 
         await interaction.response.send_modal(post_channel_modal)
@@ -157,18 +153,19 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
         if timeout:
             await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
             return
-        
+
         new_post_channel = post_channel_modal.get_values()
         new_post_channel["id"] = int(new_post_channel["id"])
         new_post_channel["name"] = stringcase.snakecase(str(new_post_channel["label"]))
 
         data = cmap_conf.get_data()
         data["config"]["post_channels"].append(new_post_channel)
-        
+
         cmap_conf.dump(data)
 
-
-    @edit_group.command(name="post-channel", description="Edit details of an existing posting channel in the Auto-Poster.")
+    @edit_group.command(
+        name="post-channel", description="Edit details of an existing posting channel in the Auto-Poster."
+    )
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_messages=True)
     async def edit_post_channel(self, interaction: discord.Interaction):
@@ -196,7 +193,7 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
             timeout=90,
             success_msg="The post channel was successfully edited!",
             error_msg="A few problems were encountered when editing the post channel, please try again!",
-            defaults=post_channel_details
+            defaults=post_channel_details,
         )
 
         await post_channel_view.interaction.response.send_modal(post_channel_modal)
@@ -218,9 +215,8 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
             **data["config"]["post_channels"][idx],
             **edited_post_channel,
         }
-        
-        cmap_conf.dump(data)
 
+        cmap_conf.dump(data)
 
     @delete_group.command(name="post-channel", description="Delete an existing posting channel in the Auto-Poster.")
     @app_commands.guild_only()
@@ -246,7 +242,6 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
 
         cmap_conf.dump(data)
 
-
     @client.tree.context_menu(name="Edit Post")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_messages=True)
@@ -260,7 +255,7 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
             "message": message,
             "caption": message.content,
             "caption_credits": CMAutoPostConfig.anatomize_post_caption(message.content),
-            "files": files
+            "files": files,
         }
 
         embedded_message = await feed_channel.send(embed=EditPostEmbed(post_details))
@@ -271,7 +266,9 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
         await embedded_message.edit(view=None)
 
         if view.is_confirmed:
-            await view.interaction.followup.send(content=f"The post was successfully edited in <#{message.channel.id}>. {message.jump_url}")
+            await view.interaction.followup.send(
+                content=f"The post was successfully edited in <#{message.channel.id}>. {message.jump_url}"
+            )
 
 
 async def setup(bot):

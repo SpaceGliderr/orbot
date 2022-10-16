@@ -1,4 +1,3 @@
-from code import interact
 import re
 import traceback
 from typing import Any, List, Optional, Union
@@ -58,7 +57,15 @@ class Button(discord.ui.Button):
             - Defers the Interaction in the Buttons callback.
     """
 
-    def __init__(self, name: Optional[str], value: Optional[Any] = None, stop_view: bool = False, defer: bool = False, *args, **kwargs):
+    def __init__(
+        self,
+        name: Optional[str],
+        value: Optional[Any] = None,
+        stop_view: bool = False,
+        defer: bool = False,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.name = name
         self.value = value
@@ -77,7 +84,7 @@ class Button(discord.ui.Button):
 
         if self.user_declared_id is not None:
             self.view.ret_dict[self.user_declared_id] = self.values
-        
+
         self.view.interaction = interaction
 
         if self.stop_view:
@@ -129,7 +136,14 @@ class Modal(discord.ui.Modal):
             - Returns the Interaction object from the modal. Can be `None` type.
     """
 
-    def __init__(self, success_msg: Optional[str] = None, error_msg: Optional[str] = None, checks: Optional[List[dict]] = None, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        success_msg: Optional[str] = None,
+        error_msg: Optional[str] = None,
+        checks: Optional[List[dict]] = None,
+        *args,
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.success_msg = success_msg
         self.error_msg = error_msg

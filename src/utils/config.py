@@ -201,13 +201,12 @@ class CMAutoPostConfig:
                 caption += f'{post_details["event_details"]} '
 
             if caption_credits is not None:
-                caption += f'| cr: {caption_credits[0]} (@{caption_credits[1]})'
+                caption += f"| cr: {caption_credits[0]} (@{caption_credits[1]})"
 
             caption += "\n```"
 
             return caption
         return None
-
 
     @staticmethod
     def anatomize_post_caption(caption: str):
@@ -217,9 +216,8 @@ class CMAutoPostConfig:
         if name is not None and username is not None:
             # Split the name by removing `cr: ` and username by removing the `@()`
             return (name.group()[4:-2], username.group()[2:-1])
-        
-        return None
 
+        return None
 
     def get_data(self):
         """Get a copied version of the extracted data."""
@@ -234,7 +232,10 @@ class CMAutoPostConfig:
 
     def generate_post_channel_options(self):
         """Generates a list of select options for post channels."""
-        return [discord.SelectOption(label=post_channel["label"], value=post_channel["id"]) for post_channel in self.post_channels]
+        return [
+            discord.SelectOption(label=post_channel["label"], value=post_channel["id"])
+            for post_channel in self.post_channels
+        ]
 
     def dump(self, data):
         """Dump data into the `cm_auto_post.yaml` file."""
