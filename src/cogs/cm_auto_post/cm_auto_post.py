@@ -111,28 +111,7 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
         else:
             await interaction.response.send_message(content="This account is not being followed!")
 
-    
-    @app_commands.command(name="mock-post", description="Sends a mock post to the channel provided by the setup.")
-    @app_commands.guild_only()
-    async def mock_post(self, interaction: discord.Interaction):
-        """Mocks an incoming Twitter post"""
-        # files = [discord.File(fp=f"loonatheworld/{filename}", filename=filename) for filename in next(walk("loonatheworld"), (None, [], []))[2]]
-        filenames = next(walk("loonatheworld"), (None, [], []))[2]
 
-        await interaction.response.send_message("Mock Post created", ephemeral=True)
-
-        cmap_conf = CMAutoPostConfig()
-        channel = await interaction.guild.fetch_channel(cmap_conf.data["config"]["feed_channel_id"])
-
-        message = await channel.send(content="@loonatheworld", files=[discord.File(fp=f"loonatheworld/{f}") for f in filenames])
-        view = PersistentTweetView(message_id=message.id, filenames=filenames, bot=self.bot)
-        self.bot.add_view(view)
-        await message.edit(view=view)
-
-        await view.wait()
-        await message.edit(view=None)
-    
-    
     @app_commands.command(name="setup-feed", description="Setup the Twitter feed in a text channel.")
     @app_commands.guild_only()
     @app_commands.describe(channel="the text channel to setup in")
