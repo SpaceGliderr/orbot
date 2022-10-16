@@ -1,4 +1,5 @@
-from typing import Any, List, Optional
+import re
+from typing import Any, List, Optional, Tuple
 
 import discord
 from ruamel.yaml import YAML
@@ -189,7 +190,7 @@ class CMAutoPostConfig:
             return [user_id for user_id in lines]
 
     @staticmethod
-    def generate_post_caption(post_details: Optional[dict] = None):
+    def generate_post_caption(caption_credits: Optional[Tuple[str, str]], post_details: Optional[dict] = None):
         if post_details is not None and post_details != {}:
             if dict_has_key(post_details, "caption"):
                 return f"```ml\n{post_details['caption']}\n```"
@@ -199,10 +200,26 @@ class CMAutoPostConfig:
             if dict_has_key(post_details, "event_details"):
                 caption += f'{post_details["event_details"]} '
 
-            caption += '| cr: INSERT TWITTER DISPLAY NAME (@INSERT TWITTER HANDLE)\n```'
+            if caption_credits is not None:
+                caption += f'| cr: {caption_credits[0]} (@{caption_credits[1]})'
+
+            caption += "\n```"
 
             return caption
         return None
+
+
+    @staticmethod
+    def anatomize_post_caption(caption: str):
+        name = re.search(r"cr:\s{1}.+?\(", caption)
+        username = re.search(r"\(@.+?\)", caption)
+
+        if name is not None and username is not None:
+            # Split the name by removing `cr: ` and username by removing the `@()`
+            return (name.group()[4:-2], username.group()[2:-1])
+        
+        return None
+
 
     def get_data(self):
         """Get a copied version of the extracted data."""

@@ -280,6 +280,7 @@ class CMAutoPost(commands.GroupCog, name="cm-post"):
         post_details = {
             "message": message,
             "caption": message.content,
+            "caption_credits": CMAutoPostConfig.anatomize_post_caption(message.content),
             "files": files
         }
 
