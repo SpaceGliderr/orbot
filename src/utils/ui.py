@@ -67,7 +67,7 @@ class Button(discord.ui.Button):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.name = name
+        self.name = name # TODO: Use name instead of custom_id for user_declared_id
         self.value = value
         self.stop_view = stop_view
         self.defer = defer
