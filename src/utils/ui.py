@@ -59,7 +59,7 @@ class Button(discord.ui.Button):
 
     def __init__(
         self,
-        name: Optional[str],
+        name: Optional[str] = None,
         value: Optional[Any] = None,
         stop_view: bool = False,
         defer: bool = False,

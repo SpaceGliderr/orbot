@@ -303,7 +303,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
             return
 
-        post_channel = post_channel_view.values
+        post_channel = post_channel_view.ret_val
 
         idx, post_channel_details = cp_conf.get_post_channel(post_channel)
 
@@ -330,6 +330,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         edited_post_channel["name"] = stringcase.snakecase(
             str(edited_post_channel["label"])
         )  # Generates a snakecased `name` attribute from the label
+        edited_post_channel["id"] = int(edited_post_channel["id"])
 
         data = cp_conf.get_data()
         data["config"]["post_channels"][idx] = {
@@ -368,7 +369,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
             return
 
-        post_channel = post_channel_view.values
+        post_channel = post_channel_view.ret_val
         data = cp_conf.get_data()
         idx, _ = cp_conf.get_post_channel(post_channel)
         del data["config"]["post_channels"][idx]

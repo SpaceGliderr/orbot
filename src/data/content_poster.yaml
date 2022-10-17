@@ -1,7 +1,7 @@
 config:
   feed_channel_id: 1025409558841135124
   post_channels:
-  - {id: 864118529200488466, label: "\U0001F430heejin", name: "\U0001F430heejin"}
+  - {id: 864118529200488466, label: "\U0001F430 Heejin", name: "\U0001F430__heejin"}
   - {id: 864118529200488467, label: "\U0001F431 Hyunjin", name: "\U0001F431__hyunjin"}
   - {id: 864118529451884564, label: "\U0001F426 Haseul", name: "\U0001F426__haseul"}
   - {id: 864118529451884565, label: "\U0001F438 Yeojin", name: "\U0001F438__yeojin"}
@@ -13,4 +13,3 @@ config:
   - {id: 864118529451884571, label: "\U0001F427 Chuu", name: "\U0001F427__chuu"}
   - {id: 864118529451884572, label: "\U0001F98B Go Won", name: "\U0001F98B__go__won"}
   - {id: 864118529451884573, label: "\U0001F43A  Olivia Hye", name: "\U0001F43A___olivia__hye"}
-  whitelist: []
