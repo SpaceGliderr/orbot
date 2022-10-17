@@ -38,6 +38,7 @@ class PostChannelModal(Modal):
         * defaults: Optional[:class:`dict`]
             - Fills the default values for each text input. Possible keys: `id`, `label`.
     """
+
     def __init__(self, defaults: Optional[dict] = None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -75,6 +76,7 @@ class PostCaptionEmbed(discord.Embed):
         * post_details: Optional[:class:`dict`]
             - The post details to display in the embed. Possible keys: `event_details`, `caption`.
     """
+
     def __init__(
         self,
         embed_type: Literal["new", "edit"],
@@ -120,6 +122,7 @@ class EditPostEmbed(discord.Embed):
         * post_details: :class:`EditPostDetails`
             - The post details to display in the embed.
     """
+
     def __init__(self, post_details: EditPostDetails, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -140,7 +143,7 @@ class EditPostEmbed(discord.Embed):
 # CONTENT POSTER BUTTONS
 # =================================================================================================================
 class ClearButton(discord.ui.Button):
-    """Creates a clear button by inheriting the `discord.ui.Button` class. 
+    """Creates a clear button by inheriting the `discord.ui.Button` class.
     This button will clear any user input with the `input_name` from the `post_details` attribute in its parent view.
 
     Additional Parameters
@@ -150,6 +153,7 @@ class ClearButton(discord.ui.Button):
         * post_url: :class:`str` || embed_type: Literal[`new`, `edit`] || caption_credits: Tuple[:class:`str`, :class:`str`]
             - The parameters needed to update the `PostCaptionEmbed` embed.
     """
+
     def __init__(
         self,
         post_url: str,
@@ -181,7 +185,7 @@ class ClearButton(discord.ui.Button):
 
 
 class EditPostButton(discord.ui.Button):
-    """Creates a clear button by inheriting the `discord.ui.Button` class. 
+    """Creates a clear button by inheriting the `discord.ui.Button` class.
     This button will clear any user input with the `input_name` from the `post_details` attribute in its parent view.
 
     Additional Parameters
@@ -192,12 +196,13 @@ class EditPostButton(discord.ui.Button):
             - The parameters needed to update the `PostCaptionEmbed` embed.
         * bot: :class:`discord.Client`
             - The parameters needed to update the `PostCaptionEmbed` embed.
-    
+
     Additional Attributes
     ----------
         * is_cancelled: :class:`bool` = False
             - Whether the parent view is cancelled or not
     """
+
     def __init__(
         self,
         callback_type: Literal["edit_caption", "add_image", "remove_image", "save", "stop"],
@@ -247,7 +252,9 @@ class EditPostButton(discord.ui.Button):
         if timeout:
             await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
         elif post_caption_view.is_confirmed:
-            caption = ContentPosterConfig.generate_post_caption(self.post_details["caption_credits"], post_caption_view.post_details)
+            caption = ContentPosterConfig.generate_post_caption(
+                self.post_details["caption_credits"], post_caption_view.post_details
+            )
             self.view.post_details["caption"] = caption
             await self.view.embedded_message.edit(embed=EditPostEmbed(post_details=self.view.post_details))
             await embedded_message.delete()
@@ -264,7 +271,9 @@ class EditPostButton(discord.ui.Button):
             description=f"The next message you send in <#{feed_channel.id}> will be recorded as the new images",
         )
         user_input_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
-        user_input_embed.set_footer(text="Data is recorded successfully when the previous embed is updated with the data.")
+        user_input_embed.set_footer(
+            text="Data is recorded successfully when the previous embed is updated with the data."
+        )
 
         cancel_view = CancelView(timeout=30)
         message = await feed_channel.send(embed=user_input_embed, view=cancel_view)  # TODO: Do an embed
@@ -368,6 +377,7 @@ class EditPostButton(discord.ui.Button):
 # =================================================================================================================
 class CancelView(View):
     """Creates a view with a cancel button by inheriting the `View` class."""
+
     def __init__(self, *, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
         self.interaction = None
@@ -392,6 +402,7 @@ class PostChannelAndDetailsView(View):
         * stop_view: :class:`bool` | False || defer: :class:`bool` | False
             - These parameters are passed into the `Select` and `Button` child components.
     """
+
     def __init__(
         self,
         input_type: Literal["button", "select"] = "button",
@@ -486,8 +497,9 @@ class PostCaptionView(View):
         * bot: :class:`discord.Client`
             - The Discord bot instance needed to wait for user input.
         * embed_type: Literal[`new`, `edit`] || caption_credits: Optional[Tuple[:class:`str`, :class:`str`]] || post_details: Optional[:class:`dict`]
-            - The parameters needed to update the `PostCaptionEmbed` embed. 
+            - The parameters needed to update the `PostCaptionEmbed` embed.
     """
+
     def __init__(
         self,
         embedded_message: Union[discord.Message, discord.InteractionMessage],
@@ -533,7 +545,9 @@ class PostCaptionView(View):
             description=f"The next message you send in <#{feed_channel.id}> will be recorded as the {self.input_names[button_id]}",
         )
         user_input_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
-        user_input_embed.set_footer(text="Data is recorded successfully when the previous embed is updated with the data.")
+        user_input_embed.set_footer(
+            text="Data is recorded successfully when the previous embed is updated with the data."
+        )
 
         cancel_view = CancelView(timeout=30)
         message = await feed_channel.send(embed=user_input_embed, view=cancel_view)  # TODO: Do an embed
@@ -640,6 +654,7 @@ class EditPostView(View):
         * bot: :class:`discord.Client`
             - The Discord bot instance needed to wait for user input.
     """
+
     def __init__(
         self,
         post_details: EditPostDetails,
@@ -694,6 +709,7 @@ class PersistentTweetButton(discord.ui.Button):
         * bot: :class:`discord.Client`
             - An instance of the Discord bot.
     """
+
     def __init__(
         self,
         callback_type: Literal["select", "all", "stop"],
@@ -715,7 +731,9 @@ class PersistentTweetButton(discord.ui.Button):
     async def send_post_channel_view(
         self, interaction: discord.Interaction, images: Optional[List[discord.File]] = None
     ):
-        post_details_view = PostChannelAndDetailsView(timeout=90, input_type="select", stop_view=False, defer=True, images=images)
+        post_details_view = PostChannelAndDetailsView(
+            timeout=90, input_type="select", stop_view=False, defer=True, images=images
+        )
 
         if images is not None:
             content = "Choose the image(s) that you want to post and channel(s) that you want to post the images in:"
@@ -742,7 +760,9 @@ class PersistentTweetButton(discord.ui.Button):
         )
 
         await interaction.response.send_message(
-            embed=PostCaptionEmbed(url=self.tweet_details["url"], embed_type="new", caption_credits=self.caption_credits)
+            embed=PostCaptionEmbed(
+                url=self.tweet_details["url"], embed_type="new", caption_credits=self.caption_credits
+            )
         )
         embedded_message = await interaction.original_response()
         post_caption_view = PostCaptionView(
@@ -796,8 +816,9 @@ class PersistentTweetView(View):
         * message_id: int
             - The ID of the message that the view is attached to. Used as an identifier to prefix the `custom_id` for each `PersistentTweetView`.
         * tweet_details: :class:`TweetDetails` || files: List[:class:`discord.File`] || bot: :class:`discord.Client`
-            - The parameters needed to initialize the `PersistentTweetButton` button. 
+            - The parameters needed to initialize the `PersistentTweetButton` button.
     """
+
     def __init__(
         self,
         message_id: int,
