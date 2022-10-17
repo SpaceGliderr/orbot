@@ -1,10 +1,10 @@
+import logging
 import os
 
-import asyncpg
 import discord
 from discord.ext import commands
 
-from src.cogs.cm_auto_post.fansite import FansiteFeed
+from src.cogs.content_poster.fansite import FansiteFeed
 from src.cogs.role_picker.ui import PersistentRolePickerView
 
 intents = discord.Intents(
@@ -25,32 +25,20 @@ class Orbot(commands.Bot):
         self.exts = ["jishaku"]
         self.cogs_path = "src/cogs"
         self.cogs_ext_prefix = "src.cogs."
-        self.twitter_stream = FansiteFeed()
+        self.twitter_stream = None
 
     def run(self):
         super().run(os.getenv("DEV_TOKEN"))
 
     async def start(self, *args, **kwargs):
-        # self.pool = None
-
         await self.load_extensions()
-
-        # while not self.pool:
-        #     try:
-        #         self.pool = await asyncpg.create_pool(user="postgres", host="db")
-        #     except asyncpg.exceptions.CannotConnectNowError or ConnectionRefusedError:
-        #         await asyncio.sleep(1)
-
         await super().start(*args, **kwargs)
 
     async def close(self):
-        # TODO: Change these print statements to log statements
-        if self.twitter_stream.stream is not None and self.twitter_stream.stream.task is not None:
-            print("Closing Stream...")
-            await self.twitter_stream.close_stream()
-            print("Stream Closed!")
+        if self.twitter_stream is not None and self.twitter_stream.stream is not None:
+            await self.twitter_stream.close()
 
-        print("Closing the server...")
+        logging.info("Orbot is shutting down... Goodbye!")
         await super().close()
 
     async def setup_hook(self):
@@ -74,9 +62,8 @@ class Orbot(commands.Bot):
             await self.load_extension(extension)
 
     async def on_ready(self):
-        # TODO: Change these print statements to log statements
-        await self.twitter_stream.start_stream(self)
-        print("Ready")
+        self.twitter_stream = await FansiteFeed.init_then_start(client=self)
+        logging.info("Orbot is ready")
 
 
 client = Orbot()

@@ -200,6 +200,8 @@ class FansiteFeed:
             await self.stream.session.close()  # Close the websocket connection to Twitter's API - this forces a direct disconnection
             self.stream = None
 
+            logging.info("Twitter stream has been terminated successfully")
+
     async def restart(self):
         """Restarts the stream."""
         await self.close()
