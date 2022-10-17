@@ -6,14 +6,14 @@ import stringcase
 import tweepy
 from discord import Permissions, app_commands
 from discord.ext import commands
-from src.cogs.content_poster.fansite import FansiteFeed
 
 from src.cogs.content_poster.ui import (
     EditPostEmbed,
     EditPostView,
-    PostChannelModal,
     PostChannelAndDetailsView,
+    PostChannelModal,
 )
+from src.modules.twitter.feed import TwitterFeed
 from src.orbot import client
 from src.utils.config import ContentPosterConfig
 
@@ -48,7 +48,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         default_permissions=Permissions(manage_messages=True),
         guild_only=True,
     )
-    
+
     # =================================================================================================================
     # FUNCTIONS
     # =================================================================================================================
@@ -69,7 +69,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         ----------
             * `tuple[bool, str]`
         """
-        user_ids = FansiteFeed.get_user_ids()
+        user_ids = TwitterFeed.get_user_ids()
         user = self.twitter_client.get_user(username=username)
 
         if len(user.errors) != 0:
@@ -198,7 +198,9 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         # TODO: Setup or refresh function if a stream is running
 
-    @app_commands.command(name="account", description="Either check the follow status of, follow or unfollow a Twitter account.")
+    @app_commands.command(
+        name="account", description="Either check the follow status of, follow or unfollow a Twitter account."
+    )
     @app_commands.guild_only()
     @app_commands.describe(username="the users Twitter handle")
     @app_commands.checks.has_permissions(manage_messages=True)
@@ -281,7 +283,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         User Flow
         ----------
             * Sends a `PostChannelAndDetailsView` to the user
-            * Sends user a modal of type `PostChannelModal` 
+            * Sends user a modal of type `PostChannelModal`
             * Takes user input and updates the post channel in the `content_poster.yaml` file
 
         Permissions
@@ -346,7 +348,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         User Flow
         ----------
             * Sends a `PostChannelAndDetailsView` to the user
-            * Sends user a modal of type `PostChannelModal` 
+            * Sends user a modal of type `PostChannelModal`
             * Takes user input and updates the post channel in the `content_poster.yaml` file
 
         Permissions

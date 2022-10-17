@@ -4,8 +4,8 @@ import os
 import discord
 from discord.ext import commands
 
-from src.cogs.content_poster.fansite import FansiteFeed
 from src.cogs.role_picker.ui import PersistentRolePickerView
+from src.modules.twitter.feed import TwitterFeed
 
 intents = discord.Intents(
     guilds=True,
@@ -62,7 +62,7 @@ class Orbot(commands.Bot):
             await self.load_extension(extension)
 
     async def on_ready(self):
-        self.twitter_stream = await FansiteFeed.init_then_start(client=self)
+        self.twitter_stream = await TwitterFeed.init_then_start(client=self)
         logging.info("Orbot is ready")
 
 
