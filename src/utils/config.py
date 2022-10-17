@@ -165,12 +165,12 @@ class RolePickerConfig:
             yaml.dump(data, roles_file)
 
 
-class CMAutoPostConfig:
-    """The CMAutoPostConfig class helps load the `cm_auto_post.yaml` file and provides other util methods to manipulate the extracted data."""
+class ContentPosterConfig:
+    """The ContentPosterConfig class helps load the `content_poster.yaml` file and provides other util methods to manipulate the extracted data."""
 
     def __init__(self) -> None:
-        with open("src/cm_auto_post.yaml", "r") as cm_auto_post_file:
-            self._data = yaml.load(cm_auto_post_file)
+        with open("src/data/content_poster.yaml", "r") as content_poster_file:
+            self._data = yaml.load(content_poster_file)
 
     @property
     def post_channels(self):
@@ -183,14 +183,8 @@ class CMAutoPostConfig:
         return self._data
 
     @staticmethod
-    def get_user_ids():
-        # TODO: Move this to fansite.py
-        with open("src/cogs/cm_auto_post/IDs.txt") as data:
-            lines = data.read().splitlines()
-            return [user_id for user_id in lines]
-
-    @staticmethod
     def generate_post_caption(caption_credits: Optional[Tuple[str, str]], post_details: Optional[dict] = None):
+        """Generates the post caption."""
         if post_details is not None and post_details != {}:
             if dict_has_key(post_details, "caption"):
                 return f"```ml\n{post_details['caption']}\n```"
@@ -210,6 +204,7 @@ class CMAutoPostConfig:
 
     @staticmethod
     def anatomize_post_caption(caption: str):
+        """Breaks down the post caption into its singular parts."""
         name = re.search(r"cr:\s{1}.+?\(", caption)
         username = re.search(r"\(@.+?\)", caption)
 
@@ -218,6 +213,10 @@ class CMAutoPostConfig:
             return (name.group()[4:-2], username.group()[2:-1])
 
         return None
+
+    def get_feed_channel(self, client: discord.Client):
+        """Gets the feed channel instance."""
+        return client.get_channel(self.data["config"]["feed_channel_id"])
 
     def get_data(self):
         """Get a copied version of the extracted data."""
@@ -238,6 +237,6 @@ class CMAutoPostConfig:
         ]
 
     def dump(self, data):
-        """Dump data into the `cm_auto_post.yaml` file."""
-        with open("src/cm_auto_post.yaml", "w") as cm_auto_post_file:
-            yaml.dump(data, cm_auto_post_file)
+        """Dump data into the `content_poster.yaml` file."""
+        with open("src/data/content_poster.yaml", "w") as content_poster_file:
+            yaml.dump(data, content_poster_file)
