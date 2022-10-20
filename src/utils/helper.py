@@ -1,7 +1,7 @@
 import io
 import zipfile
 from functools import reduce
-from typing import List
+from typing import List, Optional
 
 import aiohttp
 import discord
@@ -20,7 +20,7 @@ def dict_has_key(dic, key):
 
 
 async def download_files(urls: List[str]):
-    return [await download_file(url, idx) for idx, url in enumerate(urls)]
+    return [await download_file(url, idx + 1) for idx, url in enumerate(urls)]
 
 
 async def download_file(url: str, name: str):
@@ -32,11 +32,12 @@ async def download_file(url: str, name: str):
             return discord.File(data, f"{name}.png")
 
 
-async def convert_files_to_zip(files: List[discord.File]):
+async def convert_files_to_zip(files: List[discord.File], filename: Optional[str] = None):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for discord_file in files:
             zip_file.writestr(discord_file.filename, discord_file.fp.getvalue())
 
     zip_buffer.seek(0)
-    return discord.File(zip_buffer, "images.zip")
+    filename = f"{filename}.zip" if filename is not None else "images.zip"
+    return discord.File(zip_buffer, filename)
