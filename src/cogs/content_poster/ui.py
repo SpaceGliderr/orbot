@@ -751,7 +751,7 @@ class PersistentTweetButton(discord.ui.Button):
         else:
             await self.send_post_view(post_details_view.interaction, post_details_view.ret_dict, images)
 
-    async def send_post_view(self, interaction: discord.Interaction, values: dict, images: Optional[List[str]] = None):
+    async def send_post_view(self, interaction: discord.Interaction, values: dict, images: Optional[List[discord.File]] = None):
         post_channel_ids = values["post_channel_select"]
         images_to_post = (
             list(itemgetter(*list(map(int, values["post_channel_image_select"])))(self.files))
@@ -783,6 +783,11 @@ class PersistentTweetButton(discord.ui.Button):
             await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
         elif post_caption_view.is_confirmed:
             caption = ContentPosterConfig.generate_post_caption(self.caption_credits, post_caption_view.post_details)
+
+            # The following for loop is to make it so that the Discord files are read from the first byte again after being sent as a message earlier
+            # Being sent as a message initially means the byte-file pointer is at the end
+            for image in images_to_post:
+                image.fp.seek(0)
 
             post_channels = []
             for post_channel_id in post_channel_ids:
