@@ -79,7 +79,7 @@ class TwitterFeed:
                 - The list of remaining user IDs to add.
             * rule_content: `str` | `""`
                 - The current rule content string.
-            * rule_contents: List[`str`] | `[]`
+            * rule_contents: List[:class:`str`] | `[]`
                 - The list of completed rule contents.
         """
         # Add the next user ID to the rule content
@@ -126,7 +126,7 @@ class TwitterFeed:
             await self.stream.add_rules(self.generate_stream_rules())
 
         self.stream.filter(
-            tweet_fields=["attachments"],
+            tweet_fields=["attachments", "conversation_id"],
             media_fields=["url"],
             user_fields=["name", "username"],
             expansions=["attachments.media_keys", "author_id"],
