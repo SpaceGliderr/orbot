@@ -9,7 +9,12 @@ from tweepy.asynchronous import AsyncStreamingClient
 
 from src.cogs.content_poster.ui import PersistentTweetView, TweetDetails
 from src.utils.config import ContentPosterConfig
-from src.utils.helper import convert_files_to_zip, dict_has_key, download_files, get_from_dict
+from src.utils.helper import (
+    convert_files_to_zip,
+    dict_has_key,
+    download_files,
+    get_from_dict,
+)
 
 
 class TwitterStreamingClient(AsyncStreamingClient):
@@ -24,7 +29,7 @@ class TwitterStreamingClient(AsyncStreamingClient):
 
     async def compile_tweets(self, conversation_id: str, delay: float = 10):
         """A delayed function to compile the Tweets from a Tweet thread.
-        
+
         Parameters
         ----------
             * conversation_id: :class:`str`
@@ -46,7 +51,7 @@ class TwitterStreamingClient(AsyncStreamingClient):
 
         del self.tweets[conversation_id]
 
-        urls_per_post = [urls[i:i+10] for i in range(0,len(urls),10)]
+        urls_per_post = [urls[i : i + 10] for i in range(0, len(urls), 10)]
 
         for post_urls in urls_per_post:
             loop = asyncio.get_event_loop()
@@ -54,7 +59,7 @@ class TwitterStreamingClient(AsyncStreamingClient):
 
     async def send_post(self, user, tweet_text, urls):
         """Sends a post with a PersistentTweetView to the feed channel.
-        
+
         Parameters
         ----------
             * user: :class:`dict`
@@ -84,10 +89,7 @@ class TwitterStreamingClient(AsyncStreamingClient):
         view = PersistentTweetView(message_id=message.id, files=files, bot=self.client, tweet_details=tweet_details)
         self.client.add_view(view=view)
 
-        await asyncio.gather(
-            self.channel.send(file=zip_file),
-            message.edit(view=view)
-        )
+        await asyncio.gather(self.channel.send(file=zip_file), message.edit(view=view))
         # await message.edit(view=view)
 
         # Once the user is done with the PersistentTweetView, remove the view from the original message
@@ -107,7 +109,7 @@ class TwitterStreamingClient(AsyncStreamingClient):
         # The conversation ID is a unique identifier used to identify which tweets belong to the same Twitter thread
         # Therefore, it is used as the dictionary key to reconstruct the Twitter thread
         # Reconstructing the thread is important to tell which images belong to the same event
-        conversation_id = get_from_dict(data, ["data", "conversation_id"]) 
+        conversation_id = get_from_dict(data, ["data", "conversation_id"])
 
         # Checks whether the Twitter thread has been recorded before
         if dict_has_key(self.tweets, conversation_id):

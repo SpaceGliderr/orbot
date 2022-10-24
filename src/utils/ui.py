@@ -1,6 +1,6 @@
 import re
 import traceback
-from typing import Any, List, Optional, Union
+from typing import Any, Awaitable, Callable, List, Optional, Union
 
 import discord
 
@@ -63,17 +63,32 @@ class Button(discord.ui.Button):
         value: Optional[Any] = None,
         stop_view: bool = False,
         defer: bool = False,
+        custom_callback: Optional[Callable[[discord.Interaction], Awaitable[None]]] = None,
+        # check: Optional[Callable[[discord.Interaction], bool]] = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.name = name # TODO: Use name instead of custom_id for user_declared_id
+        self.name = name  # TODO: Use name instead of custom_id for user_declared_id
         self.value = value
         self.stop_view = stop_view
         self.defer = defer
         self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else name
+        self.custom_callback = custom_callback
+        # self.check = check
 
     async def callback(self, interaction: discord.Interaction):
+        # if self.check is not None:
+        #     if not self.check(interaction):
+        #         await interaction.response.send_message(
+        #             content="You are not allowed to interact with this button", ephemeral=True
+        #         )
+        #         return
+
+        if self.custom_callback is not None:
+            await self.custom_callback(interaction)
+            return
+
         if self.defer:
             await interaction.response.defer()
 

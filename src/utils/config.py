@@ -214,6 +214,23 @@ class ContentPosterConfig:
 
         return None
 
+    @staticmethod
+    def get_post_caption_content(caption: str):
+        content = re.search(r".+\s{1}\|", caption)
+
+        if content is None:
+            # Return a custom caption
+            content = re.search(r"\n.+", caption)
+            return {
+                "type": "caption",
+                "content": content.group().strip()
+            }
+        else:
+            return {
+                "type": "event_details",
+                "content": content.group()[:-2]
+            }
+
     def get_feed_channel(self, client: discord.Client):
         """Gets the feed channel instance."""
         return client.get_channel(self.data["config"]["feed_channel_id"])
@@ -229,10 +246,14 @@ class ContentPosterConfig:
             None,
         )
 
-    def generate_post_channel_options(self):
+    def generate_post_channel_options(self, defaults: Optional[List[str]] = None):
         """Generates a list of select options for post channels."""
         return [
-            discord.SelectOption(label=post_channel["label"], value=post_channel["id"])
+            discord.SelectOption(
+                label=post_channel["label"],
+                value=post_channel["id"],
+                default=str(post_channel["id"]) in defaults if defaults is not None else None,
+            )
             for post_channel in self.post_channels
         ]
 

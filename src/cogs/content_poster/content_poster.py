@@ -8,10 +8,10 @@ from discord import Permissions, app_commands
 from discord.ext import commands
 
 from src.cogs.content_poster.ui import (
-    EditPostEmbed,
     EditPostView,
-    PostChannelAndDetailsView,
     PostChannelModal,
+    PostChannelView,
+    PostDetailsEmbed,
 )
 from src.modules.twitter.feed import TwitterFeed
 from src.orbot import client
@@ -282,7 +282,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         User Flow
         ----------
-            * Sends a `PostChannelAndDetailsView` to the user
+            * Sends a `PostChannelView` to the user
             * Sends user a modal of type `PostChannelModal`
             * Takes user input and updates the post channel in the `content_poster.yaml` file
 
@@ -292,8 +292,8 @@ class ContentPoster(commands.GroupCog, name="poster"):
         """
         cp_conf = ContentPosterConfig()
 
-        # Send PostChannelAndDetailsView
-        post_channel_view = PostChannelAndDetailsView(timeout=90, stop_view=True)
+        # Send PostChannelView
+        post_channel_view = PostChannelView(timeout=90, stop_view=True)
 
         await interaction.response.send_message("Select post channel to edit", view=post_channel_view)
         timeout = await post_channel_view.wait()
@@ -348,7 +348,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         User Flow
         ----------
-            * Sends a `PostChannelAndDetailsView` to the user
+            * Sends a `PostChannelView` to the user
             * Sends user a modal of type `PostChannelModal`
             * Takes user input and updates the post channel in the `content_poster.yaml` file
 
@@ -358,8 +358,8 @@ class ContentPoster(commands.GroupCog, name="poster"):
         """
         cp_conf = ContentPosterConfig()
 
-        # Send PostChannelAndDetailsView
-        post_channel_view = PostChannelAndDetailsView(timeout=90, stop_view=True)
+        # Send PostChannelView
+        post_channel_view = PostChannelView(timeout=90, stop_view=True)
 
         await interaction.response.send_message("Select post channel to edit", view=post_channel_view)
         timeout = await post_channel_view.wait()
@@ -402,7 +402,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             "files": files,
         }
 
-        embedded_message = await feed_channel.send(embed=EditPostEmbed(post_details))
+        embedded_message = await feed_channel.send(embed=PostDetailsEmbed(post_details))
         view = EditPostView(post_details=post_details, embedded_message=embedded_message, bot=global_bot)
         await embedded_message.edit(view=view)
 
@@ -410,6 +410,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         await embedded_message.edit(view=None)
 
         if view.is_confirmed:
+            await message.edit(content=view.post_details["caption"], attachments=view.post_details["files"])
             await view.interaction.followup.send(
                 content=f"The post was successfully edited in <#{message.channel.id}>. {message.jump_url}"
             )
