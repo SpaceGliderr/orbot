@@ -39,21 +39,40 @@ async def get_user_input(tasks: List[asyncio.Task], cleanup: Optional[Callable[[
 
 
 async def send_post_caption_view(
-    url, caption_credits, bot: discord.Client, interaction: discord.Interaction, embed_type, default_caption: Optional[str] = None
+    url,
+    caption_credits,
+    bot: discord.Client,
+    interaction: discord.Interaction,
+    embed_type,
+    default_caption: Optional[str] = None,
 ):
-    caption_content = ContentPosterConfig.get_post_caption_content(default_caption) if default_caption is not None else None
+    caption_content = (
+        ContentPosterConfig.get_post_caption_content(default_caption) if default_caption is not None else None
+    )
 
-    post_caption_details = {
-        caption_content["type"]: caption_content["content"]
-    } if caption_content is not None else None
+    post_caption_details = (
+        {caption_content["type"]: caption_content["content"]} if caption_content is not None else None
+    )
 
     if not interaction.response.is_done():
         await interaction.response.send_message(
-            embed=PostCaptionEmbed(url=url, embed_type=embed_type, caption_credits=caption_credits, post_caption_details=post_caption_details), ephemeral=True
+            embed=PostCaptionEmbed(
+                url=url,
+                embed_type=embed_type,
+                caption_credits=caption_credits,
+                post_caption_details=post_caption_details,
+            ),
+            ephemeral=True,
         )
     else:
         await interaction.followup.send(
-            embed=PostCaptionEmbed(url=url, embed_type=embed_type, caption_credits=caption_credits, post_caption_details=post_caption_details), ephemeral=True
+            embed=PostCaptionEmbed(
+                url=url,
+                embed_type=embed_type,
+                caption_credits=caption_credits,
+                post_caption_details=post_caption_details,
+            ),
+            ephemeral=True,
         )
     post_caption_embed = await interaction.original_response()
 
@@ -64,7 +83,7 @@ async def send_post_caption_view(
         embed_type=embed_type,
         caption_credits=caption_credits,
         bot=bot,
-        post_caption_details=post_caption_details
+        post_caption_details=post_caption_details,
     )
 
     await interaction.edit_original_response(view=post_caption_view)
@@ -935,7 +954,7 @@ class NewPostView(View):
             bot=self.bot,
             interaction=interaction,
             embed_type="new",
-            default_caption=self.post_details["caption"] if dict_has_key(self.post_details, "caption") else None
+            default_caption=self.post_details["caption"] if dict_has_key(self.post_details, "caption") else None,
         )
 
         self.active_views.append(post_caption_view)

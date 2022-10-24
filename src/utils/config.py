@@ -221,15 +221,9 @@ class ContentPosterConfig:
         if content is None:
             # Return a custom caption
             content = re.search(r"\n.+", caption)
-            return {
-                "type": "caption",
-                "content": content.group().strip()
-            }
+            return {"type": "caption", "content": content.group().strip()}
         else:
-            return {
-                "type": "event_details",
-                "content": content.group()[:-2]
-            }
+            return {"type": "event_details", "content": content.group()[:-2]}
 
     def get_feed_channel(self, client: discord.Client):
         """Gets the feed channel instance."""
