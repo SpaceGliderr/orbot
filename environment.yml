@@ -11,5 +11,6 @@ dependencies:
       - stringcase
       - tweepy[async]
       - python-dateutil
+      - typing-extensions
       - black
       - isort
