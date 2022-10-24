@@ -1,13 +1,90 @@
 import asyncio
-from multiprocessing.connection import Client
 from operator import itemgetter
-from typing import Any, List, Literal, Optional, Tuple, TypedDict, Union
+from typing import Awaitable, Callable, List, Literal, Optional, Tuple, TypedDict, Union
 
 import discord
+from typing_extensions import NotRequired
 
 from src.utils.config import ContentPosterConfig
 from src.utils.helper import dict_has_key
 from src.utils.ui import Button, Modal, Select, View
+
+
+async def send_input_message(bot: discord.Client, input_name: str, interaction: discord.Interaction):
+    cp_conf = ContentPosterConfig()
+    feed_channel = cp_conf.get_feed_channel(bot)
+
+    user_input_embed = discord.Embed(
+        title=f"Enter {input_name}",
+        description=f"The next message you send in <#{feed_channel.id}> will be recorded as the {input_name}",
+    )
+    user_input_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
+    user_input_embed.set_footer(text="Data is recorded successfully when the previous embed is updated with the data.")
+
+    cancel_view = CancelView(timeout=30)
+
+    if not interaction.response.is_done():
+        await interaction.response.send_message(embed=user_input_embed, view=cancel_view, ephemeral=True)
+        return await interaction.original_response()
+    else:
+        return await interaction.followup.send(embed=user_input_embed, view=cancel_view, ephemeral=True, wait=True)
+
+
+async def get_user_input(tasks: List[asyncio.Task], cleanup: Optional[Callable[[], Awaitable[None]]] = None):
+    finished, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    result = list(finished)[0].result()
+    if cleanup is not None:
+        await cleanup()
+    return result
+
+
+async def send_post_caption_view(
+    url, caption_credits, bot: discord.Client, interaction: discord.Interaction, embed_type, default_caption: Optional[str] = None
+):
+    caption_content = ContentPosterConfig.get_post_caption_content(default_caption) if default_caption is not None else None
+
+    post_caption_details = {
+        caption_content["type"]: caption_content["content"]
+    } if caption_content is not None else None
+
+    if not interaction.response.is_done():
+        await interaction.response.send_message(
+            embed=PostCaptionEmbed(url=url, embed_type=embed_type, caption_credits=caption_credits, post_caption_details=post_caption_details), ephemeral=True
+        )
+    else:
+        await interaction.followup.send(
+            embed=PostCaptionEmbed(url=url, embed_type=embed_type, caption_credits=caption_credits, post_caption_details=post_caption_details), ephemeral=True
+        )
+    post_caption_embed = await interaction.original_response()
+
+    post_caption_view = PostCaptionView(
+        embedded_message=post_caption_embed,
+        timeout=90,
+        post_url=url,
+        embed_type=embed_type,
+        caption_credits=caption_credits,
+        bot=bot,
+        post_caption_details=post_caption_details
+    )
+
+    await interaction.edit_original_response(view=post_caption_view)
+
+    return interaction, post_caption_view
+
+
+async def get_post_caption(interaction: discord.Interaction, post_caption_view):
+    timeout = await post_caption_view.wait()
+    await post_caption_view.clear_tasks_and_msg()
+
+    if timeout:
+        await interaction.edit_original_response(
+            content="The command has timed out, please try again!", embed=None, view=None
+        )
+    elif post_caption_view.is_confirmed:
+        return post_caption_view.post_details
+    else:
+        await interaction.edit_original_response(content="No caption was entered!", embed=None, view=None)
+    return None
 
 
 # =================================================================================================================
@@ -18,11 +95,18 @@ class TweetDetails(TypedDict):
     url: str
 
 
-class EditPostDetails(TypedDict):
-    message: discord.Message
-    caption: str
-    caption_credits: Union[Tuple[str, str], None]
+class PostDetails(TypedDict):
+    message: NotRequired[discord.Message | None]
+    caption: NotRequired[str | None]
+    caption_credits: NotRequired[Tuple[str, str] | None]
+    channels: NotRequired[List[str] | None]
     files: List[discord.File]
+
+
+class PostCaptionDetails(TypedDict, total=False):
+    event_details: str
+    caption: str
+    default: str
 
 
 # =================================================================================================================
@@ -73,7 +157,7 @@ class PostCaptionEmbed(discord.Embed):
             - Determines the verb of the embeds `title` and `description`.
         * caption_credits: Optional[Tuple[:class:`str`, :class:`str`]]
             - The anatomized caption credits. The first element is the Twitter name, the second element is the Twitter handle.
-        * post_details: Optional[:class:`dict`]
+        * post_caption_details: Optional[:class:`dict`]
             - The post details to display in the embed. Possible keys: `event_details`, `caption`.
     """
 
@@ -81,60 +165,79 @@ class PostCaptionEmbed(discord.Embed):
         self,
         embed_type: Literal["new", "edit"],
         caption_credits: Optional[Tuple[str, str]],
-        post_details: Optional[dict] = None,
+        post_caption_details: Optional[dict] = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
 
-        self.title = f"{embed_type.capitalize()} Post Details"
-        self.description = f"{embed_type.capitalize()} post details for Tweet"
+        self.title = f"{embed_type.capitalize()} Post Caption"
+        self.description = f"{embed_type.capitalize()} post caption"
 
         if caption_credits is not None:
-            self.description += f"by @{caption_credits[1]}"
+            self.description += f" by @{caption_credits[1]}"
 
-        caption = ContentPosterConfig.generate_post_caption(caption_credits, post_details)
+        self.description += "\n\u200B"
+
+        caption = ContentPosterConfig.generate_post_caption(caption_credits, post_caption_details)
 
         self.add_field(
             name="Event Details",
-            value=f'{post_details["event_details"]}\n\u200B'
-            if post_details is not None and dict_has_key(post_details, "event_details")
-            else "-No event details entered-\n\u200B",
+            value=f'{post_caption_details["event_details"]}\n\u200B'
+            if post_caption_details is not None and dict_has_key(post_caption_details, "event_details")
+            else "_-No event details entered-_\n\u200B",
             inline=False,
         )
         self.add_field(
             name="Custom Caption",
-            value=f'{post_details["caption"]}\n\u200B'
-            if post_details is not None and dict_has_key(post_details, "caption")
-            else "-No custom caption entered-\n\u200B",
+            value=f'{post_caption_details["caption"]}\n\u200B'
+            if post_caption_details is not None and dict_has_key(post_caption_details, "caption")
+            else "_-No custom caption entered-_\n\u200B",
             inline=False,
         )
         self.add_field(
-            name="Caption Preview", value=caption if caption is not None else "-No preview generated-", inline=False
+            name="Caption Preview", value=caption if caption is not None else "_-No preview generated-_", inline=False
         )
 
 
-class EditPostEmbed(discord.Embed):
+class PostDetailsEmbed(discord.Embed):
     """Creates an embed that shows the Post details by inheriting the `discord.Embed` class. Only shown when editing a post.
 
     Additional Parameters
     ----------
-        * post_details: :class:`EditPostDetails`
+        * post_details: :class:`PostDetails`
             - The post details to display in the embed.
     """
 
-    def __init__(self, post_details: EditPostDetails, *args, **kwargs):
+    def __init__(self, post_details: PostDetails, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.title = "Edit Post"
-        self.description = f"Edits the post made in <#{post_details['message'].channel.id}> with a message ID of {post_details['message'].id}"
+        if dict_has_key(post_details, "message"):
+            self.title = "Edit Post"
+            self.description = f"Edits the post made in <#{post_details['message'].channel.id}> with a message ID of {post_details['message'].id}\n\u200B"
+        else:
+            self.title = "New Post"
+            self.description = "Enter details to make a new post\n\u200B"
 
-        self.add_field(name="Caption", value=post_details["caption"], inline=False)
         self.add_field(
-            name="Files",
+            name="Caption",
+            value=f'{post_details["caption"]}\u200B'
+            if dict_has_key(post_details, "caption")
+            else "_-No caption entered-_\n\u200B",
+            inline=False,
+        )
+        self.add_field(
+            name="Channel(s)",
+            value=f"<#{'>, <#'.join(post_details['channels'])}>\n\u200B"
+            if dict_has_key(post_details, "channels")
+            else "_-No channel(s) selected-_\n\u200B",
+            inline=False,
+        )
+        self.add_field(
+            name="Media to upload (all uploaded by default)",
             value=", ".join([f.filename for f in post_details["files"]])
             if len(post_details["files"]) != 0
-            else "-No files were uploaded-",
+            else "_-No media(s) selected-_",
             inline=False,
         )
 
@@ -170,14 +273,15 @@ class ClearButton(discord.ui.Button):
         self.input_name = input_name
 
     async def callback(self, interaction: discord.Interaction):
-        del self.view.post_details[self.input_name]
+        if dict_has_key(self.view.post_details, self.input_name):
+            del self.view.post_details[self.input_name]
 
         await self.view.embedded_message.edit(
             embed=PostCaptionEmbed(
                 url=self.post_url,
                 embed_type=self.embed_type,
                 caption_credits=self.caption_credits,
-                post_details=self.view.post_details,
+                post_caption_details=self.view.post_details,
             )
         )
 
@@ -192,7 +296,7 @@ class EditPostButton(discord.ui.Button):
     ----------
         * callback_type: Literal[`edit_caption`, `add_image`, `remove_image`, `save`, `stop`]
             - The input name the button associates with. Used to delete the respective key in the `post_details` attribute.
-        * post_details: :class:`EditPostDetails`
+        * post_details: :class:`PostDetails`
             - The parameters needed to update the `PostCaptionEmbed` embed.
         * bot: :class:`discord.Client`
             - The parameters needed to update the `PostCaptionEmbed` embed.
@@ -206,7 +310,7 @@ class EditPostButton(discord.ui.Button):
     def __init__(
         self,
         callback_type: Literal["edit_caption", "add_image", "remove_image", "save", "stop"],
-        post_details: EditPostDetails,
+        post_details: PostDetails,
         bot: discord.Client,
         *args,
         **kwargs,
@@ -224,99 +328,66 @@ class EditPostButton(discord.ui.Button):
             "stop": self.stop,
         }
         self.is_cancelled = False
+        self.input_message: discord.Message = None
+        self.executing_tasks = None
+
+    async def clear_tasks_and_msg(self):
+        if self.input_message is not None:
+            await self.input_message.delete()
+            self.input_message = None
+
+        if self.executing_tasks is not None:
+            for task in self.executing_tasks:
+                if not task.done():
+                    task.cancel()
+
+            self.executing_tasks = None
 
     async def edit_caption(self, interaction: discord.Interaction):
-        await interaction.response.send_message(
-            embed=PostCaptionEmbed(
-                url=self.post_details["message"].jump_url,
-                embed_type="edit",
-                caption_credits=self.post_details["caption_credits"],
-            )
-        )
-        embedded_message = await interaction.original_response()
-
-        post_caption_view = PostCaptionView(
-            embedded_message=embedded_message,
-            timeout=90,
-            post_url=self.post_details["message"].jump_url,
-            embed_type="edit",
-            caption_credits=self.post_details["caption_credits"],
+        post_caption_details = await get_post_caption(
+            url=self.view.post_details["message"].jump_url,
+            caption_credits=self.view.post_details["caption_credits"],
             bot=self.bot,
+            interaction=interaction,
+            embed_type="edit",
         )
-        await interaction.edit_original_response(view=post_caption_view)
 
-        timeout = await post_caption_view.wait()
-
-        await interaction.edit_original_response(view=None)
-
-        if timeout:
-            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
-        elif post_caption_view.is_confirmed:
+        if post_caption_details is not None:
             caption = ContentPosterConfig.generate_post_caption(
-                self.post_details["caption_credits"], post_caption_view.post_details
+                self.view.post_details["caption_credits"], post_caption_details
             )
             self.view.post_details["caption"] = caption
-            await self.view.embedded_message.edit(embed=EditPostEmbed(post_details=self.view.post_details))
-            await embedded_message.delete()
+            await self.view.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.view.post_details))
 
     async def add_image(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-
-        cp_conf = ContentPosterConfig()
-
-        feed_channel = await interaction.guild.fetch_channel(cp_conf.data["config"]["feed_channel_id"])
-
-        user_input_embed = discord.Embed(
-            title=f"Enter the new images",
-            description=f"The next message you send in <#{feed_channel.id}> will be recorded as the new images",
-        )
-        user_input_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
-        user_input_embed.set_footer(
-            text="Data is recorded successfully when the previous embed is updated with the data."
-        )
+        self.input_message = await send_input_message(bot=self.bot, input_name="new images", interaction=interaction)
 
         cancel_view = CancelView(timeout=30)
-        message = await feed_channel.send(embed=user_input_embed, view=cancel_view)  # TODO: Do an embed
-
-        self.input_message = message
-
-        finished, unfinished = await asyncio.wait(
-            [
+        self.executing_tasks = [
+            asyncio.create_task(
                 self.bot.wait_for(
                     "message",
-                    check=lambda message: message.author == interaction.user and message.channel == feed_channel,
-                ),
-                cancel_view.wait(),
-            ],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
+                    check=lambda message: message.author == interaction.user
+                    and message.channel == self.input_message.channel,
+                )
+            ),
+            asyncio.create_task(cancel_view.wait()),
+        ]
 
-        for task in unfinished:
-            task.cancel()
+        task_result = await get_user_input(self.executing_tasks, self.clear_tasks_and_msg)
 
-        # TODO: Keep track of unfinished tasks and message sent, when the cancel button is clicked, delete all of that and remove the coroutines
-        if self.is_cancelled:
-            print("Cancelled effective")
-            return
-
-        if isinstance(list(finished)[0].result(), discord.Message):
-            user_input = list(finished)[0].result()
+        if isinstance(task_result, discord.Message):
             self.view.post_details["files"].extend(
-                [await attachment.to_file() for attachment in user_input.attachments]
+                [await attachment.to_file() for attachment in task_result.attachments]
             )
-            await user_input.delete()
-            await message.delete()
 
-            # TODO: Add Twitter link to the Embed
-            await self.view.embedded_message.edit(embed=EditPostEmbed(post_details=self.view.post_details))
-            return
-
-        elif list(finished)[0].result():  # True signifies that it is timed out
-            await interaction.followup.send(content=f"The user input timed out, please try again!", ephemeral=True)
-        else:  # False signifies the cancel button was clicked
-            await interaction.followup.send(content=f"The images was not entered", ephemeral=True)
-
-        await message.delete()
+            await asyncio.gather(
+                task_result.delete(),
+                self.view.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.view.post_details)),
+            )
+        elif isinstance(task_result, bool):  # True signifies that it is timed out
+            content = "The user input timed out, please try again!" if task_result else "No images were uploaded."
+            await interaction.followup.send(content=content, ephemeral=True)
 
     async def remove_image(self, interaction: discord.Interaction):
         remove_image_view = View()
@@ -344,30 +415,26 @@ class EditPostButton(discord.ui.Button):
             index_list = [int(idx) for idx in remove_image_view.ret_dict["keep_image_select"]]
             self.view.post_details["files"] = list(map(list(self.view.post_details["files"]).__getitem__, index_list))
 
-            await self.view.embedded_message.edit(embed=EditPostEmbed(post_details=self.view.post_details))
-            return
-
-        await interaction.followup.send(content="No images were removed")
+            await self.view.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.view.post_details))
+        else:
+            await interaction.followup.send(content="No images were removed")
 
     async def save(self, interaction: discord.Interaction):
+        if len(self.view.post_details["files"]) == 0:
+            await interaction.followup.send(content="Please upload at least one image")
+            return
 
-        # TODO: Edit original post
-        if len(self.view.post_details["files"]) != 0:
-            await interaction.response.defer()
-            await self.view.post_details["message"].edit(
-                content=self.view.post_details["caption"], attachments=self.view.post_details["files"]
-            )
-            self.view.is_confirmed = True
-            self.view.interaction = interaction
-            self.view.stop()
-        else:
-            await interaction.response.send_message(content="Please upload at least one image")
+        self.view.is_confirmed = True
+        self.view.interaction = interaction
+        self.view.stop()
 
     async def stop(self, interaction: discord.Interaction):
         self.view.stop()
         self.view.interaction = interaction
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        await self.clear_tasks_and_msg()
         await self.callbacks.get(self.callback_type, None)(interaction)
         self.view.interaction = interaction
 
@@ -388,7 +455,79 @@ class CancelView(View):
         self.stop()
 
 
-class PostChannelAndDetailsView(View):
+class PostMediaView(View):
+    """Creates a view to select Post Channel(s) by inheriting the `View` class.
+
+    Additional Parameters
+    ----------
+        * input_type: Literal[`button`, `select`] | `button`
+            - Controls the input type of the view, either displays buttons or a select menu.
+        * max_value_type: Literal[`single`, `multiple`] | `multiple`
+            - Controls the number of maximum values for the select menu. The `multiple` option takes the total number of options as the maximum selectable values in the select menu.
+        * images: Optional[List[:class:discord.File]]
+            - Adds an additional image select menu.
+        * stop_view: :class:`bool` | False || defer: :class:`bool` | False
+            - These parameters are passed into the `Select` and `Button` child components.
+    """
+
+    def __init__(
+        self,
+        images: List[discord.File],
+        stop_view: bool = False,
+        defer: bool = False,
+        defaults: Optional[List[discord.File]] = None,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        self.is_confirmed = False
+        self.images = images
+
+        options = [
+            discord.SelectOption(
+                label=f"Image {idx + 1}",
+                description=image.filename,
+                value=idx,
+                default=image in defaults if defaults is not None else None,
+            )
+            for idx, image in enumerate(images)
+        ]
+        self.add_item(
+            Select(
+                options=options,
+                placeholder="Choose image(s)",
+                min_values=0,
+                max_values=len(options),
+                row=1,
+                name="post_channel_image_select",
+                stop_view=stop_view,
+                defer=defer,
+            )
+        )
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, emoji="✔", row=3)
+    async def confirm(self, interaction: discord.Interaction, *_):
+        # TODO: Add a check here to see whether user actually selected anything
+        if len(self.ret_val) == 0:
+            await interaction.response.send_message(content="Please select image(s) to create post", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        self.is_confirmed = True
+        self.interaction = interaction
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, emoji="✖️", row=3)
+    async def cancel(self, interaction: discord.Interaction, *_):
+        await interaction.response.defer()
+        self.is_confirmed = False
+        self.interaction = interaction
+        self.stop()
+
+
+class PostChannelView(View):
     """Creates a view to select Post Channel(s) by inheriting the `View` class.
 
     Additional Parameters
@@ -408,32 +547,13 @@ class PostChannelAndDetailsView(View):
         input_type: Literal["button", "select"] = "button",
         stop_view: bool = False,
         defer: bool = False,
-        images: Optional[List[discord.File]] = None,
+        defaults: Optional[List[str]] = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
 
         self.is_confirmed = False
-        self.images = images
-
-        if images is not None:
-            options = [
-                discord.SelectOption(label=f"Image {idx + 1}", description=image.filename, value=idx)
-                for idx, image in enumerate(images)
-            ]
-            self.add_item(
-                Select(
-                    options=options,
-                    placeholder="Choose image(s)",
-                    min_values=0,
-                    max_values=len(options),
-                    row=1,
-                    name="post_channel_image_select",
-                    stop_view=stop_view,
-                    defer=defer,
-                )
-            )
 
         cp_conf = ContentPosterConfig()
 
@@ -441,7 +561,7 @@ class PostChannelAndDetailsView(View):
             for channel in cp_conf.post_channels:
                 self.add_item(Button(label=channel["label"], value=channel["id"], stop_view=stop_view, defer=defer))
         else:
-            options = cp_conf.generate_post_channel_options()
+            options = cp_conf.generate_post_channel_options(defaults=defaults)
             self.add_item(
                 Select(
                     min_values=0,
@@ -457,24 +577,12 @@ class PostChannelAndDetailsView(View):
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, custom_id="confirm", emoji="✔", row=3)
     async def confirm(self, interaction: discord.Interaction, *_):
-        # TODO: Add a check here to see whether user actually selected anything
-        missing_fields = []
-        if self.images is not None:
-            if not dict_has_key(self.ret_dict, "post_channel_image_select"):
-                missing_fields.append("image(s)")
-            elif len(self.ret_dict["post_channel_image_select"]) == 0:
-                missing_fields.append("image(s)")
-
         if not dict_has_key(self.ret_dict, "post_channel_select"):
-            missing_fields.append("channel(s)")
+            await interaction.response.send_message(content="Please select channel(s) to create post", ephemeral=True)
         elif len(self.ret_dict["post_channel_select"]) == 0:
-            missing_fields.append("channel(s)")
+            await interaction.response.send_message(content="Please select channel(s) to create post", ephemeral=True)
 
-        if len(missing_fields) != 0:
-            await interaction.response.send_message(
-                content=f"Please select {' and '.join(missing_fields)} to create post", ephemeral=True
-            )
-            return
+        await interaction.response.defer()
 
         self.is_confirmed = True
         self.interaction = interaction
@@ -482,6 +590,7 @@ class PostChannelAndDetailsView(View):
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, custom_id="cancel", emoji="✖️", row=3)
     async def cancel(self, interaction: discord.Interaction, *_):
+        await interaction.response.defer()
         self.is_confirmed = False
         self.interaction = interaction
         self.stop()
@@ -507,20 +616,21 @@ class PostCaptionView(View):
         embed_type: Literal["new", "edit"],
         caption_credits: Tuple[str, str],
         bot: discord.Client,
+        post_caption_details: Optional[dict] = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.embedded_message = embedded_message
         self.input_names = {"event_details": "event details", "caption": "custom caption"}
-        self.post_details = {}
+        self.post_details = post_caption_details if post_caption_details is not None else {}
         self.is_confirmed = False
         self.embed_type = embed_type
         self.bot = bot
         self.post_url = post_url
         self.caption_credits = caption_credits
 
-        for idx, input_id in enumerate(self.input_names.keys()):
+        for idx, input_name in enumerate(self.input_names.keys()):
             self.add_item(
                 ClearButton(
                     emoji="🗑",
@@ -528,87 +638,71 @@ class PostCaptionView(View):
                     post_url=self.post_url,
                     embed_type=self.embed_type,
                     caption_credits=self.caption_credits,
-                    input_name=input_id,
+                    input_name=input_name,
                 )
             )
 
-        self.input_message = None
-        self.is_cancelled = False
+        self.input_message: discord.Message = None
+        self.executing_tasks = None
+
+    async def clear_tasks_and_msg(self):
+        if self.input_message is not None:
+            await self.input_message.delete()
+            self.input_message = None
+
+        if self.executing_tasks is not None:
+            for task in self.executing_tasks:
+                if not task.done():
+                    task.cancel()
+
+            self.executing_tasks = None
 
     async def retrieve_user_input(self, interaction: discord.Interaction, button_id: str):
-        cp_conf = ContentPosterConfig()
-
-        feed_channel = await interaction.guild.fetch_channel(cp_conf.data["config"]["feed_channel_id"])
-
-        user_input_embed = discord.Embed(
-            title=f"Enter the {self.input_names[button_id]}",
-            description=f"The next message you send in <#{feed_channel.id}> will be recorded as the {self.input_names[button_id]}",
-        )
-        user_input_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
-        user_input_embed.set_footer(
-            text="Data is recorded successfully when the previous embed is updated with the data."
+        self.input_message = await send_input_message(
+            bot=self.bot, input_name=self.input_names[button_id], interaction=interaction
         )
 
         cancel_view = CancelView(timeout=30)
-        message = await feed_channel.send(embed=user_input_embed, view=cancel_view)  # TODO: Do an embed
-
-        self.input_message = message
-
-        finished, unfinished = await asyncio.wait(
-            [
+        self.executing_tasks = [
+            asyncio.create_task(
                 self.bot.wait_for(
                     "message",
-                    check=lambda message: message.author == interaction.user and message.channel == feed_channel,
-                ),
-                cancel_view.wait(),
-            ],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-
-        for task in unfinished:
-            task.cancel()
-
-        # TODO: Keep track of unfinished tasks and message sent, when the cancel button is clicked, delete all of that and remove the coroutines
-        if self.is_cancelled:
-            print("Cancelled effective")
-            return
-
-        # Set input message to none after message is deleted
-        if isinstance(list(finished)[0].result(), discord.Message):
-            user_input = list(finished)[0].result()
-            self.post_details[button_id] = user_input.content
-            await user_input.delete()
-            await message.delete()
-            self.input_message = None
-
-            # TODO: Add Twitter link to the Embed
-            await self.embedded_message.edit(
-                embed=PostCaptionEmbed(
-                    url=self.post_url,
-                    embed_type=self.embed_type,
-                    caption_credits=self.caption_credits,
-                    post_details=self.post_details,
+                    check=lambda message: message.author == interaction.user
+                    and message.channel.id == self.input_message.channel.id,
                 )
-            )
-            return
+            ),
+            asyncio.create_task(cancel_view.wait()),
+        ]
 
-        elif list(finished)[0].result():  # True signifies that it is timed out
-            await cancel_view.interaction.response.send_message(
-                content=f"The user input timed out, please try again!", ephemeral=True
-            )
-        else:  # False signifies the cancel button was clicked
-            await cancel_view.interaction.response.send_message(
-                content=f"The {self.input_names[button_id]} was not entered", ephemeral=True
-            )
+        task_result = await get_user_input(self.executing_tasks, self.clear_tasks_and_msg)
 
-        await message.delete()
-        self.input_message = None
+        if isinstance(task_result, discord.Message):
+            self.post_details[button_id] = task_result.content
+            await asyncio.gather(
+                task_result.delete(),
+                self.embedded_message.edit(
+                    embed=PostCaptionEmbed(
+                        url=self.post_url,
+                        embed_type=self.embed_type,
+                        caption_credits=self.caption_credits,
+                        post_caption_details=self.post_details,
+                    )
+                ),
+            )
+        elif isinstance(task_result, bool):
+            content = (
+                "The user input timed out, please try again!"
+                if task_result
+                else f"The {self.input_names[button_id]} was not entered."
+            )
+            await interaction.followup.send(content=content, ephemeral=True)
 
     @discord.ui.button(
         label="Event Details", style=discord.ButtonStyle.primary, custom_id="event_details", emoji="📆", row=0
     )
     async def event_details(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
+        await self.clear_tasks_and_msg()
         await self.retrieve_user_input(interaction=interaction, button_id=button.custom_id)
 
     @discord.ui.button(
@@ -616,27 +710,27 @@ class PostCaptionView(View):
     )
     async def custom(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
+        await self.clear_tasks_and_msg()
         await self.retrieve_user_input(interaction=interaction, button_id=button.custom_id)
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, custom_id="confirm", emoji="✔️", row=2)
-    async def post(self, interaction: discord.Interaction, *_):
-        # TODO: Check whether caption is generated
+    async def confirm(self, interaction: discord.Interaction, *_):
         caption = ContentPosterConfig.generate_post_caption(self.caption_credits, self.post_details)
-
         if caption is None:
             await interaction.response.send_message(content="Please enter a caption before posting", ephemeral=True)
             return
 
+        await interaction.response.defer()
+        await self.clear_tasks_and_msg()
         self.is_confirmed = True
         self.interaction = interaction
         self.stop()
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, custom_id="cancel", emoji="✖️", row=2)
     async def cancel(self, interaction: discord.Interaction, *_):
-        if self.input_message is not None:
-            await self.input_message.delete()
+        await interaction.response.defer()
+        await self.clear_tasks_and_msg()
 
-        self.is_cancelled = True
         self.is_confirmed = False
         self.interaction = interaction
         self.stop()
@@ -647,17 +741,17 @@ class EditPostView(View):
 
     Additional Parameters
     ----------
-        * post_details: :class:`EditPostDetails`
+        * post_details: :class:`PostDetails`
             - The post details to be edited.
         * embedded_message: Union[:class:`discord.Message`, :class:`discord.InteractionMessage`]
-            - The message with the `EditPostEmbed`.
+            - The message with the `PostDetailsEmbed`.
         * bot: :class:`discord.Client`
             - The Discord bot instance needed to wait for user input.
     """
 
     def __init__(
         self,
-        post_details: EditPostDetails,
+        post_details: PostDetails,
         embedded_message: Union[discord.Message, discord.InteractionMessage],
         bot: discord.Client,
         *args,
@@ -692,138 +786,282 @@ class EditPostView(View):
             )
 
 
-# =================================================================================================================
-# CONTENT POSTER PERSISTENT ELEMENTS
-# =================================================================================================================
-class PersistentTweetButton(discord.ui.Button):
-    """Creates a persistent Tweet button by inheriting the `discord.ui.Button` class.
-
-    Additional Parameters
-    ----------
-        * callback_type: Literal[`select`, `all`, `stop`]
-            - The callback that the button will use.
-        * tweet_details: :class:`TweetDetails`
-            - The Tweet details obtained from the Twitter stream.
-        * files: List[:class:`discord.File`]
-            - The downloaded files from the Tweets attached media.
-        * bot: :class:`discord.Client`
-            - An instance of the Discord bot.
-    """
-
+class NewClearButton(discord.ui.Button):
     def __init__(
         self,
-        callback_type: Literal["select", "all", "stop"],
-        tweet_details: TweetDetails,
-        files: List[discord.File],
-        bot: discord.Client,
+        fields: List[str],
+        check: Optional[Callable[[discord.Interaction], bool]] = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.callback_type = callback_type
+        self.fields = fields
+        self.check = check
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.check is not None:
+            if not self.check(interaction):
+                await interaction.response.send_message(
+                    content="You are not allowed to interact with this button", ephemeral=True
+                )
+                return
+
+        await interaction.response.defer()
+
+        for field in self.fields:
+            if dict_has_key(self.view.post_details, field):
+                if field == "files":
+                    self.view.post_details[field] = []
+                else:
+                    del self.view.post_details[field]
+
+        await self.view.embedded_message.edit(embed=PostDetailsEmbed(self.view.post_details))
+
+
+class NewPostView(View):
+    def __init__(
+        self,
+        bot: discord.Client,
+        post_details: PostDetails,
+        embedded_message: Union[discord.Message, discord.InteractionMessage],
+        tweet_details: TweetDetails,
+        files: List[discord.File],
+        interaction_user: Union[discord.User, discord.Member],
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.bot = bot
+        self.post_details = post_details
+        self.embedded_message = embedded_message
         self.tweet_details = tweet_details
         self.files = files
-        self.bot = bot
+        self.interaction_user = interaction_user
 
-        self.caption_credits = (self.tweet_details["user"]["name"], self.tweet_details["user"]["username"])
-        self.callbacks = {"select": self.select, "all": self.all, "stop": self.stop}
+        self.button_rows = [
+            {
+                "fields": ["caption"],
+                "buttons": [
+                    {
+                        "name": "caption",
+                        "label": "Enter Caption",
+                        "style": discord.ButtonStyle.primary,
+                        "emoji": None,
+                        "callback": self.caption,
+                    }
+                ],
+            },
+            {
+                "fields": ["channels"],
+                "buttons": [
+                    {
+                        "name": "channel",
+                        "label": "Select Channels",
+                        "style": discord.ButtonStyle.primary,
+                        "emoji": None,
+                        "callback": self.channel,
+                    }
+                ],
+            },
+            {
+                "fields": ["files"],
+                "buttons": [
+                    {
+                        "name": "select",
+                        "label": "Select Images",
+                        "style": discord.ButtonStyle.primary,
+                        "emoji": None,
+                        "callback": self.select,
+                    }
+                ],
+            },
+            {
+                "fields": None,
+                "buttons": [
+                    {
+                        "name": "post",
+                        "label": "Post",
+                        "style": discord.ButtonStyle.green,
+                        "emoji": "📮",
+                        "callback": self.post,
+                    },
+                    {
+                        "name": "cancel",
+                        "label": "Cancel",
+                        "style": discord.ButtonStyle.red,
+                        "emoji": "✖️",
+                        "callback": self.cancel,
+                    },
+                ],
+            },
+        ]
 
-    async def send_post_channel_view(
-        self, interaction: discord.Interaction, images: Optional[List[discord.File]] = None
-    ):
-        post_details_view = PostChannelAndDetailsView(
-            timeout=90, input_type="select", stop_view=False, defer=True, images=images
+        for idx, button_row in enumerate(self.button_rows):
+            for button in button_row["buttons"]:
+                self.add_item(
+                    Button(
+                        label=button["label"],
+                        style=button["style"],
+                        emoji=button["emoji"],
+                        row=int(idx),
+                        custom_callback=button["callback"],
+                        # check=lambda interaction: self.interaction_user == interaction.user,
+                    )
+                )
+
+            if button_row["fields"] is not None:
+                self.add_item(
+                    NewClearButton(
+                        emoji="🗑",
+                        row=int(idx),
+                        fields=button_row["fields"],
+                        # check=lambda interaction: self.interaction_user == interaction.user,
+                    )
+                )
+
+        self.active_views: List[View] = []
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return self.interaction_user == interaction.user
+
+    async def stop_active_views(self):
+        for active_view in self.active_views:
+            active_view.stop()
+
+    async def caption(self, interaction: discord.Interaction):
+        post_caption_interaction, post_caption_view = await send_post_caption_view(
+            url=self.tweet_details["url"],
+            caption_credits=self.post_details["caption_credits"],
+            bot=self.bot,
+            interaction=interaction,
+            embed_type="new",
+            default_caption=self.post_details["caption"] if dict_has_key(self.post_details, "caption") else None
         )
 
-        if images is not None:
-            content = "Choose the image(s) that you want to post and channel(s) that you want to post the images in:"
-        else:
-            content = "Choose the channel(s) that you want to post in:"
+        self.active_views.append(post_caption_view)
 
-        await interaction.response.send_message(content=content, view=post_details_view)
-        timeout = await post_details_view.wait()
-        await interaction.delete_original_response()
+        post_caption_details = await get_post_caption(
+            interaction=post_caption_interaction,
+            post_caption_view=post_caption_view,
+        )
 
-        if timeout:
-            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
-        elif not post_details_view.is_confirmed:
-            await interaction.followup.send(content="No post was sent", ephemeral=True)
-        else:
-            await self.send_post_view(post_details_view.interaction, post_details_view.ret_dict, images)
+        self.active_views.remove(post_caption_view)
 
-    async def send_post_view(self, interaction: discord.Interaction, values: dict, images: Optional[List[discord.File]] = None):
-        post_channel_ids = values["post_channel_select"]
-        images_to_post = (
-            list(itemgetter(*list(map(int, values["post_channel_image_select"])))(self.files))
-            if images is not None and self.callback_type == "select"
-            else self.files
+        if post_caption_details is not None:
+            caption = ContentPosterConfig.generate_post_caption(
+                self.post_details["caption_credits"], post_caption_details
+            )
+            self.post_details["caption"] = caption
+            await post_caption_interaction.edit_original_response(
+                content="Changes were recorded", embed=None, view=None
+            )
+            await self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details))
+
+    async def channel(self, interaction: discord.Interaction):
+        post_details_view = PostChannelView(
+            timeout=90,
+            input_type="select",
+            stop_view=False,
+            defer=True,
+            defaults=self.post_details["channels"] if dict_has_key(self.post_details, "channels") else None,
         )
 
         await interaction.response.send_message(
-            embed=PostCaptionEmbed(
-                url=self.tweet_details["url"], embed_type="new", caption_credits=self.caption_credits
-            )
+            content="Choose the channel(s) that you want to post in:", view=post_details_view, ephemeral=True
         )
-        embedded_message = await interaction.original_response()
-        post_caption_view = PostCaptionView(
-            embedded_message=embedded_message,
-            timeout=90,
-            post_url=self.tweet_details["url"],
-            embed_type="new",
-            caption_credits=self.caption_credits,
-            bot=self.bot,
-        )
-        await interaction.edit_original_response(view=post_caption_view)
-
-        timeout = await post_caption_view.wait()
-
-        await interaction.edit_original_response(view=None)
+        self.active_views.append(post_details_view)
+        timeout = await post_details_view.wait()
+        self.active_views.remove(post_details_view)
 
         if timeout:
-            await interaction.followup.send(content="The command has timed out, please try again!", ephemeral=True)
-        elif post_caption_view.is_confirmed:
-            caption = ContentPosterConfig.generate_post_caption(self.caption_credits, post_caption_view.post_details)
+            await interaction.edit_original_response(content="The command has timed out, please try again!", view=None)
+        elif not post_details_view.is_confirmed:
+            await interaction.edit_original_response(content="No post channels were selected!", view=None)
+        else:
+            self.post_details["channels"] = post_details_view.ret_val
+            await asyncio.gather(
+                interaction.edit_original_response(content="Changes were recorded", view=None),
+                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+            )
+
+    async def select(self, interaction: discord.Interaction):
+        post_medias_view = PostMediaView(
+            timeout=90, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
+        )
+
+        await interaction.response.send_message(
+            content="Choose the image(s) that you want to post:", view=post_medias_view, ephemeral=True
+        )
+
+        self.active_views.append(post_medias_view)
+        timeout = await post_medias_view.wait()
+        self.active_views.remove(post_medias_view)
+
+        if timeout:
+            await interaction.edit_original_response(content="The command has timed out, please try again!", view=None)
+        elif not post_medias_view.is_confirmed:
+            await interaction.edit_original_response(content="No changes were made!", view=None)
+        else:
+            values = post_medias_view.ret_val
+
+            if len(values) == 1:
+                self.post_details["files"] = [self.files[int(values[0])]]
+            else:
+                self.post_details["files"] = list(itemgetter(*list(map(int, values)))(self.files))
+
+            await asyncio.gather(
+                interaction.edit_original_response(content="Changes were recorded", view=None),
+                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+            )
+
+    async def post(self, interaction: discord.Interaction):
+        if (
+            self.post_details["caption"] is None
+            or self.post_details["caption"] == ""
+            or len(self.post_details["files"]) == 0
+            or len(self.post_details["channels"]) == 0
+        ):
+            await interaction.response.send_message(
+                content="Failed to make post. Ensure that you have entered a caption and selected the channels to post in and files to upload.",
+                ephemeral=True,
+            )
+            return
+
+        await asyncio.gather(
+            self.embedded_message.edit(view=None),
+            interaction.response.send_message(content="Sending...", ephemeral=True),
+            self.stop_active_views(),
+        )
+
+        for post_channel_id in self.post_details["channels"]:
+            post_channel = await interaction.guild.fetch_channel(int(post_channel_id))
 
             # The following for loop is to make it so that the Discord files are read from the first byte again after being sent as a message earlier
             # Being sent as a message initially means the byte-file pointer is at the end
-            for image in images_to_post:
-                image.fp.seek(0)
+            files = []
+            for media in self.post_details["files"]:
+                with media.fp as media_binary:
+                    media_binary.seek(0)
+                    files.append(discord.File(media_binary, media.filename))
 
-            post_channels = []
-            for post_channel_id in post_channel_ids:
-                post_channel = await interaction.guild.fetch_channel(int(post_channel_id))
-                await post_channel.send(content=caption, files=images_to_post)
-                post_channels.append(f"<#{post_channel.id}>")
+            await post_channel.send(content=self.post_details["caption"], files=self.post_details["files"])
 
-            await interaction.followup.send(content=f"Post(s) successfully created in {', '.join(post_channels)}")
+        await interaction.edit_original_response(
+            content=f"Post(s) successfully created in <#{'>, <#'.join(self.post_details['channels'])}>"
+        )  # TODO: Think of a better success message
 
-    async def select(self, interaction: discord.Interaction):
-        await self.send_post_channel_view(interaction, self.files)
-
-    async def all(self, interaction: discord.Interaction):
-        await self.send_post_channel_view(interaction)
-
-    async def stop(self, interaction: discord.Interaction):
-        self.view.stop()
-        self.view.interaction = interaction
-
-    async def callback(self, interaction: discord.Interaction):
-        await self.callbacks.get(self.callback_type, None)(interaction)
+    async def cancel(self, interaction: discord.Interaction):
+        # TODO: Handle this
+        await self.embedded_message.delete()
+        await self.stop_active_views()
+        self.stop()
+        self.interaction = interaction
 
 
+# =================================================================================================================
+# CONTENT POSTER PERSISTENT ELEMENTS
+# =================================================================================================================
 class PersistentTweetView(View):
-    """Creates a persistent Tweet view by inheriting the `View` class.
-
-    Has 3 buttons: (1) Send `PostChannelAndDetailsView`; (2) Send `PostCaptionView`; (3) Remove the `PersistentTweetView`
-
-    Additional Parameters
-    ----------
-        * message_id: int
-            - The ID of the message that the view is attached to. Used as an identifier to prefix the `custom_id` for each `PersistentTweetView`.
-        * tweet_details: :class:`TweetDetails` || files: List[:class:`discord.File`] || bot: :class:`discord.Client`
-            - The parameters needed to initialize the `PersistentTweetButton` button.
-    """
-
     def __init__(
         self,
         message_id: int,
@@ -841,21 +1079,45 @@ class PersistentTweetView(View):
         self.bot = bot
 
         self.buttons = [
-            {"name": "select", "label": "Select Images", "style": discord.ButtonStyle.primary, "emoji": None},
-            {"name": "all", "label": "All Images", "style": discord.ButtonStyle.primary, "emoji": None},
-            {"name": "stop", "label": None, "style": discord.ButtonStyle.red, "emoji": "✖️"},
+            {"name": "new_post", "label": "Make New Post", "style": discord.ButtonStyle.grey, "emoji": None},
+            {"name": "close_tweet", "label": None, "style": discord.ButtonStyle.red, "emoji": "✖️"},
         ]
+        self.callbacks = {"new_post": self.new_post, "close_tweet": self.close_tweet}
 
         for button in self.buttons:
             self.add_item(
-                PersistentTweetButton(
+                Button(
                     custom_id=f"persistent:{self.message_id}:{button['name']}",
                     label=button["label"],
                     style=button["style"],
-                    callback_type=button["name"],
                     emoji=button["emoji"],
-                    tweet_details=self.tweet_details,
-                    files=self.files,
-                    bot=self.bot,
+                    custom_callback=self.callbacks.get(button["name"], None),
                 )
             )
+
+        self.post_details = PostDetails(
+            files=self.files,
+            caption_credits=(self.tweet_details["user"]["name"], self.tweet_details["user"]["username"]),
+        )
+        self.embedded_message = None
+
+    async def new_post(self, interaction: discord.Interaction):
+        post_details_embed = PostDetailsEmbed(post_details=self.post_details)
+        post_details_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
+        await interaction.response.send_message(embed=post_details_embed)
+        self.embedded_message = await interaction.original_response()
+        new_post_view = NewPostView(
+            bot=self.bot,
+            post_details=self.post_details,
+            embedded_message=self.embedded_message,
+            tweet_details=self.tweet_details,
+            files=self.files,
+            interaction_user=interaction.user,
+            timeout=180,
+        )
+        await interaction.edit_original_response(view=new_post_view)
+        await new_post_view.wait()
+
+    async def close_tweet(self, interaction: discord.Interaction):
+        self.stop()
+        self.interaction = interaction
