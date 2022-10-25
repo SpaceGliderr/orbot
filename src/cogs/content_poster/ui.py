@@ -25,9 +25,10 @@ async def send_input_message(bot: discord.Client, input_name: str, interaction: 
 
     if not interaction.response.is_done():
         await interaction.response.send_message(embed=user_input_embed, view=cancel_view, ephemeral=True)
-        return await interaction.original_response()
+        message = await interaction.original_response()
     else:
-        return await interaction.followup.send(embed=user_input_embed, view=cancel_view, ephemeral=True, wait=True)
+        message = await interaction.followup.send(embed=user_input_embed, view=cancel_view, ephemeral=True, wait=True)
+    return message, cancel_view
 
 
 async def get_user_input(tasks: List[asyncio.Task], cleanup: Optional[Callable[[], Awaitable[None]]] = None):
@@ -307,157 +308,6 @@ class ClearButton(discord.ui.Button):
         await interaction.response.defer()
 
 
-class EditPostButton(discord.ui.Button):
-    """Creates a clear button by inheriting the `discord.ui.Button` class.
-    This button will clear any user input with the `input_name` from the `post_details` attribute in its parent view.
-
-    Additional Parameters
-    ----------
-        * callback_type: Literal[`edit_caption`, `add_image`, `remove_image`, `save`, `stop`]
-            - The input name the button associates with. Used to delete the respective key in the `post_details` attribute.
-        * post_details: :class:`PostDetails`
-            - The parameters needed to update the `PostCaptionEmbed` embed.
-        * bot: :class:`discord.Client`
-            - The parameters needed to update the `PostCaptionEmbed` embed.
-
-    Additional Attributes
-    ----------
-        * is_cancelled: :class:`bool` = False
-            - Whether the parent view is cancelled or not
-    """
-
-    def __init__(
-        self,
-        callback_type: Literal["edit_caption", "add_image", "remove_image", "save", "stop"],
-        post_details: PostDetails,
-        bot: discord.Client,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.callback_type = callback_type
-        self.post_details = post_details
-        self.bot = bot
-
-        self.callbacks = {
-            "edit_caption": self.edit_caption,
-            "add_image": self.add_image,
-            "remove_image": self.remove_image,
-            "save": self.save,
-            "stop": self.stop,
-        }
-        self.is_cancelled = False
-        self.input_message: discord.Message = None
-        self.executing_tasks = None
-
-    async def clear_tasks_and_msg(self):
-        if self.input_message is not None:
-            await self.input_message.delete()
-            self.input_message = None
-
-        if self.executing_tasks is not None:
-            for task in self.executing_tasks:
-                if not task.done():
-                    task.cancel()
-
-            self.executing_tasks = None
-
-    async def edit_caption(self, interaction: discord.Interaction):
-        post_caption_details = await get_post_caption(
-            url=self.view.post_details["message"].jump_url,
-            caption_credits=self.view.post_details["caption_credits"],
-            bot=self.bot,
-            interaction=interaction,
-            embed_type="edit",
-        )
-
-        if post_caption_details is not None:
-            caption = ContentPosterConfig.generate_post_caption(
-                self.view.post_details["caption_credits"], post_caption_details
-            )
-            self.view.post_details["caption"] = caption
-            await self.view.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.view.post_details))
-
-    async def add_image(self, interaction: discord.Interaction):
-        self.input_message = await send_input_message(bot=self.bot, input_name="new images", interaction=interaction)
-
-        cancel_view = CancelView(timeout=30)
-        self.executing_tasks = [
-            asyncio.create_task(
-                self.bot.wait_for(
-                    "message",
-                    check=lambda message: message.author == interaction.user
-                    and message.channel == self.input_message.channel,
-                )
-            ),
-            asyncio.create_task(cancel_view.wait()),
-        ]
-
-        task_result = await get_user_input(self.executing_tasks, self.clear_tasks_and_msg)
-
-        if isinstance(task_result, discord.Message):
-            self.view.post_details["files"].extend(
-                [await attachment.to_file() for attachment in task_result.attachments]
-            )
-
-            await asyncio.gather(
-                task_result.delete(),
-                self.view.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.view.post_details)),
-            )
-        elif isinstance(task_result, bool):  # True signifies that it is timed out
-            content = "The user input timed out, please try again!" if task_result else "No images were uploaded."
-            await interaction.followup.send(content=content, ephemeral=True)
-
-    async def remove_image(self, interaction: discord.Interaction):
-        remove_image_view = View()
-        options = [
-            discord.SelectOption(label=f"Image {idx + 1}", description=f.filename, value=idx, default=True)
-            for idx, f in enumerate(self.view.post_details["files"])
-        ]
-        remove_image_view.add_item(
-            Select(
-                min_values=0,
-                max_values=len(options),
-                options=options,
-                placeholder="Choose image(s) to remove",
-                stop_view=True,
-                name="keep_image_select",
-                defer=True,
-            )
-        )
-
-        await interaction.response.send_message(content="Please select the image(s) to keep", view=remove_image_view)
-        await remove_image_view.wait()
-        await interaction.delete_original_response()
-
-        if dict_has_key(remove_image_view.ret_dict, "keep_image_select"):
-            index_list = [int(idx) for idx in remove_image_view.ret_dict["keep_image_select"]]
-            self.view.post_details["files"] = list(map(list(self.view.post_details["files"]).__getitem__, index_list))
-
-            await self.view.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.view.post_details))
-        else:
-            await interaction.followup.send(content="No images were removed")
-
-    async def save(self, interaction: discord.Interaction):
-        if len(self.view.post_details["files"]) == 0:
-            await interaction.followup.send(content="Please upload at least one image")
-            return
-
-        self.view.is_confirmed = True
-        self.view.interaction = interaction
-        self.view.stop()
-
-    async def stop(self, interaction: discord.Interaction):
-        self.view.stop()
-        self.view.interaction = interaction
-
-    async def callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        await self.clear_tasks_and_msg()
-        await self.callbacks.get(self.callback_type, None)(interaction)
-        self.view.interaction = interaction
-
-
 # =================================================================================================================
 # CONTENT POSTER VIEWS
 # =================================================================================================================
@@ -470,6 +320,7 @@ class CancelView(View):
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, emoji="✖️")
     async def cancel(self, interaction: discord.Interaction, *_):
+        await interaction.response.defer()
         self.interaction = interaction
         self.stop()
 
@@ -677,11 +528,10 @@ class PostCaptionView(View):
             self.executing_tasks = None
 
     async def retrieve_user_input(self, interaction: discord.Interaction, button_id: str):
-        self.input_message = await send_input_message(
+        self.input_message, cancel_view = await send_input_message(
             bot=self.bot, input_name=self.input_names[button_id], interaction=interaction
         )
 
-        cancel_view = CancelView(timeout=30)
         self.executing_tasks = [
             asyncio.create_task(
                 self.bot.wait_for(
@@ -773,6 +623,8 @@ class EditPostView(View):
         post_details: PostDetails,
         embedded_message: Union[discord.Message, discord.InteractionMessage],
         bot: discord.Client,
+        files: List[discord.File],
+        interaction_user: Union[discord.User, discord.Member],
         *args,
         **kwargs,
     ):
@@ -781,50 +633,234 @@ class EditPostView(View):
         self.post_details = post_details
         self.embedded_message = embedded_message
         self.bot = bot
+        self.files = files
+        self.interaction_user = interaction_user
 
         self.is_confirmed = False
-        self.buttons = [
-            {"name": "edit_caption", "label": "Edit Caption", "style": discord.ButtonStyle.primary, "emoji": None},
-            {"name": "add_image", "label": "Add Image(s)", "style": discord.ButtonStyle.primary, "emoji": None},
-            {"name": "remove_image", "label": "Remove Image(s)", "style": discord.ButtonStyle.primary, "emoji": None},
-            {"name": "save", "label": None, "style": discord.ButtonStyle.green, "emoji": "✔️"},
-            {"name": "stop", "label": None, "style": discord.ButtonStyle.red, "emoji": "✖️"},
+        self.button_rows = [
+            {
+                "buttons": [
+                    {
+                        "name": "edit_caption",
+                        "label": "Edit Caption",
+                        "style": discord.ButtonStyle.primary,
+                        "emoji": None,
+                        "callback": self.edit_caption,
+                    },
+                    {
+                        "name": "add_image",
+                        "label": "Add Image(s)",
+                        "style": discord.ButtonStyle.primary,
+                        "emoji": None,
+                        "callback": self.add_image,
+                    },
+                    {
+                        "name": "remove_image",
+                        "label": "Remove Image(s)",
+                        "style": discord.ButtonStyle.primary,
+                        "emoji": None,
+                        "callback": self.remove_image,
+                    },
+                ],
+            },
+            {
+                "buttons": [
+                    {
+                        "name": "save",
+                        "label": "Save",
+                        "style": discord.ButtonStyle.green,
+                        "emoji": "✔️",
+                        "callback": self.save,
+                    },
+                    {
+                        "name": "cancel",
+                        "label": "Cancel",
+                        "style": discord.ButtonStyle.red,
+                        "emoji": "✖️",
+                        "callback": self.cancel,
+                    },
+                ],
+            },
         ]
 
-        for button in self.buttons:
-            self.add_item(
-                EditPostButton(
-                    custom_id=f"persistent:{self.embedded_message.id}:{button['name']}",
-                    label=button["label"],
-                    style=button["style"],
-                    emoji=button["emoji"],
-                    callback_type=button["name"],
-                    post_details=self.post_details,
-                    bot=self.bot,
+        for idx, button_row in enumerate(self.button_rows):
+            for button in button_row["buttons"]:
+                self.add_item(
+                    Button(
+                        label=button["label"],
+                        style=button["style"],
+                        emoji=button["emoji"],
+                        row=int(idx),
+                        custom_callback=button["callback"],
+                        # check=lambda interaction: self.interaction_user == interaction.user,
+                    )
                 )
+
+        self.active_views: List[View] = []
+        self.input_message: discord.Message = None
+        self.executing_tasks = None
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.interaction_user != interaction.user:
+            await interaction.response.send_message(
+                content="You are not allowed to interact with this post!", ephemeral=True
             )
+        return self.interaction_user == interaction.user
+
+    async def stop_active_views(self):
+        for active_view in self.active_views:
+            active_view.stop()
+
+    async def clear_tasks_and_msg(self):
+        if self.input_message is not None:
+            await self.input_message.delete()
+            self.input_message = None
+
+        if self.executing_tasks is not None:
+            for task in self.executing_tasks:
+                if not task.done():
+                    task.cancel()
+
+            self.executing_tasks = None
+
+    async def edit_caption(self, interaction: discord.Interaction):
+        await self.stop_active_views()
+        await self.clear_tasks_and_msg()
+
+        post_caption_interaction, post_caption_view = await send_post_caption_view(
+            url=self.post_details["message"].jump_url,
+            caption_credits=self.post_details["caption_credits"],
+            bot=self.bot,
+            interaction=interaction,
+            embed_type="edit",
+            default_caption=self.post_details["caption"] if dict_has_key(self.post_details, "caption") else None,
+        )
+
+        self.active_views.append(post_caption_view)
+
+        post_caption_details = await get_post_caption(
+            interaction=post_caption_interaction, post_caption_view=post_caption_view
+        )
+
+        self.active_views.remove(post_caption_view)
+
+        if post_caption_details is not None:
+            caption = ContentPosterConfig.generate_post_caption(
+                self.post_details["caption_credits"], post_caption_details
+            )
+            self.post_details["caption"] = caption
+
+            await asyncio.gather(
+                post_caption_interaction.edit_original_response(content="Changes were recorded", embed=None, view=None),
+                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+            )
+
+    async def add_image(self, interaction: discord.Interaction):
+        await self.stop_active_views()
+        await self.clear_tasks_and_msg()
+
+        self.input_message, cancel_view = await send_input_message(
+            bot=self.bot, input_name="new images", interaction=interaction
+        )
+
+        self.active_views.append(cancel_view)
+
+        self.executing_tasks = [
+            asyncio.create_task(
+                self.bot.wait_for(
+                    "message",
+                    check=lambda message: message.author == interaction.user
+                    and message.channel == self.input_message.channel,
+                )
+            ),
+            asyncio.create_task(cancel_view.wait()),
+        ]
+
+        task_result = await get_user_input(self.executing_tasks)
+
+        self.active_views.remove(cancel_view)
+
+        if isinstance(task_result, discord.Message):
+            new_files = [await attachment.to_file() for attachment in task_result.attachments]
+            self.post_details["files"].extend(new_files)
+            self.files.extend(new_files)
+
+            await asyncio.gather(
+                task_result.delete(),
+                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+                interaction.followup.send(content="Changes were recorded", ephemeral=True),
+            )
+        elif isinstance(task_result, bool):  # True signifies that it is timed out
+            content = "The user input timed out, please try again!" if task_result else "No images were uploaded."
+            await interaction.followup.send(content=content, ephemeral=True)
+
+    async def remove_image(self, interaction: discord.Interaction):
+        post_medias_view = PostMediaView(
+            timeout=90, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
+        )
+
+        await interaction.response.send_message(
+            content="Please select the image(s) that you want to keep:", view=post_medias_view, ephemeral=True
+        )
+
+        self.active_views.append(post_medias_view)
+        timeout = await post_medias_view.wait()
+        self.active_views.remove(post_medias_view)
+
+        if timeout:
+            await interaction.edit_original_response(content="The command has timed out, please try again!", view=None)
+        elif not post_medias_view.is_confirmed:
+            await interaction.edit_original_response(content="No changes were made!", view=None)
+        elif len(post_medias_view.ret_val) != 0:
+            index_list = [int(idx) for idx in post_medias_view.ret_val]
+            self.post_details["files"] = list(map(list(self.files).__getitem__, index_list))
+
+            await asyncio.gather(
+                interaction.edit_original_response(content="Changes were recorded", view=None),
+                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+            )
+        else:
+            await interaction.edit_original_response(content="No images were removed", view=None)
+
+    async def save(self, interaction: discord.Interaction):
+        if len(self.post_details["files"]) == 0:
+            await interaction.response.send_message(content="Please upload at least one image", ephemeral=True)
+            return
+
+        await asyncio.gather(
+            self.clear_tasks_and_msg(),
+            self.stop_active_views(),
+            interaction.response.send_message(content="Sending...", ephemeral=True),
+            self.post_details["message"].edit(
+                content=self.post_details["caption"], attachments=self.post_details["files"]
+            ),
+        )
+        await interaction.edit_original_response(
+            content=f"The post was successfully edited in <#{self.post_details['message'].channel.id}>. {self.post_details['message'].jump_url}"
+        )
+
+        self.is_confirmed = True
+        self.interaction = interaction
+        self.stop()
+
+    async def cancel(self, interaction: discord.Interaction):
+        await asyncio.gather(self.clear_tasks_and_msg(), self.stop_active_views(), interaction.response.defer())
+
+        self.stop()
+        self.interaction = interaction
 
 
 class NewClearButton(discord.ui.Button):
     def __init__(
         self,
         fields: List[str],
-        check: Optional[Callable[[discord.Interaction], bool]] = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.fields = fields
-        self.check = check
 
     async def callback(self, interaction: discord.Interaction):
-        if self.check is not None:
-            if not self.check(interaction):
-                await interaction.response.send_message(
-                    content="You are not allowed to interact with this button", ephemeral=True
-                )
-                return
-
         await interaction.response.defer()
 
         for field in self.fields:
@@ -924,7 +960,6 @@ class NewPostView(View):
                         emoji=button["emoji"],
                         row=int(idx),
                         custom_callback=button["callback"],
-                        # check=lambda interaction: self.interaction_user == interaction.user,
                     )
                 )
 
@@ -934,13 +969,16 @@ class NewPostView(View):
                         emoji="🗑",
                         row=int(idx),
                         fields=button_row["fields"],
-                        # check=lambda interaction: self.interaction_user == interaction.user,
                     )
                 )
 
         self.active_views: List[View] = []
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.interaction_user != interaction.user:
+            await interaction.response.send_message(
+                content="You are not allowed to interact with this post!", ephemeral=True
+            )
         return self.interaction_user == interaction.user
 
     async def stop_active_views(self):
@@ -1067,10 +1105,9 @@ class NewPostView(View):
 
         await interaction.edit_original_response(
             content=f"Post(s) successfully created in <#{'>, <#'.join(self.post_details['channels'])}>"
-        )  # TODO: Think of a better success message
+        )
 
     async def cancel(self, interaction: discord.Interaction):
-        # TODO: Handle this
         await self.embedded_message.delete()
         await self.stop_active_views()
         self.stop()

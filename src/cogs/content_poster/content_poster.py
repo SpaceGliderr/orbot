@@ -399,21 +399,24 @@ class ContentPoster(commands.GroupCog, name="poster"):
             "message": message,
             "caption": message.content,
             "caption_credits": ContentPosterConfig.anatomize_post_caption(message.content),
-            "files": files,
+            "files": files.copy(),
+            "channels": [str(interaction.channel.id)],
         }
 
-        embedded_message = await feed_channel.send(embed=PostDetailsEmbed(post_details))
-        view = EditPostView(post_details=post_details, embedded_message=embedded_message, bot=global_bot)
+        post_details_embed = PostDetailsEmbed(post_details=post_details)
+        post_details_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
+        embedded_message = await feed_channel.send(embed=post_details_embed)
+        view = EditPostView(
+            post_details=post_details,
+            embedded_message=embedded_message,
+            bot=global_bot,
+            files=files,
+            interaction_user=interaction.user,
+        )
         await embedded_message.edit(view=view)
 
         await view.wait()
         await embedded_message.edit(view=None)
-
-        if view.is_confirmed:
-            await message.edit(content=view.post_details["caption"], attachments=view.post_details["files"])
-            await view.interaction.followup.send(
-                content=f"The post was successfully edited in <#{message.channel.id}>. {message.jump_url}"
-            )
 
 
 async def setup(bot):

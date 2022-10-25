@@ -20,7 +20,9 @@ class Select(discord.ui.Select):
             - Defers the Interaction in the Buttons callback.
     """
 
-    def __init__(self, name: Optional[str], stop_view: bool = False, defer: bool = False, *args, **kwargs) -> None:
+    def __init__(
+        self, name: Optional[str] = None, stop_view: bool = False, defer: bool = False, *args, **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.name = name
         self.stop_view = stop_view
@@ -64,7 +66,6 @@ class Button(discord.ui.Button):
         stop_view: bool = False,
         defer: bool = False,
         custom_callback: Optional[Callable[[discord.Interaction], Awaitable[None]]] = None,
-        # check: Optional[Callable[[discord.Interaction], bool]] = None,
         *args,
         **kwargs,
     ):
@@ -75,16 +76,8 @@ class Button(discord.ui.Button):
         self.defer = defer
         self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else name
         self.custom_callback = custom_callback
-        # self.check = check
 
     async def callback(self, interaction: discord.Interaction):
-        # if self.check is not None:
-        #     if not self.check(interaction):
-        #         await interaction.response.send_message(
-        #             content="You are not allowed to interact with this button", ephemeral=True
-        #         )
-        #         return
-
         if self.custom_callback is not None:
             await self.custom_callback(interaction)
             return
