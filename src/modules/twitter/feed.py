@@ -16,7 +16,7 @@ class TwitterFeed:
 
     def __init__(self, client: discord.Client):
         # self.follow = self.get_user_ids()
-        self.follow = ["1578046589578661888"]  # ! Remove this once the testing is complete
+        self.follow = ["1578046589578661888", "714867360822235136"]  # ! Remove this once the testing is complete
         self.follow_change_flag = (
             False  # This flag indicates whether the follow list needs to be refreshed on Stream restart
         )

@@ -1120,7 +1120,7 @@ class NewPostView(View):
 class PersistentTweetView(View):
     def __init__(
         self,
-        message_id: int,
+        message: discord.Message,
         files: List[discord.File],
         tweet_details: TweetDetails,
         bot: discord.Client,
@@ -1129,7 +1129,7 @@ class PersistentTweetView(View):
     ):
         super().__init__(*args, **kwargs)
 
-        self.message_id = message_id
+        self.message = message
         self.tweet_details = tweet_details
         self.files = files
         self.bot = bot
@@ -1143,7 +1143,7 @@ class PersistentTweetView(View):
         for button in self.buttons:
             self.add_item(
                 Button(
-                    custom_id=f"persistent:{self.message_id}:{button['name']}",
+                    custom_id=f"persistent:{self.message.id}:{button['name']}",
                     label=button["label"],
                     style=button["style"],
                     emoji=button["emoji"],
@@ -1175,5 +1175,6 @@ class PersistentTweetView(View):
         await new_post_view.wait()
 
     async def close_tweet(self, interaction: discord.Interaction):
+        await self.message.edit(view=None)
         self.stop()
         self.interaction = interaction

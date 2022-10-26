@@ -86,15 +86,10 @@ class TwitterStreamingClient(AsyncStreamingClient):
         # await self.channel.send(file=zip_file)
 
         # Update the message with the PersistentTweetView
-        view = PersistentTweetView(message_id=message.id, files=files, bot=self.client, tweet_details=tweet_details)
+        view = PersistentTweetView(message=message, files=files, bot=self.client, tweet_details=tweet_details)
         self.client.add_view(view=view)
 
         await asyncio.gather(self.channel.send(file=zip_file), message.edit(view=view))
-        # await message.edit(view=view)
-
-        # Once the user is done with the PersistentTweetView, remove the view from the original message
-        await view.wait()
-        await message.edit(view=None)  # ? Maybe move this to the `Stop` button in the UI file
 
     async def on_connect(self):
         logging.info("Twitter stream has been connected successfully")
