@@ -6,7 +6,7 @@ import discord
 from typing_extensions import NotRequired
 
 from src.utils.config import ContentPosterConfig
-from src.utils.helper import dict_has_key
+from src.utils.helper import dict_has_key, get_from_dict
 from src.utils.ui import Button, Modal, Select, View
 
 
@@ -1073,11 +1073,13 @@ class NewPostView(View):
 
     async def post(self, interaction: discord.Interaction):
         if (
-            self.post_details["caption"] is None
-            or self.post_details["caption"] == ""
-            or len(self.post_details["files"]) == 0
-            or len(self.post_details["channels"]) == 0
+            get_from_dict(self.post_details, ["caption"]) is None or
+            len(self.post_details["files"]) == 0
         ):
+            if get_from_dict(self.post_details, ["channels"]) is not None:
+                if len(self.post_details["channels"]) != 0:
+                    return
+                
             await interaction.response.send_message(
                 content="Failed to make post. Ensure that you have entered a caption and selected the channels to post in and files to upload.",
                 ephemeral=True,
