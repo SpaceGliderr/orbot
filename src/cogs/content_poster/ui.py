@@ -21,7 +21,7 @@ async def send_input_message(bot: discord.Client, input_name: str, interaction: 
     user_input_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
     user_input_embed.set_footer(text="Data is recorded successfully when the previous embed is updated with the data.")
 
-    cancel_view = CancelView(timeout=30)
+    cancel_view = CancelView(timeout=60)
 
     if not interaction.response.is_done():
         await interaction.response.send_message(embed=user_input_embed, view=cancel_view, ephemeral=True)
@@ -79,7 +79,7 @@ async def send_post_caption_view(
 
     post_caption_view = PostCaptionView(
         embedded_message=post_caption_embed,
-        timeout=90,
+        timeout=120,
         post_url=url,
         embed_type=embed_type,
         caption_credits=caption_credits,
@@ -801,7 +801,7 @@ class EditPostView(View):
 
     async def remove_image(self, interaction: discord.Interaction):
         post_medias_view = PostMediaView(
-            timeout=90, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
+            timeout=120, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
         )
 
         await interaction.response.send_message(
@@ -1021,7 +1021,7 @@ class NewPostView(View):
 
     async def channel(self, interaction: discord.Interaction):
         post_details_view = PostChannelView(
-            timeout=90,
+            timeout=120,
             input_type="select",
             stop_view=False,
             defer=True,
@@ -1048,7 +1048,7 @@ class NewPostView(View):
 
     async def select(self, interaction: discord.Interaction):
         post_medias_view = PostMediaView(
-            timeout=90, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
+            timeout=120, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
         )
 
         await interaction.response.send_message(
@@ -1176,7 +1176,7 @@ class PersistentTweetView(View):
             tweet_details=self.tweet_details,
             files=self.files,
             interaction_user=interaction.user,
-            timeout=180,
+            timeout=300,
         )
         await interaction.edit_original_response(view=new_post_view)
         await new_post_view.wait()
