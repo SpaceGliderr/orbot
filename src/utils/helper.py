@@ -29,7 +29,7 @@ async def download_file(url: str, name: str):
             if resp.status != 200:
                 raise Exception("Cannot download file")
             data = io.BytesIO(await resp.read())
-            return discord.File(data, f"{name}.png")
+            return discord.File(data, f"{name}.jpg")
 
 
 async def convert_files_to_zip(files: List[discord.File], filename: Optional[str] = None):
