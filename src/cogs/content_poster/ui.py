@@ -57,22 +57,22 @@ async def send_post_caption_view(
 
     if not interaction.response.is_done():
         await interaction.response.send_message(
-            embed=PostCaptionEmbed(
+            embed=set_embed_author(interaction=interaction, embed=PostCaptionEmbed(
                 url=url,
                 embed_type=embed_type,
                 caption_credits=caption_credits,
                 post_caption_details=post_caption_details,
-            ),
+            )),
             ephemeral=True,
         )
     else:
         await interaction.followup.send(
-            embed=PostCaptionEmbed(
+            embed=set_embed_author(interaction=interaction, embed=PostCaptionEmbed(
                 url=url,
                 embed_type=embed_type,
                 caption_credits=caption_credits,
                 post_caption_details=post_caption_details,
-            ),
+            )),
             ephemeral=True,
         )
     post_caption_embed = await interaction.original_response()
@@ -105,6 +105,11 @@ async def get_post_caption(interaction: discord.Interaction, post_caption_view):
     else:
         await interaction.edit_original_response(content="No caption was entered!", embed=None, view=None)
     return None
+
+
+def set_embed_author(interaction: discord.Interaction, embed: discord.Embed):
+    embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
+    return embed
 
 
 # =================================================================================================================
@@ -297,12 +302,12 @@ class ClearButton(discord.ui.Button):
             del self.view.post_details[self.input_name]
 
         await self.view.embedded_message.edit(
-            embed=PostCaptionEmbed(
+            embed=set_embed_author(interaction=interaction, embed=PostCaptionEmbed(
                 url=self.post_url,
                 embed_type=self.embed_type,
                 caption_credits=self.caption_credits,
                 post_caption_details=self.view.post_details,
-            )
+            ))
         )
 
         await interaction.response.defer()
@@ -550,12 +555,12 @@ class PostCaptionView(View):
             await asyncio.gather(
                 task_result.delete(),
                 self.embedded_message.edit(
-                    embed=PostCaptionEmbed(
+                    embed=set_embed_author(interaction=interaction, embed=PostCaptionEmbed(
                         url=self.post_url,
                         embed_type=self.embed_type,
                         caption_credits=self.caption_credits,
                         post_caption_details=self.post_details,
-                    )
+                    ))
                 ),
             )
         elif isinstance(task_result, bool):
@@ -752,7 +757,7 @@ class EditPostView(View):
 
             await asyncio.gather(
                 post_caption_interaction.edit_original_response(content="Changes were recorded", embed=None, view=None),
-                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
             )
 
     async def add_image(self, interaction: discord.Interaction):
@@ -787,7 +792,7 @@ class EditPostView(View):
 
             await asyncio.gather(
                 task_result.delete(),
-                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
                 interaction.followup.send(content="Changes were recorded", ephemeral=True),
             )
         elif isinstance(task_result, bool):  # True signifies that it is timed out
@@ -817,7 +822,7 @@ class EditPostView(View):
 
             await asyncio.gather(
                 interaction.edit_original_response(content="Changes were recorded", view=None),
-                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
             )
         else:
             await interaction.edit_original_response(content="No images were removed", view=None)
@@ -870,7 +875,7 @@ class NewClearButton(discord.ui.Button):
                 else:
                     del self.view.post_details[field]
 
-        await self.view.embedded_message.edit(embed=PostDetailsEmbed(self.view.post_details))
+        await self.view.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)))
 
 
 class NewPostView(View):
@@ -1012,7 +1017,7 @@ class NewPostView(View):
             await post_caption_interaction.edit_original_response(
                 content="Changes were recorded", embed=None, view=None
             )
-            await self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details))
+            await self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)))
 
     async def channel(self, interaction: discord.Interaction):
         post_details_view = PostChannelView(
@@ -1038,7 +1043,7 @@ class NewPostView(View):
             self.post_details["channels"] = post_details_view.ret_val
             await asyncio.gather(
                 interaction.edit_original_response(content="Changes were recorded", view=None),
-                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
             )
 
     async def select(self, interaction: discord.Interaction):
@@ -1068,7 +1073,7 @@ class NewPostView(View):
 
             await asyncio.gather(
                 interaction.edit_original_response(content="Changes were recorded", view=None),
-                self.embedded_message.edit(embed=PostDetailsEmbed(post_details=self.post_details)),
+                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
             )
 
     async def post(self, interaction: discord.Interaction):
@@ -1160,9 +1165,9 @@ class PersistentTweetView(View):
         self.embedded_message = None
 
     async def new_post(self, interaction: discord.Interaction):
-        post_details_embed = PostDetailsEmbed(post_details=self.post_details)
-        post_details_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
-        await interaction.response.send_message(embed=post_details_embed)
+        # post_details_embed = PostDetailsEmbed(post_details=self.post_details)
+        # post_details_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
+        await interaction.response.send_message(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)))
         self.embedded_message = await interaction.original_response()
         new_post_view = NewPostView(
             bot=self.bot,
