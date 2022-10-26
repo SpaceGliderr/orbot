@@ -187,12 +187,12 @@ class ContentPosterConfig:
         """Generates the post caption."""
         if post_details is not None and post_details != {}:
             if dict_has_key(post_details, "caption"):
-                return f"```ml\n{post_details['caption']}\n```"
+                return f"```ml\n{post_details['caption'].replace('```', '')}\n```"
 
             caption = "```ml\n"
 
             if dict_has_key(post_details, "event_details"):
-                caption += f'{post_details["event_details"]} '
+                caption += f'{post_details["event_details"].replace("```", "")} '
 
             if caption_credits is not None:
                 caption += f"| cr: {caption_credits[0]} (@{caption_credits[1]})"
