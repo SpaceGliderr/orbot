@@ -730,7 +730,7 @@ class EditPostView(View):
 
     async def edit_caption(self, interaction: discord.Interaction):
         await self.stop_active_views()
-        await self.clear_tasks_and_msg()
+        # await self.clear_tasks_and_msg()
 
         post_caption_interaction, post_caption_view = await send_post_caption_view(
             url=self.post_details["message"].jump_url,
@@ -791,12 +791,14 @@ class EditPostView(View):
             self.files.extend(new_files)
 
             await asyncio.gather(
+                self.clear_tasks_and_msg(),
                 task_result.delete(),
                 self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
                 interaction.followup.send(content="Changes were recorded", ephemeral=True),
             )
         elif isinstance(task_result, bool):  # True signifies that it is timed out
             content = "The user input timed out, please try again!" if task_result else "No images were uploaded."
+            await self.clear_tasks_and_msg()
             await interaction.followup.send(content=content, ephemeral=True)
 
     async def remove_image(self, interaction: discord.Interaction):
@@ -835,7 +837,7 @@ class EditPostView(View):
         await asyncio.gather(
             self.clear_tasks_and_msg(),
             self.stop_active_views(),
-            interaction.response.send_message(content="Sending...", ephemeral=True),
+            interaction.response.send_message(content="Updating...", ephemeral=True),
             self.post_details["message"].edit(
                 content=self.post_details["caption"], attachments=self.post_details["files"]
             ),
