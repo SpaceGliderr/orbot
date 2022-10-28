@@ -47,32 +47,36 @@ async def send_post_caption_view(
     embed_type,
     default_caption: Optional[str] = None,
 ):
-    caption_content = (
-        ContentPosterConfig.get_post_caption_content(default_caption) if default_caption is not None else None
-    )
-
     post_caption_details = (
-        {caption_content["type"]: caption_content["content"]} if caption_content is not None else None
+        ContentPosterConfig.get_post_caption_content(default_caption)
+        if default_caption is not None
+        else {"has_credits": caption_credits is not None}
     )
 
     if not interaction.response.is_done():
         await interaction.response.send_message(
-            embed=set_embed_author(interaction=interaction, embed=PostCaptionEmbed(
-                url=url,
-                embed_type=embed_type,
-                caption_credits=caption_credits,
-                post_caption_details=post_caption_details,
-            )),
+            embed=set_embed_author(
+                interaction=interaction,
+                embed=PostCaptionEmbed(
+                    url=url,
+                    embed_type=embed_type,
+                    caption_credits=caption_credits,
+                    post_caption_details=post_caption_details,
+                ),
+            ),
             ephemeral=True,
         )
     else:
         await interaction.followup.send(
-            embed=set_embed_author(interaction=interaction, embed=PostCaptionEmbed(
-                url=url,
-                embed_type=embed_type,
-                caption_credits=caption_credits,
-                post_caption_details=post_caption_details,
-            )),
+            embed=set_embed_author(
+                interaction=interaction,
+                embed=PostCaptionEmbed(
+                    url=url,
+                    embed_type=embed_type,
+                    caption_credits=caption_credits,
+                    post_caption_details=post_caption_details,
+                ),
+            ),
             ephemeral=True,
         )
     post_caption_embed = await interaction.original_response()
@@ -128,10 +132,10 @@ class PostDetails(TypedDict):
     files: List[discord.File]
 
 
-class PostCaptionDetails(TypedDict, total=False):
-    event_details: str
-    caption: str
-    default: str
+class PostCaptionDetails(TypedDict):
+    caption: NotRequired[str | None]
+    default: NotRequired[str | None]
+    has_credits: bool
 
 
 # =================================================================================================================
@@ -183,14 +187,14 @@ class PostCaptionEmbed(discord.Embed):
         * caption_credits: Optional[Tuple[:class:`str`, :class:`str`]]
             - The anatomized caption credits. The first element is the Twitter name, the second element is the Twitter handle.
         * post_caption_details: Optional[:class:`dict`]
-            - The post details to display in the embed. Possible keys: `event_details`, `caption`.
+            - The post details to display in the embed. Possible keys: `caption`.
     """
 
     def __init__(
         self,
         embed_type: Literal["new", "edit"],
-        caption_credits: Optional[Tuple[str, str]],
-        post_caption_details: Optional[dict] = None,
+        caption_credits: Optional[Tuple[str, str]] = None,
+        post_caption_details: Optional[PostCaptionDetails] = None,
         *args,
         **kwargs,
     ):
@@ -207,17 +211,19 @@ class PostCaptionEmbed(discord.Embed):
         caption = ContentPosterConfig.generate_post_caption(caption_credits, post_caption_details)
 
         self.add_field(
-            name="Event Details",
-            value=f'{post_caption_details["event_details"]}\n\u200B'
-            if post_caption_details is not None and dict_has_key(post_caption_details, "event_details")
-            else "_-No event details entered-_\n\u200B",
+            name="Caption Content",
+            value=f'{post_caption_details["caption"]}\n\u200B'
+            if post_caption_details is not None and dict_has_key(post_caption_details, "caption")
+            else "_-No content entered-_\n\u200B",
             inline=False,
         )
         self.add_field(
-            name="Custom Caption",
-            value=f'{post_caption_details["caption"]}\n\u200B'
-            if post_caption_details is not None and dict_has_key(post_caption_details, "caption")
-            else "_-No custom caption entered-_\n\u200B",
+            name="Caption Credits",
+            value="_No credits available_\n\u200B"
+            if caption_credits is None
+            else "Credits enabled\n\u200B"
+            if post_caption_details["has_credits"]
+            else "Credits disabled\n\u200B",
             inline=False,
         )
         self.add_field(
@@ -302,12 +308,15 @@ class ClearButton(discord.ui.Button):
             del self.view.post_details[self.input_name]
 
         await self.view.embedded_message.edit(
-            embed=set_embed_author(interaction=interaction, embed=PostCaptionEmbed(
-                url=self.post_url,
-                embed_type=self.embed_type,
-                caption_credits=self.caption_credits,
-                post_caption_details=self.view.post_details,
-            ))
+            embed=set_embed_author(
+                interaction=interaction,
+                embed=PostCaptionEmbed(
+                    url=self.post_url,
+                    embed_type=self.embed_type,
+                    caption_credits=self.caption_credits,
+                    post_caption_details=self.view.post_details,
+                ),
+            )
         )
 
         await interaction.response.defer()
@@ -491,14 +500,14 @@ class PostCaptionView(View):
         embed_type: Literal["new", "edit"],
         caption_credits: Tuple[str, str],
         bot: discord.Client,
-        post_caption_details: Optional[dict] = None,
+        post_caption_details: Optional[PostCaptionDetails] = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.embedded_message = embedded_message
-        self.input_names = {"event_details": "event details", "caption": "custom caption"}
-        self.post_details = post_caption_details if post_caption_details is not None else {}
+        self.input_names = {"caption": "custom caption"}
+        self.post_details = post_caption_details if post_caption_details is not None else {"has_credits": False}
         self.is_confirmed = False
         self.embed_type = embed_type
         self.bot = bot
@@ -519,6 +528,21 @@ class PostCaptionView(View):
 
         self.input_message: discord.Message = None
         self.executing_tasks = None
+
+        self.add_item(
+            Button(
+                label="Caption Credits Unavailable"
+                if caption_credits is None
+                else "Disable Caption Credits"
+                if self.post_details["has_credits"]
+                else "Enable Caption Credits",
+                style=discord.ButtonStyle.green if self.post_details["has_credits"] else discord.ButtonStyle.grey,
+                emoji="⚠️" if caption_credits is None else "🅾️" if self.post_details["has_credits"] else "❌",
+                disabled=caption_credits is None,
+                row=1,
+                custom_callback=self.toggle,
+            )
+        )
 
     async def clear_tasks_and_msg(self):
         if self.input_message is not None:
@@ -555,12 +579,15 @@ class PostCaptionView(View):
             await asyncio.gather(
                 task_result.delete(),
                 self.embedded_message.edit(
-                    embed=set_embed_author(interaction=interaction, embed=PostCaptionEmbed(
-                        url=self.post_url,
-                        embed_type=self.embed_type,
-                        caption_credits=self.caption_credits,
-                        post_caption_details=self.post_details,
-                    ))
+                    embed=set_embed_author(
+                        interaction=interaction,
+                        embed=PostCaptionEmbed(
+                            url=self.post_url,
+                            embed_type=self.embed_type,
+                            caption_credits=self.caption_credits,
+                            post_caption_details=self.post_details,
+                        ),
+                    )
                 ),
             )
         elif isinstance(task_result, bool):
@@ -571,23 +598,39 @@ class PostCaptionView(View):
             )
             await interaction.followup.send(content=content, ephemeral=True)
 
-    @discord.ui.button(
-        label="Event Details", style=discord.ButtonStyle.primary, custom_id="event_details", emoji="📆", row=0
-    )
-    async def event_details(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        await self.clear_tasks_and_msg()
-        await self.retrieve_user_input(interaction=interaction, button_id=button.custom_id)
-
-    @discord.ui.button(
-        label="Custom Caption", style=discord.ButtonStyle.primary, custom_id="caption", emoji="⚠️", row=1
-    )
+    @discord.ui.button(label="Enter Caption", style=discord.ButtonStyle.primary, custom_id="caption", emoji="📝", row=0)
     async def custom(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         await self.clear_tasks_and_msg()
         await self.retrieve_user_input(interaction=interaction, button_id=button.custom_id)
 
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, custom_id="confirm", emoji="✔️", row=2)
+    async def toggle(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.post_details["has_credits"] = not self.post_details["has_credits"]
+
+        button.emoji = "🅾️" if self.post_details["has_credits"] else "❌"
+        button.label = "Disable Caption Credits" if self.post_details["has_credits"] else "Enable Caption Credits"
+        button.style = discord.ButtonStyle.green if self.post_details["has_credits"] else discord.ButtonStyle.grey
+
+        self.remove_item(button)
+        updated_view = self.add_item(button)
+
+        await asyncio.gather(
+            self.embedded_message.edit(
+                embed=set_embed_author(
+                    interaction=interaction,
+                    embed=PostCaptionEmbed(
+                        url=self.post_url,
+                        embed_type=self.embed_type,
+                        caption_credits=self.caption_credits,
+                        post_caption_details=self.post_details,
+                    ),
+                ),
+                view=updated_view,
+            ),
+            interaction.response.defer(),
+        )
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, emoji="✔️", row=2)
     async def confirm(self, interaction: discord.Interaction, *_):
         caption = ContentPosterConfig.generate_post_caption(self.caption_credits, self.post_details)
         if caption is None:
@@ -600,7 +643,7 @@ class PostCaptionView(View):
         self.interaction = interaction
         self.stop()
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, custom_id="cancel", emoji="✖️", row=2)
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, emoji="✖️", row=2)
     async def cancel(self, interaction: discord.Interaction, *_):
         await interaction.response.defer()
         await self.clear_tasks_and_msg()
@@ -728,7 +771,7 @@ class EditPostView(View):
 
             self.executing_tasks = None
 
-    async def edit_caption(self, interaction: discord.Interaction):
+    async def edit_caption(self, interaction: discord.Interaction, *_):
         await self.stop_active_views()
         # await self.clear_tasks_and_msg()
 
@@ -757,10 +800,14 @@ class EditPostView(View):
 
             await asyncio.gather(
                 post_caption_interaction.edit_original_response(content="Changes were recorded", embed=None, view=None),
-                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
+                self.embedded_message.edit(
+                    embed=set_embed_author(
+                        interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)
+                    )
+                ),
             )
 
-    async def add_image(self, interaction: discord.Interaction):
+    async def add_image(self, interaction: discord.Interaction, *_):
         await self.stop_active_views()
         await self.clear_tasks_and_msg()
 
@@ -793,7 +840,11 @@ class EditPostView(View):
             await asyncio.gather(
                 self.clear_tasks_and_msg(),
                 task_result.delete(),
-                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
+                self.embedded_message.edit(
+                    embed=set_embed_author(
+                        interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)
+                    )
+                ),
                 interaction.followup.send(content="Changes were recorded", ephemeral=True),
             )
         elif isinstance(task_result, bool):  # True signifies that it is timed out
@@ -801,7 +852,7 @@ class EditPostView(View):
             await self.clear_tasks_and_msg()
             await interaction.followup.send(content=content, ephemeral=True)
 
-    async def remove_image(self, interaction: discord.Interaction):
+    async def remove_image(self, interaction: discord.Interaction, *_):
         post_medias_view = PostMediaView(
             timeout=120, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
         )
@@ -824,12 +875,16 @@ class EditPostView(View):
 
             await asyncio.gather(
                 interaction.edit_original_response(content="Changes were recorded", view=None),
-                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
+                self.embedded_message.edit(
+                    embed=set_embed_author(
+                        interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)
+                    )
+                ),
             )
         else:
             await interaction.edit_original_response(content="No images were removed", view=None)
 
-    async def save(self, interaction: discord.Interaction):
+    async def save(self, interaction: discord.Interaction, *_):
         if len(self.post_details["files"]) == 0:
             await interaction.response.send_message(content="Please upload at least one image", ephemeral=True)
             return
@@ -850,7 +905,7 @@ class EditPostView(View):
         self.interaction = interaction
         self.stop()
 
-    async def cancel(self, interaction: discord.Interaction):
+    async def cancel(self, interaction: discord.Interaction, *_):
         await asyncio.gather(self.clear_tasks_and_msg(), self.stop_active_views(), interaction.response.defer())
 
         self.stop()
@@ -877,7 +932,9 @@ class NewClearButton(discord.ui.Button):
                 else:
                     del self.view.post_details[field]
 
-        await self.view.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)))
+        await self.view.embedded_message.edit(
+            embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))
+        )
 
 
 class NewPostView(View):
@@ -992,7 +1049,7 @@ class NewPostView(View):
         for active_view in self.active_views:
             active_view.stop()
 
-    async def caption(self, interaction: discord.Interaction):
+    async def caption(self, interaction: discord.Interaction, *_):
         post_caption_interaction, post_caption_view = await send_post_caption_view(
             url=self.tweet_details["url"],
             caption_credits=self.post_details["caption_credits"],
@@ -1019,9 +1076,11 @@ class NewPostView(View):
             await post_caption_interaction.edit_original_response(
                 content="Changes were recorded", embed=None, view=None
             )
-            await self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)))
+            await self.embedded_message.edit(
+                embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))
+            )
 
-    async def channel(self, interaction: discord.Interaction):
+    async def channel(self, interaction: discord.Interaction, *_):
         post_details_view = PostChannelView(
             timeout=120,
             input_type="select",
@@ -1045,10 +1104,14 @@ class NewPostView(View):
             self.post_details["channels"] = post_details_view.ret_val
             await asyncio.gather(
                 interaction.edit_original_response(content="Changes were recorded", view=None),
-                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
+                self.embedded_message.edit(
+                    embed=set_embed_author(
+                        interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)
+                    )
+                ),
             )
 
-    async def select(self, interaction: discord.Interaction):
+    async def select(self, interaction: discord.Interaction, *_):
         post_medias_view = PostMediaView(
             timeout=120, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
         )
@@ -1075,18 +1138,19 @@ class NewPostView(View):
 
             await asyncio.gather(
                 interaction.edit_original_response(content="Changes were recorded", view=None),
-                self.embedded_message.edit(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))),
+                self.embedded_message.edit(
+                    embed=set_embed_author(
+                        interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)
+                    )
+                ),
             )
 
-    async def post(self, interaction: discord.Interaction):
-        if (
-            get_from_dict(self.post_details, ["caption"]) is None or
-            len(self.post_details["files"]) == 0
-        ):
+    async def post(self, interaction: discord.Interaction, *_):
+        if get_from_dict(self.post_details, ["caption"]) is None or len(self.post_details["files"]) == 0:
             if get_from_dict(self.post_details, ["channels"]) is not None:
                 if len(self.post_details["channels"]) != 0:
                     return
-                
+
             await interaction.response.send_message(
                 content="Failed to make post. Ensure that you have entered a caption and selected the channels to post in and files to upload.",
                 ephemeral=True,
@@ -1116,7 +1180,7 @@ class NewPostView(View):
             content=f"Post(s) successfully created in <#{'>, <#'.join(self.post_details['channels'])}>"
         )
 
-    async def cancel(self, interaction: discord.Interaction):
+    async def cancel(self, interaction: discord.Interaction, *_):
         await self.embedded_message.delete()
         await self.stop_active_views()
         self.stop()
@@ -1166,10 +1230,12 @@ class PersistentTweetView(View):
         )
         self.embedded_message = None
 
-    async def new_post(self, interaction: discord.Interaction):
+    async def new_post(self, interaction: discord.Interaction, *_):
         # post_details_embed = PostDetailsEmbed(post_details=self.post_details)
         # post_details_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
-        await interaction.response.send_message(embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details)))
+        await interaction.response.send_message(
+            embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))
+        )
         self.embedded_message = await interaction.original_response()
         new_post_view = NewPostView(
             bot=self.bot,
@@ -1183,7 +1249,7 @@ class PersistentTweetView(View):
         await interaction.edit_original_response(view=new_post_view)
         await new_post_view.wait()
 
-    async def close_tweet(self, interaction: discord.Interaction):
+    async def close_tweet(self, interaction: discord.Interaction, *_):
         await self.message.edit(view=None)
         self.stop()
         self.interaction = interaction

@@ -65,7 +65,7 @@ class Button(discord.ui.Button):
         value: Optional[Any] = None,
         stop_view: bool = False,
         defer: bool = False,
-        custom_callback: Optional[Callable[[discord.Interaction], Awaitable[None]]] = None,
+        custom_callback: Optional[Callable[[discord.Interaction, discord.ui.Button], Awaitable[None]]] = None,
         *args,
         **kwargs,
     ):
@@ -79,7 +79,7 @@ class Button(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         if self.custom_callback is not None:
-            await self.custom_callback(interaction)
+            await self.custom_callback(interaction, self)
             return
 
         if self.defer:

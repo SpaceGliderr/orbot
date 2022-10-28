@@ -183,18 +183,18 @@ class ContentPosterConfig:
         return self._data
 
     @staticmethod
-    def generate_post_caption(caption_credits: Optional[Tuple[str, str]], post_details: Optional[dict] = None):
+    def generate_post_caption(
+        caption_credits: Optional[Tuple[str, str]] = None, post_caption_details: Optional[dict] = None
+    ):
         """Generates the post caption."""
-        if post_details is not None and post_details != {}:
-            if dict_has_key(post_details, "caption"):
-                return f"```ml\n{post_details['caption'].replace('```', '')}\n```"
+        if (
+            post_caption_details is not None
+            and post_caption_details != {}
+            and dict_has_key(post_caption_details, "caption")
+        ):
+            caption = f'```ml\n{post_caption_details["caption"].replace("```", "")} '
 
-            caption = "```ml\n"
-
-            if dict_has_key(post_details, "event_details"):
-                caption += f'{post_details["event_details"].replace("```", "")} '
-
-            if caption_credits is not None:
+            if caption_credits is not None and post_caption_details["has_credits"]:
                 caption += f"| cr: {caption_credits[0]} (@{caption_credits[1]})"
 
             caption += "\n```"
@@ -217,13 +217,16 @@ class ContentPosterConfig:
     @staticmethod
     def get_post_caption_content(caption: str):
         content = re.search(r".+\s{1}\|", caption)
+        has_credits = True
 
         if content is None:
             # Return a custom caption
-            content = re.search(r"\n.+", caption)
-            return {"type": "caption", "content": content.group().strip()}
+            content = re.search(r"\n.+", caption).group().strip()
+            has_credits = False
         else:
-            return {"type": "event_details", "content": content.group()[:-2]}
+            content = content.group()[:-2]
+
+        return {"caption": content, "has_credits": has_credits}
 
     def get_feed_channel(self, client: discord.Client):
         """Gets the feed channel instance."""
