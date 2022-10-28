@@ -696,18 +696,18 @@ class EditPostView(View):
                         "callback": self.edit_caption,
                     },
                     {
-                        "name": "add_image",
+                        "name": "add_images",
                         "label": "Add Image(s)",
                         "style": discord.ButtonStyle.primary,
                         "emoji": None,
-                        "callback": self.add_image,
+                        "callback": self.add_images,
                     },
                     {
-                        "name": "remove_image",
-                        "label": "Remove Image(s)",
+                        "name": "select_images",
+                        "label": "Select Image(s)",
                         "style": discord.ButtonStyle.primary,
                         "emoji": None,
-                        "callback": self.remove_image,
+                        "callback": self.select_images,
                     },
                 ],
             },
@@ -807,7 +807,7 @@ class EditPostView(View):
                 ),
             )
 
-    async def add_image(self, interaction: discord.Interaction, *_):
+    async def add_images(self, interaction: discord.Interaction, *_):
         await self.stop_active_views()
         await self.clear_tasks_and_msg()
 
@@ -852,7 +852,7 @@ class EditPostView(View):
             await self.clear_tasks_and_msg()
             await interaction.followup.send(content=content, ephemeral=True)
 
-    async def remove_image(self, interaction: discord.Interaction, *_):
+    async def select_images(self, interaction: discord.Interaction, *_):
         post_medias_view = PostMediaView(
             timeout=120, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
         )
