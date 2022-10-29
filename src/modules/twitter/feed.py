@@ -126,7 +126,7 @@ class TwitterFeed:
             await self.stream.add_rules(self.generate_stream_rules())
 
         self.stream.filter(
-            tweet_fields=["attachments", "conversation_id"],
+            tweet_fields=["attachments", "conversation_id", "entities"],
             media_fields=["url"],
             user_fields=["name", "username"],
             expansions=["attachments.media_keys", "author_id"],

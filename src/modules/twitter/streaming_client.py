@@ -46,6 +46,10 @@ class TwitterStreamingClient(AsyncStreamingClient):
 
         user = get_from_dict(tweets[0], ["includes", "users"])[0]
         tweet_text = get_from_dict(tweets[0], ["data", "text"])
+        expanded_url = get_from_dict(tweets[0], ["data", "entities", "urls"])[0]["expanded_url"]
+
+        expanded_tweet_url = re.search(r".+/photo", expanded_url).group().replace('/photo', '')
+        tweet_text_no_url = re.sub(r"https://t.co/\S+", "", tweet_text)
 
         urls = []
         for tweet in tweets:
@@ -58,9 +62,9 @@ class TwitterStreamingClient(AsyncStreamingClient):
 
         for post_urls in urls_per_post:
             loop = asyncio.get_event_loop()
-            loop.create_task(self.send_post(user, tweet_text, post_urls))
+            loop.create_task(self.send_post(user, tweet_text_no_url, post_urls, expanded_tweet_url, conversation_id))
 
-    async def send_post(self, user, tweet_text, urls):
+    async def send_post(self, user, tweet_text, urls, tweet_url, conversation_id):
         """Sends a post with a PersistentTweetView to the feed channel.
 
         Parameters
@@ -77,15 +81,18 @@ class TwitterStreamingClient(AsyncStreamingClient):
 
         # Post the Twitter message to the feed channel
         embedless_urls = [f"<{url}>" for url in urls]
-        content = f"`@{user['username']}`\n<{tweet_text}>\n" + "\n".join(embedless_urls)
+
+        if len(tweet_text) != 0:
+            tweet_text = f"{tweet_text}\n"
+
+        content = f"`@{user['username']}`\n{tweet_text}<{tweet_url}>\n" + "\n".join(embedless_urls)
         message = await self.channel.send(content=content, files=files)
 
         # The following RegEx expression serves to obtain the Tweet URL from the caption
-        url = re.search(r"https://t.co/\S+", tweet_text)
-        tweet_details: TweetDetails = {"user": user, "url": url.group()}
+        tweet_details: TweetDetails = {"user": user, "url": tweet_url}
 
         # Generate the ZIP file and send it as a separate message
-        zip_file = await convert_files_to_zip(files, url.group()[13:])
+        zip_file = await convert_files_to_zip(files, str(conversation_id))
 
         # Update the message with the PersistentTweetView
         view = PersistentTweetView(message=message, files=files, bot=self.client, tweet_details=tweet_details)
