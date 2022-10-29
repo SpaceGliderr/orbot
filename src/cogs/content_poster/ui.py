@@ -393,6 +393,11 @@ class PostMediaView(View):
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, emoji="✔", row=3)
     async def confirm(self, interaction: discord.Interaction, *_):
         # TODO: Add a check here to see whether user actually selected anything
+        if self.ret_val is None:
+            self.interaction = interaction
+            self.stop()
+            return
+
         if len(self.ret_val) == 0:
             await interaction.response.send_message(content="Please select image(s) to create post", ephemeral=True)
             return
@@ -963,7 +968,7 @@ class NewPostView(View):
                 "buttons": [
                     {
                         "name": "caption",
-                        "label": "Enter Caption",
+                        "label": "Make Caption",
                         "style": discord.ButtonStyle.primary,
                         "emoji": None,
                         "callback": self.caption,
@@ -1224,22 +1229,20 @@ class PersistentTweetView(View):
                 )
             )
 
-        self.post_details = PostDetails(
-            files=self.files,
-            caption_credits=(self.tweet_details["user"]["name"], self.tweet_details["user"]["username"]),
-        )
         self.embedded_message = None
 
     async def new_post(self, interaction: discord.Interaction, *_):
-        # post_details_embed = PostDetailsEmbed(post_details=self.post_details)
-        # post_details_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
+        post_details = PostDetails(
+            files=self.files,
+            caption_credits=(self.tweet_details["user"]["name"], self.tweet_details["user"]["username"]),
+        )
         await interaction.response.send_message(
-            embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))
+            embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=post_details))
         )
         self.embedded_message = await interaction.original_response()
         new_post_view = NewPostView(
             bot=self.bot,
-            post_details=self.post_details,
+            post_details=post_details,
             embedded_message=self.embedded_message,
             tweet_details=self.tweet_details,
             files=self.files,
