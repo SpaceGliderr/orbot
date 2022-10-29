@@ -27,6 +27,9 @@ class TwitterStreamingClient(AsyncStreamingClient):
         self.channel = ContentPosterConfig().get_feed_channel(self.client)
         self.tweets = {}
 
+    def get_filenames_from_url(self, post_urls):
+        return [re.search(r"media/.+\.", post_url).group()[6:-1] for post_url in post_urls]
+
     async def compile_tweets(self, conversation_id: str, delay: float = 10):
         """A delayed function to compile the Tweets from a Tweet thread.
 
@@ -70,7 +73,7 @@ class TwitterStreamingClient(AsyncStreamingClient):
                 - The current rule content string.
         """
         # Download the files from the URL
-        files = await download_files(urls)
+        files = await download_files(urls, self.get_filenames_from_url(urls))
 
         # Post the Twitter message to the feed channel
         embedless_urls = [f"<{url}>" for url in urls]
@@ -83,7 +86,6 @@ class TwitterStreamingClient(AsyncStreamingClient):
 
         # Generate the ZIP file and send it as a separate message
         zip_file = await convert_files_to_zip(files, url.group()[13:])
-        # await self.channel.send(file=zip_file)
 
         # Update the message with the PersistentTweetView
         view = PersistentTweetView(message=message, files=files, bot=self.client, tweet_details=tweet_details)

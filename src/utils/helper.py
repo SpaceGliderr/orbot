@@ -19,8 +19,10 @@ def dict_has_key(dic, key):
     return key in dic.keys()
 
 
-async def download_files(urls: List[str]):
-    return [await download_file(url, idx + 1) for idx, url in enumerate(urls)]
+async def download_files(urls: List[str], filenames: Optional[List[str]] = None):
+    if filenames is not None and len(filenames) != len(urls):
+        raise Exception
+    return [await download_file(url, filenames[idx] if filenames is not None else idx + 1) for idx, url in enumerate(urls)]
 
 
 async def download_file(url: str, name: str):
