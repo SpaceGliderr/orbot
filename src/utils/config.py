@@ -178,6 +178,11 @@ class ContentPosterConfig:
         return get_from_dict(self._data, ["config", "post_channels"])
 
     @property
+    def hashtag_filters(self):
+        """Get hashtag filters."""
+        return get_from_dict(self._data, ["config", "hashtag_filters"])
+
+    @property
     def data(self):
         """Get the extracted data."""
         return self._data

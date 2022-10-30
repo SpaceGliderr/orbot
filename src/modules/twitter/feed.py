@@ -127,7 +127,7 @@ class TwitterFeed:
 
         self.stream.filter(
             tweet_fields=["attachments", "conversation_id", "entities"],
-            media_fields=["url"],
+            media_fields=["url", "variants"],
             user_fields=["name", "username"],
             expansions=["attachments.media_keys", "author_id"],
         )  # Don't need await so it doesn't block the main loop execution

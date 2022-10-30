@@ -22,7 +22,9 @@ def dict_has_key(dic, key):
 async def download_files(urls: List[str], filenames: Optional[List[str]] = None):
     if filenames is not None and len(filenames) != len(urls):
         raise Exception
-    return [await download_file(url, filenames[idx] if filenames is not None else idx + 1) for idx, url in enumerate(urls)]
+    return [
+        await download_file(url, filenames[idx] if filenames is not None else idx + 1) for idx, url in enumerate(urls)
+    ]
 
 
 async def download_file(url: str, name: str):
@@ -31,7 +33,7 @@ async def download_file(url: str, name: str):
             if resp.status != 200:
                 raise Exception("Cannot download file")
             data = io.BytesIO(await resp.read())
-            return discord.File(data, f"{name}.jpg")
+            return discord.File(data, name)
 
 
 async def convert_files_to_zip(files: List[discord.File], filename: Optional[str] = None):
