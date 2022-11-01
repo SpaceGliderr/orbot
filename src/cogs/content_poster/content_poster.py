@@ -14,6 +14,7 @@ from src.cogs.content_poster.ui import (
     PostDetailsEmbed,
 )
 from src.modules.twitter.feed import TwitterFeed
+from src.modules.twitter.twitter import TwitterHelper
 from src.orbot import client
 from src.utils.config import ContentPosterConfig
 
@@ -417,6 +418,64 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         await view.wait()
         await embedded_message.edit(view=None)
+
+    @app_commands.command(name="new-post", description="Makes a new post with a given Tweet link")
+    @app_commands.guild_only()
+    @app_commands.rename(tweet_type="type", tweet_link="link")
+    @app_commands.describe(tweet_type="type of Tweet", tweet_link="the Tweet link(s)")
+    @app_commands.choices(
+        tweet_type=[
+            app_commands.Choice(name="Recent (posted less than 7 days ago)", value="recent"),
+            app_commands.Choice(
+                name="Old (posted more than 7 days ago, enter all tweet links separated with a comma)", value="old"
+            ),
+        ]
+    )
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def new_post(self, interaction: discord.Interaction, tweet_type: app_commands.Choice[str], tweet_link: str):
+        await interaction.response.defer(ephemeral=True)
+
+        channel = ContentPosterConfig().get_feed_channel(self.bot)
+
+        ids_chronological_order = []
+
+        if tweet_type.value == "recent":
+            split_link = tweet_link.split("/")
+            username = split_link[3]
+            tweet_id = split_link[-1]
+
+            recent_tweets = self.twitter_client.search_recent_tweets(
+                query=f'(url:"{tweet_link}" OR conversation_id:{tweet_id}) from:{username} has:media'
+            )
+
+            if recent_tweets.data is None:
+                await interaction.followup.send(
+                    content="The tweet you tried to search cannot be found or was posted more than 7 days ago. Please use the `old` tweet type and provide all relevant Tweet links separated by commas.",
+                    ephemeral=True,
+                )
+                return
+
+            ids_chronological_order = list(reversed([tweet["id"] for tweet in recent_tweets.data]))
+        else:
+            links = tweet_link.split(",")
+            ids_chronological_order = [link.strip().split("/")[-1] for link in links]
+
+        tweets = self.twitter_client.get_tweets(
+            ids=ids_chronological_order,
+            tweet_fields=["attachments", "conversation_id", "entities"],
+            media_fields=["url", "variants"],
+            user_fields=["name", "username"],
+            expansions=["attachments.media_keys", "author_id"],
+        )
+
+        urls_per_post, filenames_per_post, metadata = await TwitterHelper.parse_response_object(tweets)
+
+        for idx, post_urls in enumerate(urls_per_post):
+            await TwitterHelper.send_post(
+                urls=post_urls, media_filenames=filenames_per_post[idx], client=self.bot, channel=channel, **metadata
+            )
+
+        await interaction.followup.send(content=f"Tweet successfully created in <#{channel.id}>", ephemeral=True)
 
 
 async def setup(bot):
