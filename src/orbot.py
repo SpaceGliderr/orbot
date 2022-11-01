@@ -4,8 +4,10 @@ import os
 import discord
 from discord.ext import commands
 
+from src.cogs.content_poster.ui import PersistentTweetView
 from src.cogs.role_picker.ui import PersistentRolePickerView
 from src.modules.twitter.feed import TwitterFeed
+from src.utils.config import ContentPosterConfig
 
 intents = discord.Intents(
     guilds=True,
@@ -43,6 +45,7 @@ class Orbot(commands.Bot):
 
     async def setup_hook(self):
         self.add_view(PersistentRolePickerView())
+        await self.reactivate_persistent_views()
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
 
@@ -64,6 +67,18 @@ class Orbot(commands.Bot):
     async def on_ready(self):
         self.twitter_stream = await TwitterFeed.init_then_start(client=self)
         logging.info("Orbot is ready")
+
+    async def reactivate_persistent_views(self):
+        cm_conf = ContentPosterConfig()
+
+        active_posts = cm_conf.active_posts
+        channel = await self.fetch_channel(cm_conf.data["config"]["feed_channel_id"])
+
+        for msg_id, tweet_details in active_posts.items():
+            message = await channel.fetch_message(msg_id)
+            files = [await attachment.to_file() for attachment in message.attachments]
+
+            self.add_view(PersistentTweetView(message=message, files=files, tweet_details=tweet_details, bot=self))
 
 
 client = Orbot()

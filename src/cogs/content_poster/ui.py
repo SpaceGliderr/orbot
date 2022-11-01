@@ -1231,6 +1231,8 @@ class PersistentTweetView(View):
 
         self.embedded_message = None
 
+        ContentPosterConfig().add_active_post(message_id=message.id, tweet_details=self.tweet_details)
+
     async def new_post(self, interaction: discord.Interaction, *_):
         post_details = PostDetails(
             files=self.files,
@@ -1256,3 +1258,5 @@ class PersistentTweetView(View):
         await self.message.edit(view=None)
         self.stop()
         self.interaction = interaction
+
+        ContentPosterConfig().remove_active_post(message_id=self.message.id)

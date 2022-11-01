@@ -187,6 +187,11 @@ class ContentPosterConfig:
         """Get the extracted data."""
         return self._data
 
+    @property
+    def active_posts(self):
+        """Get the active posts object."""
+        return get_from_dict(self._data, ["active_posts"])
+
     @staticmethod
     def generate_post_caption(
         caption_credits: Optional[Tuple[str, str]] = None, post_caption_details: Optional[dict] = None
@@ -258,6 +263,16 @@ class ContentPosterConfig:
             )
             for post_channel in self.post_channels
         ]
+
+    def add_active_post(self, message_id: int, tweet_details: dict):
+        data = self.get_data()
+        data["active_posts"][str(message_id)] = tweet_details
+        self.dump(data)
+
+    def remove_active_post(self, message_id: int):
+        data = self.get_data()
+        del data["active_posts"][str(message_id)]
+        self.dump(data)
 
     def dump(self, data):
         """Dump data into the `content_poster.yaml` file."""
