@@ -1192,6 +1192,49 @@ class NewPostView(View):
         self.interaction = interaction
 
 
+class PrunedAccountsSummaryView(View):
+    """Creates an overview of the role categories and roles with embeds by inheriting the `View` class.
+
+    Has previous, next and lock buttons.
+
+    Additional Parameters
+    ----------
+        * embeds: :class:`list`
+            - List of embeds to iterate through.
+    """
+
+    def __init__(self, *, timeout: Optional[float] = None, embeds: List[discord.Embed]):
+        super().__init__(timeout=timeout)
+        self.embeds = embeds
+        self.curr_idx = 0
+
+    def update_curr_idx(self, increment):
+        """Updates the current index of the list of embeds"""
+        if self.curr_idx + increment == len(self.embeds):
+            self.curr_idx = 0
+        elif self.curr_idx + increment < 0:
+            self.curr_idx = len(self.embeds) - 1
+        else:
+            self.curr_idx = self.curr_idx + increment
+
+        return self.curr_idx
+
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, emoji="⬅️")
+    async def previous(self, interaction: discord.Interaction, *_):
+        self.value = False
+        await interaction.response.edit_message(embed=self.embeds[self.update_curr_idx(-1)])
+
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, emoji="➡️")
+    async def next(self, interaction: discord.Interaction, *_):
+        self.value = True
+        await interaction.response.edit_message(embed=self.embeds[self.update_curr_idx(1)])
+
+    @discord.ui.button(style=discord.ButtonStyle.red, emoji="🔒")
+    async def lock(self, interaction: discord.Interaction, *_):
+        self.stop()
+        await interaction.response.edit_message(view=None)
+
+
 # =================================================================================================================
 # CONTENT POSTER PERSISTENT ELEMENTS
 # =================================================================================================================

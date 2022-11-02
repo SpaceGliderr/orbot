@@ -1,9 +1,11 @@
 import os
+from datetime import datetime
 from typing import Literal
 
 import discord
 import stringcase
 import tweepy
+from dateutil import parser
 from discord import Permissions, app_commands
 from discord.ext import commands
 
@@ -12,11 +14,14 @@ from src.cogs.content_poster.ui import (
     PostChannelModal,
     PostChannelView,
     PostDetailsEmbed,
+    PrunedAccountsSummaryView,
 )
 from src.modules.twitter.feed import TwitterFeed
 from src.modules.twitter.twitter import TwitterHelper
 from src.orbot import client
 from src.utils.config import ContentPosterConfig
+
+import math
 
 
 class ContentPoster(commands.GroupCog, name="poster"):
@@ -477,6 +482,114 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         await interaction.followup.send(content=f"Tweet successfully created in <#{channel.id}>", ephemeral=True)
 
+    @app_commands.command(
+        name="prune-accounts", description="Removes Twitter accounts which have been inactive for a period of time"
+    )
+    @app_commands.guild_only()
+    @app_commands.describe(duration="period of inactivity (in days)")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def prune_accounts(self, interaction: discord.Interaction, duration: int):
+        await interaction.response.defer(ephemeral=True)
+
+        user_ids = TwitterFeed.get_user_ids()
+        ids_to_prune = []
+        pruned_account_embeds = []
+        embed = discord.Embed(title="Pruned Accounts", description="Shows the Twitter accounts that were pruned:\n\u200B")
+
+        for idx, user_id in enumerate(user_ids):
+            result = self.twitter_client.get_users_tweets(
+                id=user_id, max_results=5, tweet_fields=["created_at"], expansions="author_id"
+            )
+            user_response = client.get_user(id=user_id, user_fields=["name", "username"])
+
+            user = None
+            if user_response.data is not None:
+                user = user_response.data.data
+
+            reason = ""
+
+            if len(result.errors) != 0:
+                ids_to_prune.append(user_id)
+                reason = "_<Account deleted or privated>_"
+            else:
+                try:
+                    recent_tweet_date = parser.parse(result.data[0].data["created_at"]).date()
+                    date_diff = datetime.now().date() - recent_tweet_date
+
+                    if date_diff.days > duration:
+                        ids_to_prune.append(user_id)
+                        reason = f"_Last Tweet on {recent_tweet_date}, {date_diff} days ago_"
+                except:
+                    ids_to_prune.append(user_id)
+                    reason = "_<Account has no Tweets>_"
+
+            embed.add_field(name=f"{user['name']} @{user['username']}" if user is not None else user_id, value=reason, inline=False)
+
+            if idx + 1 % 25 == 0:
+                pruned_account_embeds.append(embed)
+                embed.clear_fields()
+
+        if len(ids_to_prune) == 0:
+            await interaction.followup.send(content="No accounts were pruned!", ephemeral=True)
+
+        number_of_pages = math.ceil(len(ids_to_prune) / 25)
+        for page_num, embed in enumerate(pruned_account_embeds):
+            embed.set_footer(text=f"Page {page_num + 1} of {number_of_pages}")
+
+        ids_to_keep = list(set(user_ids).difference(set(ids_to_prune)))
+        self.bot.twitter_stream.overwrite_ids(user_ids=ids_to_keep)
+
+        await interaction.followup.send(embed=pruned_account_embeds[0], view=PrunedAccountsSummaryView(embeds=pruned_account_embeds) if len(pruned_account_embeds) != 1 else None)
+
+    @app_commands.command(name="update-hashtag-filters", description="Updates the whitelisted and blacklisted hashtags to filter incoming Tweets")
+    @app_commands.guild_only()
+    @app_commands.rename(list_type="list")
+    @app_commands.describe(list_type="type of list", action="action to perform on the list", hashtags="hashtags to add to the specified list (separated by commas)")
+    @app_commands.choices(
+        list_type=[
+            app_commands.Choice(name="blacklist", value="blacklist"),
+            app_commands.Choice(name="whitelist", value="whitelist"),
+        ],
+        action=[
+            app_commands.Choice(name="add hashtags", value="add"),
+            app_commands.Choice(name="remove hashtags", value="remove"),
+        ],
+    )
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def update_hashtag_filters(self, interaction: discord.Interaction, list_type: app_commands.Choice[str], action: app_commands.Choice[str], hashtags: str):
+        await interaction.response.defer(ephemeral=True)
+
+        hashtag_list = hashtags.split(",")
+        
+        cp_conf = ContentPosterConfig()
+        data = cp_conf.get_data()
+        current_hashtag_list = cp_conf.hashtag_filters()[list_type.value]
+
+        success = []
+        neutral = []
+
+        for h in hashtag_list:
+            hashtag = h.strip()
+
+            if action.value == "add":
+                if hashtag in current_hashtag_list:
+                    neutral.append(hashtag)
+                else:
+                    data["config"]["hashtag_filters"][list_type.value].append(hashtag)
+                    success.append(hashtag)
+            else:
+                if hashtag not in current_hashtag_list:
+                    neutral.append(hashtag)
+                else:
+                    data["config"]["hashtag_filters"][list_type.value].append(hashtag)
+                    success.append(hashtag)
+        
+        embed = discord.Embed(title=f"Added to {list_type.value.capitalize()}", description="\n\u200B")
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
+        embed.add_field(name="Successfully Added", value=f"#{', #'.join(success)}\n\u200B", inline=False)
+        embed.add_field(name="Already Exists", value=f"#{', #'.join(success)}\n\u200B", inline=False)
+
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(ContentPoster(bot))

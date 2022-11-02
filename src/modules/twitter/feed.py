@@ -38,6 +38,14 @@ class TwitterFeed:
             lines = data.read().splitlines()
             return [user_id for user_id in lines]
 
+    def overwrite_ids(self, user_ids: str):
+        with open("src/data/IDs.txt", "w") as data:
+            data.write("\n".join(user_ids))
+            data.truncate()
+
+        self.follow = self.get_user_ids()
+        self.follow_change_flag = True
+
     def save_user_id(self, user_id: str, purpose: Literal["add", "remove"]):
         """Adds or removes a Twitter user ID to the `IDs.txt` file.
 
