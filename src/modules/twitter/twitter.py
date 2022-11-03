@@ -7,7 +7,9 @@ import discord
 import tweepy
 from requests import Response
 
-from src.cogs.content_poster.ui import PersistentTweetView, TweetDetails
+from src.cogs.content_poster.ui.views.persistent import PersistentTweetView
+from src.typings.content_poster import TweetDetails
+
 from src.utils.helper import (
     convert_files_to_zip,
     dict_has_key,
