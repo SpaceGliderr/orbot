@@ -10,15 +10,14 @@ from dateutil import parser
 from discord import Permissions, app_commands
 from discord.ext import commands
 
-from src.cogs.content_poster.ui import (
-    EditPostView,
-    PostChannelModal,
-    PostChannelView,
-    PostDetailsEmbed,
-    PrunedAccountsSummaryView,
-)
+from src.cogs.content_poster.ui.embeds import PostDetailsEmbed
+from src.cogs.content_poster.ui.modals import PostChannelModal
+from src.cogs.content_poster.ui.views.edit_post import EditPostView
+from src.cogs.content_poster.ui.views.post_details import PostChannelView
+
 from src.modules.twitter.feed import TwitterFeed
 from src.modules.twitter.twitter import TwitterHelper
+from src.modules.ui.custom import PaginatedEmbedsView
 from src.orbot import client
 from src.utils.config import ContentPosterConfig
 
@@ -544,7 +543,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         await interaction.followup.send(
             embed=pruned_account_embeds[0],
-            view=PrunedAccountsSummaryView(embeds=pruned_account_embeds) if len(pruned_account_embeds) != 1 else None,
+            view=PaginatedEmbedsView(embeds=pruned_account_embeds) if len(pruned_account_embeds) != 1 else None,
         )
 
     @app_commands.command(
