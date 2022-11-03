@@ -1,3 +1,4 @@
+import math
 import os
 from datetime import datetime
 from typing import Literal
@@ -20,8 +21,6 @@ from src.modules.twitter.feed import TwitterFeed
 from src.modules.twitter.twitter import TwitterHelper
 from src.orbot import client
 from src.utils.config import ContentPosterConfig
-
-import math
 
 
 class ContentPoster(commands.GroupCog, name="poster"):
@@ -494,7 +493,9 @@ class ContentPoster(commands.GroupCog, name="poster"):
         user_ids = TwitterFeed.get_user_ids()
         ids_to_prune = []
         pruned_account_embeds = []
-        embed = discord.Embed(title="Pruned Accounts", description="Shows the Twitter accounts that were pruned:\n\u200B")
+        embed = discord.Embed(
+            title="Pruned Accounts", description="Shows the Twitter accounts that were pruned:\n\u200B"
+        )
 
         for idx, user_id in enumerate(user_ids):
             result = self.twitter_client.get_users_tweets(
@@ -523,7 +524,9 @@ class ContentPoster(commands.GroupCog, name="poster"):
                     ids_to_prune.append(user_id)
                     reason = "_<Account has no Tweets>_"
 
-            embed.add_field(name=f"{user['name']} @{user['username']}" if user is not None else user_id, value=reason, inline=False)
+            embed.add_field(
+                name=f"{user['name']} @{user['username']}" if user is not None else user_id, value=reason, inline=False
+            )
 
             if idx + 1 % 25 == 0:
                 pruned_account_embeds.append(embed)
@@ -539,12 +542,22 @@ class ContentPoster(commands.GroupCog, name="poster"):
         ids_to_keep = list(set(user_ids).difference(set(ids_to_prune)))
         self.bot.twitter_stream.overwrite_ids(user_ids=ids_to_keep)
 
-        await interaction.followup.send(embed=pruned_account_embeds[0], view=PrunedAccountsSummaryView(embeds=pruned_account_embeds) if len(pruned_account_embeds) != 1 else None)
+        await interaction.followup.send(
+            embed=pruned_account_embeds[0],
+            view=PrunedAccountsSummaryView(embeds=pruned_account_embeds) if len(pruned_account_embeds) != 1 else None,
+        )
 
-    @app_commands.command(name="update-hashtag-filters", description="Updates the whitelisted and blacklisted hashtags to filter incoming Tweets")
+    @app_commands.command(
+        name="update-hashtag-filters",
+        description="Updates the whitelisted and blacklisted hashtags to filter incoming Tweets",
+    )
     @app_commands.guild_only()
     @app_commands.rename(list_type="list")
-    @app_commands.describe(list_type="type of list", action="action to perform on the list", hashtags="hashtags to add to the specified list (separated by commas)")
+    @app_commands.describe(
+        list_type="type of list",
+        action="action to perform on the list",
+        hashtags="hashtags to add to the specified list (separated by commas)",
+    )
     @app_commands.choices(
         list_type=[
             app_commands.Choice(name="blacklist", value="blacklist"),
@@ -556,11 +569,17 @@ class ContentPoster(commands.GroupCog, name="poster"):
         ],
     )
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def update_hashtag_filters(self, interaction: discord.Interaction, list_type: app_commands.Choice[str], action: app_commands.Choice[str], hashtags: str):
+    async def update_hashtag_filters(
+        self,
+        interaction: discord.Interaction,
+        list_type: app_commands.Choice[str],
+        action: app_commands.Choice[str],
+        hashtags: str,
+    ):
         await interaction.response.defer(ephemeral=True)
 
         hashtag_list = hashtags.split(",")
-        
+
         cp_conf = ContentPosterConfig()
         data = cp_conf.get_data()
         current_hashtag_list = cp_conf.hashtag_filters()[list_type.value]
@@ -583,13 +602,44 @@ class ContentPoster(commands.GroupCog, name="poster"):
                 else:
                     data["config"]["hashtag_filters"][list_type.value].append(hashtag)
                     success.append(hashtag)
-        
+
         embed = discord.Embed(title=f"Added to {list_type.value.capitalize()}", description="\n\u200B")
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
         embed.add_field(name="Successfully Added", value=f"#{', #'.join(success)}\n\u200B", inline=False)
         embed.add_field(name="Already Exists", value=f"#{', #'.join(success)}\n\u200B", inline=False)
 
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @app_commands.command(
+        name="view-hashtag-filters",
+        description="View the whitelisted and blacklisted hashtags that filters incoming Tweets",
+    )
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def view_hashtag_filters(self, interaction: discord.Interaction):
+        hashtag_filters = ContentPosterConfig().hashtag_filters
+
+        embed = discord.Embed(
+            title="Hashtag Filters",
+            description="The list of hashtags used to filter incoming Tweets on the feed\n\u200B",
+        )
+        embed.add_field(
+            name="Whitelisted Hashtags",
+            value=f'{", ".join(hashtag_filters["whitelist"])}\n\u200B'
+            if len(hashtag_filters["whitelist"]) != 0
+            else "_No whitelisted hashtags_\n\u200B",
+            inline=False,
+        )
+        embed.add_field(
+            name="Blacklisted Hashtags",
+            value=f'{", ".join(hashtag_filters["blacklist"])}'
+            if len(hashtag_filters["blacklist"]) != 0
+            else "_No blacklisted hashtags_",
+            inline=False,
+        )
+
+        await interaction.response.send_message(embed=embed)
+
 
 async def setup(bot):
     await bot.add_cog(ContentPoster(bot))
