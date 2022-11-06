@@ -9,7 +9,6 @@ from requests import Response
 
 from src.cogs.content_poster.ui.views.persistent import PersistentTweetView
 from src.typings.content_poster import TweetDetails
-
 from src.utils.helper import (
     convert_files_to_zip,
     dict_has_key,
@@ -19,10 +18,19 @@ from src.utils.helper import (
 
 
 class TwitterHelper:
+    """A class comprised of static resources to parse the objects received from calling Twitter APIs."""
+
     url_postfix = ":orig"
 
     @staticmethod
     def get_media_urls(media_objects: List[dict]):
+        """Extracts the media URLs from the `media` object returned by a Tweet response.
+
+        Parameters
+        ----------
+            * media_objects: List[:class:`dict`]
+                - The media objects to be extracted from.
+        """
         urls = []
         filenames = []
         for media_object in media_objects:
@@ -44,10 +52,25 @@ class TwitterHelper:
 
     @staticmethod
     def get_items_per_post(items: list, items_per_post: int = 10):
+        """Partitions a list of objects into a multiple lists not more than a certain length.
+
+        Parameters
+        ----------
+            * items: :class:`list`
+                - The list of objects to be partitioned.
+            * items_per_post: :class:`int` | 10
+                - The maximum array length for each partition. Default is 10, as Discord only allows 10 media attachments per post.
+        """
         return [items[i : i + items_per_post] for i in range(0, len(items), items_per_post)]
 
     @staticmethod
     async def parse_response_object(tweets: Response):
+        """Parses the object returned from a Twitter API call.
+
+        Parameters
+        ----------
+            * tweets: :class:`Response`
+        """
         tweet: tweepy.Tweet = tweets.data[0].data
 
         urls = tweet["entities"]["urls"][-1]
@@ -70,6 +93,12 @@ class TwitterHelper:
 
     @staticmethod
     async def parse_response_raw_data(tweets: dict):
+        """Parses the raw dictionary returned from a Twitter stream.
+
+        Parameters
+        ----------
+            * tweets: :class:`dict`
+        """
         urls = get_from_dict(tweets[0], ["data", "entities", "urls"])[
             -1
         ]  # Take the last one because it is the link to the Tweet
@@ -108,6 +137,24 @@ class TwitterHelper:
         client: discord.Client,
         channel: discord.TextChannel,
     ):
+        """Sends a post to a channel.
+
+        Parameters
+        ----------
+            * user: :class:`dict`
+                - The Twitter user information.
+            * tweet_text: :class:`str`
+                - The Tweet caption.
+            * urls: List[:class:`str`]
+                - The file urls to download.
+            * tweet_url: `str`
+            * conversation_id: `str`
+                - The conversation ID of the Tweet.
+            * media_filenames: List[:class:`str`]
+            * client: :class:`discord.Client`
+            * channel: :class:`discord.TextChannel`
+                - The channel to send the post in.
+        """
         # Download the files from the URL
         files = await download_files(urls, media_filenames)
 
