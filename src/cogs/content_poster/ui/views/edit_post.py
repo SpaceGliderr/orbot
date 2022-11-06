@@ -9,15 +9,15 @@ from src.cogs.content_poster.ui.views.post_details import (
     get_post_caption,
     send_post_caption_view,
 )
+from src.modules.ui.common import Button, View
 from src.typings.content_poster import PostDetails
 from src.utils.config import ContentPosterConfig
 from src.utils.helper import dict_has_key
-from src.modules.ui.common import Button, View
 from src.utils.user_input import get_user_input, send_input_message
 
 
 class EditPostView(View):
-    """Creates a view to add or edit a Post Caption by inheriting the `View` class.
+    """Creates a view to edit a Post by inheriting the `View` class.
 
     Additional Parameters
     ----------
@@ -27,6 +27,10 @@ class EditPostView(View):
             - The message with the `PostDetailsEmbed`.
         * bot: :class:`discord.Client`
             - The Discord bot instance needed to wait for user input.
+        * files: List[:class:`discord.File`]
+            - A copied reference list to the original files found in the Posts' attachment attribute.
+        * interaction_user: Union[:class:`discord.User`, :class:`discord.Member`]
+            - The user that is allowed to interact with this `View`.
     """
 
     def __init__(
@@ -41,13 +45,20 @@ class EditPostView(View):
     ):
         super().__init__(*args, **kwargs)
 
+        # Initialize arguments as instance variables
         self.post_details = post_details
         self.embedded_message = embedded_message
         self.bot = bot
         self.files = files
         self.interaction_user = interaction_user
 
+        # Initialize other instance variables
+        self.active_views: List[View] = []
+        self.executing_tasks = None
         self.is_confirmed = False
+        self.input_message: discord.Message = None
+
+        # Initialize the buttons in the View
         self.button_rows = [
             {
                 "buttons": [
@@ -103,15 +114,16 @@ class EditPostView(View):
                         emoji=button["emoji"],
                         row=int(idx),
                         custom_callback=button["callback"],
-                        # check=lambda interaction: self.interaction_user == interaction.user,
                     )
                 )
 
-        self.active_views: List[View] = []
-        self.input_message: discord.Message = None
-        self.executing_tasks = None
-
+    # =================================================================================================================
+    # VIEW FUNCTIONS
+    # =================================================================================================================
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Overrides the `interaction_check` method for `discord.View`.
+        Checks whether the user that interacts with this view is equal to the `interaction_user` instance variable.
+        """
         if self.interaction_user != interaction.user:
             await interaction.response.send_message(
                 content="You are not allowed to interact with this post!", ephemeral=True
@@ -119,10 +131,12 @@ class EditPostView(View):
         return self.interaction_user == interaction.user
 
     async def stop_active_views(self):
+        """Stops all active views created by interacting with `EditPostView` view."""
         for active_view in self.active_views:
             active_view.stop()
 
     async def clear_tasks_and_msg(self):
+        """Cancels all `asyncio.Task`s and deletes all messages created by interacting with `EditPostView` view."""
         if self.input_message is not None:
             await self.input_message.delete()
             self.input_message = None
@@ -134,10 +148,16 @@ class EditPostView(View):
 
             self.executing_tasks = None
 
+    # =================================================================================================================
+    # BUTTON CALLBACKS
+    # =================================================================================================================
     async def edit_caption(self, interaction: discord.Interaction, *_):
+        """Callback attached to the `edit_caption` button which edits the post caption."""
+        # No need to call `clear_tasks_and_msg` method after `stop_active_views`
+        # By stopping the active views, the input messages created by the `add_images` button will be handled by its callback, if any
         await self.stop_active_views()
-        # await self.clear_tasks_and_msg()
 
+        # Get the `post_caption_view` object
         post_caption_interaction, post_caption_view = await send_post_caption_view(
             url=self.post_details["message"].jump_url,
             caption_credits=self.post_details["caption_credits"],
@@ -149,18 +169,23 @@ class EditPostView(View):
 
         self.active_views.append(post_caption_view)
 
+        # Sends the prompt to retrieve user input
         post_caption_details = await get_post_caption(
             interaction=post_caption_interaction, post_caption_view=post_caption_view
         )
 
-        self.active_views.remove(post_caption_view)
+        self.active_views.remove(
+            post_caption_view
+        )  # Remove `post_caption_view` from active views once interaction is done
 
         if post_caption_details is not None:
+            # Update the `post_details` variable with newly obtained post caption
             caption = ContentPosterConfig.generate_post_caption(
                 self.post_details["caption_credits"], post_caption_details
             )
             self.post_details["caption"] = caption
 
+            # Update relevant messages with the updated `post_details` variable
             await asyncio.gather(
                 post_caption_interaction.edit_original_response(content="Changes were recorded", embed=None, view=None),
                 self.embedded_message.edit(
@@ -171,9 +196,11 @@ class EditPostView(View):
             )
 
     async def add_images(self, interaction: discord.Interaction, *_):
+        """Callback attached to the `add_images` button which takes user inputted files and adds them to the files to upload."""
         await self.stop_active_views()
-        await self.clear_tasks_and_msg()
+        await self.clear_tasks_and_msg()  # Use `clear_tasks_and_msg` here to delete the input messages created by `edit_caption`, if any
 
+        # Obtain the user input
         self.input_message, cancel_view = await send_input_message(
             bot=self.bot, input_name="new images", interaction=interaction
         )
@@ -195,11 +222,16 @@ class EditPostView(View):
 
         self.active_views.remove(cancel_view)
 
+        # After user input is obtained
         if isinstance(task_result, discord.Message):
+            # If user input is a message, extract the attachments and turn them into `discord.File` objects
             new_files = [await attachment.to_file() for attachment in task_result.attachments]
+
+            # Replace the file related instance variables
             self.post_details["files"].extend(new_files)
             self.files.extend(new_files)
 
+            # Clean up the frontend UI, leftover tasks, and update relevant messages with the updated `post_details` variable
             await asyncio.gather(
                 self.clear_tasks_and_msg(),
                 task_result.delete(),
@@ -210,32 +242,37 @@ class EditPostView(View):
                 ),
                 interaction.followup.send(content="Changes were recorded", ephemeral=True),
             )
-        elif isinstance(task_result, bool):  # True signifies that it is timed out
+        elif isinstance(task_result, bool):
+            # True means it timed out, False means it was cancelled by the user
             content = "The user input timed out, please try again!" if task_result else "No images were uploaded."
-            await self.clear_tasks_and_msg()
-            await interaction.followup.send(content=content, ephemeral=True)
+            await asyncio.gather(self.clear_tasks_and_msg(), interaction.followup.send(content=content, ephemeral=True))
 
     async def select_images(self, interaction: discord.Interaction, *_):
+        """Callback attached to the `select_images` button which allows users to select the files to upload."""
+        # Send `PostMediaView` view to user
         post_medias_view = PostMediaView(
-            timeout=120, images=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
+            timeout=120, medias=self.files, stop_view=False, defer=True, defaults=self.post_details["files"]
         )
 
         await interaction.response.send_message(
             content="Please select the image(s) that you want to keep:", view=post_medias_view, ephemeral=True
         )
-
         self.active_views.append(post_medias_view)
+
+        # After user is done interacting with `post_medias_view`
         timeout = await post_medias_view.wait()
         self.active_views.remove(post_medias_view)
 
         if timeout:
             await interaction.edit_original_response(content="The command has timed out, please try again!", view=None)
-        elif not post_medias_view.is_confirmed:
-            await interaction.edit_original_response(content="No changes were made!", view=None)
-        elif len(post_medias_view.ret_val) != 0:
+        elif post_medias_view.is_confirmed and len(post_medias_view.ret_val) != 0:
+            # The return array is the indexes of the images to keep from the `files` instance variable
             index_list = [int(idx) for idx in post_medias_view.ret_val]
+
+            # Extracts the `discord.File` objects based on the array of indexes
             self.post_details["files"] = list(map(list(self.files).__getitem__, index_list))
 
+            # Update relevant messages with the updated `post_details` variable
             await asyncio.gather(
                 interaction.edit_original_response(content="Changes were recorded", view=None),
                 self.embedded_message.edit(
@@ -244,14 +281,16 @@ class EditPostView(View):
                     )
                 ),
             )
-        else:
-            await interaction.edit_original_response(content="No images were removed", view=None)
+        else:  # Cancel button clicked or Confirm button clicked but no new images was selected
+            await interaction.edit_original_response(content="No changes were made!", view=None)
 
     async def save(self, interaction: discord.Interaction, *_):
-        if len(self.post_details["files"]) == 0:
+        """Callback attached to the `save` button which edits the original post with the updated details."""
+        if len(self.post_details["files"]) == 0:  # Make sure the user selects at least 1 image to upload
             await interaction.response.send_message(content="Please upload at least one image", ephemeral=True)
             return
 
+        # Clean up the frontend UI, leftover tasks, and edit the original post with the new post details
         await asyncio.gather(
             self.clear_tasks_and_msg(),
             self.stop_active_views(),
@@ -260,6 +299,8 @@ class EditPostView(View):
                 content=self.post_details["caption"], attachments=self.post_details["files"]
             ),
         )
+
+        # Once original post is updated, a success message is sent
         await interaction.edit_original_response(
             content=f"The post was successfully edited in <#{self.post_details['message'].channel.id}>. {self.post_details['message'].jump_url}"
         )
@@ -269,7 +310,12 @@ class EditPostView(View):
         self.stop()
 
     async def cancel(self, interaction: discord.Interaction, *_):
-        await asyncio.gather(self.clear_tasks_and_msg(), self.stop_active_views(), interaction.response.defer())
+        """Callback attached to the `cancel` button which stops user interaction with the `View`."""
+        await asyncio.gather(
+            self.clear_tasks_and_msg(),
+            self.stop_active_views(),
+            interaction.response.send_message(content="Post not updated", ephemeral=True),
+        )  # Clean up the frontend UI, leftover tasks and send cancellation message
 
         self.stop()
         self.interaction = interaction
