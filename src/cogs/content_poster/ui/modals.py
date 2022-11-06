@@ -24,7 +24,7 @@ class PostChannelModal(Modal):
                 label="Channel ID",
                 placeholder="Enter channel ID",
                 custom_id="id",
-                default=defaults["id"] if defaults is not None else None,
+                default=defaults.get("id", None) if defaults is not None else None,
             )
         )
 
@@ -33,6 +33,6 @@ class PostChannelModal(Modal):
                 label="Channel Label",
                 placeholder="Enter channel label (defaults to channel name)",
                 custom_id="label",
-                default=defaults["label"] if defaults is not None else None,
+                default=defaults.get("label", None) if defaults is not None else None,
             )
         )

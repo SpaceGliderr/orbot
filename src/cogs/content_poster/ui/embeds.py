@@ -8,8 +8,8 @@ from src.utils.helper import dict_has_key
 
 
 def set_embed_author(interaction: discord.Interaction, embed: discord.Embed):
-    embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
-    return embed
+    """Helper function that sets the embed author based on an interaction object."""
+    return embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
 
 
 class PostCaptionEmbed(discord.Embed):
@@ -19,9 +19,9 @@ class PostCaptionEmbed(discord.Embed):
     ----------
         * embed_type: Literal[`new`, `edit`]
             - Determines the verb of the embeds `title` and `description`.
-        * caption_credits: Optional[Tuple[:class:`str`, :class:`str`]]
+        * caption_credits: Optional[Tuple[:class:`str`, :class:`str`]] | None
             - The anatomized caption credits. The first element is the Twitter name, the second element is the Twitter handle.
-        * post_caption_details: Optional[:class:`dict`]
+        * post_caption_details: Optional[:class:`dict`] | None
             - The post details to display in the embed. Possible keys: `caption`.
     """
 
@@ -71,7 +71,7 @@ class PostDetailsEmbed(discord.Embed):
 
     Additional Parameters
     ----------
-        * post_details: :class:`PostDetails`
+        * post_details: :type:`PostDetails`
             - The post details to display in the embed.
     """
 
