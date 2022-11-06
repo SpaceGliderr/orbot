@@ -5,7 +5,6 @@ import discord
 from discord.ext import commands
 
 from src.cogs.content_poster.ui.views.persistent import PersistentTweetView
-
 from src.cogs.role_picker.ui import PersistentRolePickerView
 from src.modules.twitter.feed import TwitterFeed
 from src.utils.config import ContentPosterConfig
