@@ -1,7 +1,7 @@
 import math
 import os
 from datetime import datetime
-from typing import Literal
+from typing import List, Literal
 
 import discord
 import stringcase
@@ -10,15 +10,13 @@ from dateutil import parser
 from discord import Permissions, app_commands
 from discord.ext import commands
 
-from src.cogs.content_poster.ui import (
-    EditPostView,
-    PostChannelModal,
-    PostChannelView,
-    PostDetailsEmbed,
-    PrunedAccountsSummaryView,
-)
+from src.cogs.content_poster.ui.embeds import PostDetailsEmbed
+from src.cogs.content_poster.ui.modals import PostChannelModal
+from src.cogs.content_poster.ui.views.edit_post import EditPostView
+from src.cogs.content_poster.ui.views.post_details import PostChannelView
 from src.modules.twitter.feed import TwitterFeed
 from src.modules.twitter.twitter import TwitterHelper
+from src.modules.ui.custom import PaginatedEmbedsView
 from src.orbot import client
 from src.utils.config import ContentPosterConfig
 
@@ -100,7 +98,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         try:
             res = self.is_following(username)
         except:
-            await interaction.response.send_message(content="No user found with that username")
+            await interaction.response.send_message(content="No user found with that username", ephemeral=True)
             return None
         else:
             return res
@@ -120,10 +118,12 @@ class ContentPoster(commands.GroupCog, name="poster"):
             return
 
         is_following, _ = res
-        if is_following:
-            await interaction.response.send_message(content="This account is already being followed!")
-        else:
-            await interaction.response.send_message(content="This account is not being followed!")
+        await interaction.response.send_message(
+            content="This account is already being followed!"
+            if is_following
+            else "This account is not being followed!",
+            ephemeral=True,
+        )
 
     async def follow(self, interaction: discord.Interaction, username: str):
         """A method that adds an account ID from the `IDs.txt` file based on the username provided.
@@ -146,7 +146,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             # Restart stream
             await self.bot.twitter_stream.restart()
         else:
-            await interaction.response.send_message(content="This account is already being followed!")
+            await interaction.response.send_message(content="This account is already being followed!", ephemeral=True)
 
     async def unfollow(self, interaction: discord.Interaction, username: str):
         """A method that removes an account ID from the `IDs.txt` file based on the username provided.
@@ -169,7 +169,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             # Restart stream
             await self.bot.twitter_stream.restart()
         else:
-            await interaction.response.send_message(content="This account is not being followed!")
+            await interaction.response.send_message(content="This account is not being followed!", ephemeral=True)
 
     @app_commands.command(name="setup", description="Setup the Twitter feed in a text channel.")
     @app_commands.guild_only()
@@ -201,7 +201,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         data["config"]["feed_channel_id"] = channel.id
         cp_conf.dump(data)
 
-        # TODO: Setup or refresh function if a stream is running
+        await self.bot.twitter_stream.restart()
 
     @app_commands.command(
         name="account", description="Either check the follow status of, follow or unfollow a Twitter account."
@@ -423,47 +423,73 @@ class ContentPoster(commands.GroupCog, name="poster"):
         await view.wait()
         await embedded_message.edit(view=None)
 
-    @app_commands.command(name="new-post", description="Makes a new post with a given Tweet link")
+    @app_commands.command(name="create-post", description="Makes a new post with a given Tweet link")
     @app_commands.guild_only()
     @app_commands.rename(tweet_type="type", tweet_link="link")
     @app_commands.describe(tweet_type="type of Tweet", tweet_link="the Tweet link(s)")
     @app_commands.choices(
         tweet_type=[
-            app_commands.Choice(name="Recent (posted less than 7 days ago)", value="recent"),
             app_commands.Choice(
-                name="Old (posted more than 7 days ago, enter all tweet links separated with a comma)", value="old"
+                name="Recent (posted less than 7 days ago, enter only the parent tweet link)", value="recent"
             ),
+            app_commands.Choice(name="Any (enter all tweet links separated with a comma)", value="any"),
         ]
     )
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def new_post(self, interaction: discord.Interaction, tweet_type: app_commands.Choice[str], tweet_link: str):
+    async def create_post(
+        self, interaction: discord.Interaction, tweet_type: app_commands.Choice[str], tweet_link: str
+    ):
+        """A slash command that allows users to create a post by providing link(s) to Tweet(s).
+
+        Parameters
+        ----------
+            * tweet_type: :class:`discord.TextChannel`
+                - The text channel that the Role Picker will be set up in
+            * tweet_link: :class:`discord.TextChannel`
+                - The text channel that the Role Picker will be set up in
+
+        User Flow
+        ----------
+            * Retrieves Tweet(s) using the Twitter Client
+            * Sorts the media obtained from the Tweet(s)
+            * Sends a message with a `PersistentTweetView` to the feed channel
+
+        Permissions
+        ----------
+        `manage_messages`
+        """
         await interaction.response.defer(ephemeral=True)
 
         channel = ContentPosterConfig().get_feed_channel(self.bot)
 
         ids_chronological_order = []
 
-        if tweet_type.value == "recent":
+        if tweet_type.value == "recent":  # Will only have one tweet link
+            # Split and obtain the API parameters from the Tweet link
             split_link = tweet_link.split("/")
             username = split_link[3]
             tweet_id = split_link[-1]
 
+            # Get the recent tweets using the Twitter API (only need the Tweet IDs)
             recent_tweets = self.twitter_client.search_recent_tweets(
                 query=f'(url:"{tweet_link}" OR conversation_id:{tweet_id}) from:{username} has:media'
             )
 
             if recent_tweets.data is None:
                 await interaction.followup.send(
-                    content="The tweet you tried to search cannot be found or was posted more than 7 days ago. Please use the `old` tweet type and provide all relevant Tweet links separated by commas.",
+                    content="The tweet you tried to search cannot be found or was posted more than 7 days ago. Please use the `any` tweet type and provide all relevant Tweet links separated by commas.",
                     ephemeral=True,
                 )
                 return
 
+            # Reverse the order for the Tweet IDs
             ids_chronological_order = list(reversed([tweet["id"] for tweet in recent_tweets.data]))
-        else:
+        else:  # Will only have multiple tweet links
+            # Split and obtain the ids from the Tweet links
             links = tweet_link.split(",")
             ids_chronological_order = [link.strip().split("/")[-1] for link in links]
 
+        # Get all the relevant Tweets using the Twitter API (returns all tweet information)
         tweets = self.twitter_client.get_tweets(
             ids=ids_chronological_order,
             tweet_fields=["attachments", "conversation_id", "entities"],
@@ -472,6 +498,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             expansions=["attachments.media_keys", "author_id"],
         )
 
+        # Extract relevant tweet information and send the post to the feed channel
         urls_per_post, filenames_per_post, metadata = await TwitterHelper.parse_response_object(tweets)
 
         for idx, post_urls in enumerate(urls_per_post):
@@ -488,67 +515,139 @@ class ContentPoster(commands.GroupCog, name="poster"):
     @app_commands.describe(duration="period of inactivity (in days)")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def prune_accounts(self, interaction: discord.Interaction, duration: int):
+        """A slash command that allows users to prune Twitter IDs older than a user provided duration in days.
+
+        It is an expensive operation, do not run this more than a few times a month, due to Twitter APIs Tweet reading limitation (2 million Tweets can be read a month).
+
+        Parameters
+        ----------
+            * days: :class:`int`
+                - Prune threshold of account inactivity in days.
+
+        User Flow
+        ----------
+            * Gets the list of Twitter user IDs separated by commas
+            * For each user ID, it retrieves the 5 most recent Tweets of the user
+            * Using the most recent tweet, it checks the time of posting with the present date
+                - If the date is more than the threshold, it is pruned from the `IDs.txt` file
+            * Finally, it restarts the Twitter stream to apply the updated user IDs
+
+        Permissions
+        ----------
+        `manage_messages`
+        """
         await interaction.response.defer(ephemeral=True)
 
         user_ids = TwitterFeed.get_user_ids()
         ids_to_prune = []
         pruned_account_embeds = []
+
         embed = discord.Embed(
             title="Pruned Accounts", description="Shows the Twitter accounts that were pruned:\n\u200B"
         )
 
-        for idx, user_id in enumerate(user_ids):
-            result = self.twitter_client.get_users_tweets(
-                id=user_id, max_results=5, tweet_fields=["created_at"], expansions="author_id"
-            )
-            user_response = client.get_user(id=user_id, user_fields=["name", "username"])
-
-            user = None
-            if user_response.data is not None:
-                user = user_response.data.data
-
-            reason = ""
-
-            if len(result.errors) != 0:
-                ids_to_prune.append(user_id)
-                reason = "_<Account deleted or privated>_"
-            else:
-                try:
-                    recent_tweet_date = parser.parse(result.data[0].data["created_at"]).date()
-                    date_diff = datetime.now().date() - recent_tweet_date
-
-                    if date_diff.days > duration:
-                        ids_to_prune.append(user_id)
-                        reason = f"_Last Tweet on {recent_tweet_date}, {date_diff} days ago_"
-                except:
-                    ids_to_prune.append(user_id)
-                    reason = "_<Account has no Tweets>_"
+        def add_field_to_embed(
+            ids_to_prune: List[int],
+            pruned_account_embeds: List[discord.Embed],
+            embed: discord.Embed,
+            user_id: int,
+            user: dict,
+            reason: str,
+        ):
+            ids_to_prune.append(user_id)
 
             embed.add_field(
                 name=f"{user['name']} @{user['username']}" if user is not None else user_id, value=reason, inline=False
             )
 
-            if idx + 1 % 25 == 0:
+            if len(ids_to_prune) % 25 == 0:
                 pruned_account_embeds.append(embed)
                 embed.clear_fields()
 
+            return ids_to_prune, pruned_account_embeds, embed
+
+        for user_id in user_ids:
+            # Get the 5 most recent tweets from a given user ID
+            result = self.twitter_client.get_users_tweets(
+                id=user_id, max_results=5, tweet_fields=["created_at"], expansions="author_id"
+            )
+            # Get the user information of the user ID
+            # Cannot obtain user information from `get_users_tweets` as in the case when a user has not posted any tweets,
+            # `get_users_tweets` will return an empty object for the user even though the user exists
+            user_response = client.get_user(id=user_id, user_fields=["name", "username"])
+
+            # Get user object
+            user = None
+            if user_response.data is not None:
+                user = user_response.data.data
+
+            if user is None:  # If user can't be found, means it is deleted or does not exist
+                ids_to_prune, pruned_account_embeds, embed = add_field_to_embed(
+                    ids_to_prune=ids_to_prune,
+                    pruned_account_embeds=pruned_account_embeds,
+                    embed=embed,
+                    user_id=user_id,
+                    user=user,
+                    reason="_<Account deleted or does not exist>_",
+                )
+            elif (
+                len(result.errors) != 0
+            ):  # If there is an error, it means that the account is protected and the tweets cannot be accessed
+                ids_to_prune, pruned_account_embeds, embed = add_field_to_embed(
+                    ids_to_prune=ids_to_prune,
+                    pruned_account_embeds=pruned_account_embeds,
+                    embed=embed,
+                    user_id=user_id,
+                    user=user,
+                    reason="_<Account privated>_",
+                )
+            else:
+                try:
+                    # Access the most recent tweet
+                    recent_tweet_date = parser.parse(result.data[0].data["created_at"]).date()
+                    date_diff = datetime.now().date() - recent_tweet_date  # Find duration of the last post
+
+                    if (
+                        date_diff.days > duration
+                    ):  # Check whether the days since the last post exceeds specified duration threshold
+                        ids_to_prune, pruned_account_embeds, embed = add_field_to_embed(
+                            ids_to_prune=ids_to_prune,
+                            pruned_account_embeds=pruned_account_embeds,
+                            embed=embed,
+                            user_id=user_id,
+                            user=user,
+                            reason=f"_Last Tweet on {recent_tweet_date}, {date_diff} days ago_",
+                        )
+                except:  # Handles error thrown by accessing an empty object (no tweets available)
+                    ids_to_prune, pruned_account_embeds, embed = add_field_to_embed(
+                        ids_to_prune=ids_to_prune,
+                        pruned_account_embeds=pruned_account_embeds,
+                        embed=embed,
+                        user_id=user_id,
+                        user=user,
+                        reason="_<Account has no Tweets>_",
+                    )
+
         if len(ids_to_prune) == 0:
             await interaction.followup.send(content="No accounts were pruned!", ephemeral=True)
+            return
 
+        # Set embed footer
         number_of_pages = math.ceil(len(ids_to_prune) / 25)
         for page_num, embed in enumerate(pruned_account_embeds):
             embed.set_footer(text=f"Page {page_num + 1} of {number_of_pages}")
 
+        # Update the Twitter stream user IDs and `IDs.txt`
         ids_to_keep = list(set(user_ids).difference(set(ids_to_prune)))
         self.bot.twitter_stream.overwrite_ids(user_ids=ids_to_keep)
 
         await interaction.followup.send(
             embed=pruned_account_embeds[0],
-            view=PrunedAccountsSummaryView(embeds=pruned_account_embeds) if len(pruned_account_embeds) != 1 else None,
+            view=PaginatedEmbedsView(embeds=pruned_account_embeds) if len(pruned_account_embeds) != 1 else None,
         )
 
-    @app_commands.command(
-        name="update-hashtag-filters",
+    @edit_group.command(
+        name="hashtag-filters",
         description="Updates the whitelisted and blacklisted hashtags to filter incoming Tweets",
     )
     @app_commands.guild_only()
@@ -569,23 +668,46 @@ class ContentPoster(commands.GroupCog, name="poster"):
         ],
     )
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def update_hashtag_filters(
+    async def edit_hashtag_filters(
         self,
         interaction: discord.Interaction,
         list_type: app_commands.Choice[str],
         action: app_commands.Choice[str],
         hashtags: str,
     ):
+        """A slash command that allows users to edit the hashtag filter whitelist and blacklist of the Twitter feed.
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+                - Prune threshold of account inactivity in days.
+            * list_type: :class:`app_commands.Choice[str]`
+                - Chooses the type of hashtag filter list to edit.
+            * action: :class:`app_commands.Choice[str]`
+                - Chooses whether to add or remove hashtags from the selected list.
+            * hashtag: :class:`str`
+                - The list of hashtags to add/remove, separated by commas.
+
+        User Flow
+        ----------
+            * Gets the list of hashtags separated by commas.
+            * Then, it adds/removes the list of hashtags from the whitelist/blacklist.
+            * Finally, it saves the hashtags into the config file and sends an embed to show the user what has been added/removed.
+
+        Permissions
+        ----------
+        `manage_messages`
+        """
         await interaction.response.defer(ephemeral=True)
 
-        hashtag_list = hashtags.split(",")
+        hashtag_list = hashtags.split(",")  # Obtain hashtags
 
         cp_conf = ContentPosterConfig()
         data = cp_conf.get_data()
-        current_hashtag_list = cp_conf.hashtag_filters()[list_type.value]
+        current_hashtag_list = cp_conf.hashtag_filters[list_type.value]
 
-        success = []
-        neutral = []
+        success = []  # Stores the hashtags that were successfully added/removed
+        neutral = []  # Stores the hashtags that were not added/removed
 
         for h in hashtag_list:
             hashtag = h.strip()
@@ -600,13 +722,26 @@ class ContentPoster(commands.GroupCog, name="poster"):
                 if hashtag not in current_hashtag_list:
                     neutral.append(hashtag)
                 else:
-                    data["config"]["hashtag_filters"][list_type.value].append(hashtag)
+                    data["config"]["hashtag_filters"][list_type.value].remove(hashtag)
                     success.append(hashtag)
+
+        cp_conf.dump(data)  # Save data to config file
+
+        # Send embed to user to show the user what was/wasn't added/removed
+        verb = f"{action.value}ed" if action.value == "add" else f"{action.value}d"
 
         embed = discord.Embed(title=f"Added to {list_type.value.capitalize()}", description="\n\u200B")
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
-        embed.add_field(name="Successfully Added", value=f"#{', #'.join(success)}\n\u200B", inline=False)
-        embed.add_field(name="Already Exists", value=f"#{', #'.join(success)}\n\u200B", inline=False)
+        embed.add_field(
+            name=f"Successfully {verb.capitalize()}",
+            value=f"#{', #'.join(success)}\n\u200B" if len(success) != 0 else f"_No hashtags were {verb}_",
+            inline=False,
+        )
+        embed.add_field(
+            name="Already Exists" if action.value == "add" else "Does Not Exist",
+            value=f"#{', #'.join(neutral)}" if len(neutral) != 0 else f"_All hashtags were successfully {verb}_",
+            inline=False,
+        )
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -617,6 +752,12 @@ class ContentPoster(commands.GroupCog, name="poster"):
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_messages=True)
     async def view_hashtag_filters(self, interaction: discord.Interaction):
+        """A slash command that sends the user an embed with all the whitelisted and blacklisted hashtags.
+
+        Permissions
+        ----------
+        `manage_messages`
+        """
         hashtag_filters = ContentPosterConfig().hashtag_filters
 
         embed = discord.Embed(

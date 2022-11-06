@@ -5,7 +5,7 @@ config:
     blacklist: []
     whitelist: [loona, 이달의소녀, heejin, 희진, hyunjin, 현진, haseul, 하슬, yeojin, 여진, vivi,
       비비, kimlip, 김립, jinsoul, 진솔, choerry, 최리, yves, 이브, chuu, 츄, gowon, 고원, oliviahye,
-      올리비아 혜]
+      올리비아혜]
   post_channels:
   - {id: 864118529200488466, label: "\U0001F430 Heejin", name: "\U0001F430__heejin"}
   - {id: 864118529200488467, label: "\U0001F431 Hyunjin", name: "\U0001F431__hyunjin"}

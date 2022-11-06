@@ -8,6 +8,14 @@ from src.modules.twitter.streaming_client import TwitterStreamingClient
 
 
 class TwitterFeed:
+    """A class that contains the resources to handle the Twitter feed.
+
+    Parameters
+    ----------
+        * client: :class:`discord.Client`
+            - The client instance that will be used to send messages.
+    """
+
     # Static class variables
     rule_prefix = "(from:"
     rule_postfix = ") has:media"
@@ -39,6 +47,7 @@ class TwitterFeed:
             return [user_id for user_id in lines]
 
     def overwrite_ids(self, user_ids: str):
+        """Replaces the IDs in the `IDs.txt` file."""
         with open("src/data/IDs.txt", "w") as data:
             data.write("\n".join(user_ids))
             data.truncate()

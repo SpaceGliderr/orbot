@@ -12,6 +12,14 @@ from src.utils.helper import dict_has_key, get_from_dict
 
 
 class TwitterStreamingClient(AsyncStreamingClient):
+    """A class to initialise the `AsyncStreamingClient` object from the Twitter API.
+
+    Parameters
+    ----------
+        * client: :class:`discord.Client`
+            - The client instance that will be used to send messages.
+    """
+
     url_postfix = ":orig"
 
     def __init__(self, client: discord.Client):
@@ -21,7 +29,14 @@ class TwitterStreamingClient(AsyncStreamingClient):
         self.channel = ContentPosterConfig().get_feed_channel(self.client)
         self.tweets = {}
 
-    def is_valid_tweet(self, tweet):
+    def is_valid_tweet(self, tweet: dict):
+        """A function that checks whether the Tweets hashtag passes the hashtag filter.
+
+        Parameters
+        ----------
+            * tweet: :class:`dict`
+                - The Tweet to filter.
+        """
         hashtag_filters = ContentPosterConfig().hashtag_filters
 
         hashtags = get_from_dict(tweet, ["data", "entities", "hashtags"])
@@ -76,6 +91,9 @@ class TwitterStreamingClient(AsyncStreamingClient):
 
     async def on_data(self, raw_data):
         """Triggered when data is received from the stream."""
+        if self.channel is None:
+            return
+
         data = json.loads(raw_data)
 
         # The conversation ID is a unique identifier used to identify which tweets belong to the same Twitter thread

@@ -14,6 +14,8 @@ class Select(discord.ui.Select):
 
     Additional Parameters and Attributes
     ----------
+        * name: Optional[:class:`str`]
+            - A replacement for `custom_id`. To use when you want the Button to have an identifier.
         * stop_view: :class:`bool`
             - Stops the parent view if `True`.
         * defer: :class:`bool`
@@ -51,12 +53,17 @@ class Button(discord.ui.Button):
 
     Additional Parameters and Attributes
     ----------
+        * name: Optional[:class:`str`]
+            - A replacement for `custom_id`. To use when you want the Button to have an identifier.
         * value: Optional[:class:`Any`]
             - Stores the value of a Button item. If no value is provided, the label is taken as the value.
         * stop_view: :class:`bool`
             - Stops the parent view if `True`.
         * defer: :class:`bool`
             - Defers the Interaction in the Buttons callback.
+        * custom_callback: Optional[Callable[:class:`discord.Interaction`, :class:`discord.ui.Button`, Awaitable[None]]] | None
+            - A custom callback to be used as a replacement for the Discord `button` decorator, as the decorator is statically declared.
+            - Use it when the button attributes are subject to change, i.e. label, style.
     """
 
     def __init__(

@@ -125,6 +125,7 @@ class RolePickerConfig:
         return embeds
 
     def generate_role_picker_content(self):
+        """Generates a role picker content for the embed."""
         content = "Welcome to the LOONA Discord server's own Role Picker!\n\n__**Role Categories**__\n"
 
         embed = discord.Embed(title="**__Available Roles__**")
@@ -214,7 +215,7 @@ class ContentPosterConfig:
 
     @staticmethod
     def anatomize_post_caption(caption: str):
-        """Breaks down the post caption into its singular parts."""
+        """Breaks down the post caption and extracts the caption credits."""
         name = re.search(r"cr:\s{1}.+?\(", caption)
         username = re.search(r"\(@.+?\)", caption)
 
@@ -226,6 +227,7 @@ class ContentPosterConfig:
 
     @staticmethod
     def get_post_caption_content(caption: str):
+        """Breaks down the post caption and extracts the contents."""
         content = re.search(r".+\s{1}\|", caption)
         has_credits = True
 
@@ -240,7 +242,10 @@ class ContentPosterConfig:
 
     def get_feed_channel(self, client: discord.Client):
         """Gets the feed channel instance."""
-        return client.get_channel(self.data["config"]["feed_channel_id"])
+        try:
+            return client.get_channel(self.data["config"]["feed_channel_id"])
+        except:
+            return None
 
     def get_data(self):
         """Get a copied version of the extracted data."""
@@ -265,11 +270,13 @@ class ContentPosterConfig:
         ]
 
     def add_active_post(self, message_id: int, tweet_details: dict):
+        """Adds active post to the config file."""
         data = self.get_data()
         data["active_posts"][str(message_id)] = tweet_details
         self.dump(data)
 
     def remove_active_post(self, message_id: int):
+        """Removes active post from the config file."""
         data = self.get_data()
         del data["active_posts"][str(message_id)]
         self.dump(data)
