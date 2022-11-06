@@ -3,9 +3,9 @@ from typing import Any, List, Literal, Optional, Union
 
 import discord
 
+from src.modules.ui.common import Button, Modal, Select, View
 from src.utils.config import RolePickerConfig
 from src.utils.helper import dict_has_key
-from src.modules.ui.common import Button, Modal, Select, View
 
 
 # =================================================================================================================
