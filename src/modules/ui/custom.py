@@ -20,9 +20,7 @@ class CancelView(View):
 
 
 class PaginatedEmbedsView(View):
-    """Creates an overview of the role categories and roles with embeds by inheriting the `View` class.
-
-    Has previous, next and lock buttons.
+    """Creates a paginated embed view. Has previous, next and lock buttons.
 
     Additional Parameters
     ----------
