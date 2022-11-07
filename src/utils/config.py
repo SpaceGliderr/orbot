@@ -1,4 +1,5 @@
-from typing import Any, List, Optional
+import re
+from typing import Any, List, Optional, Tuple
 
 import discord
 from ruamel.yaml import YAML
@@ -124,6 +125,7 @@ class RolePickerConfig:
         return embeds
 
     def generate_role_picker_content(self):
+        """Generates a role picker content for the embed."""
         content = "Welcome to the LOONA Discord server's own Role Picker!\n\n__**Role Categories**__\n"
 
         embed = discord.Embed(title="**__Available Roles__**")
@@ -162,3 +164,124 @@ class RolePickerConfig:
         """Dump data into the `roles.yaml` file."""
         with open("src/data/roles.yaml", "w") as roles_file:
             yaml.dump(data, roles_file)
+
+
+class ContentPosterConfig:
+    """The ContentPosterConfig class helps load the `content_poster.yaml` file and provides other util methods to manipulate the extracted data."""
+
+    def __init__(self) -> None:
+        with open("src/data/content_poster.yaml", "r") as content_poster_file:
+            self._data = yaml.load(content_poster_file)
+
+    @property
+    def post_channels(self):
+        """Get the post channels."""
+        return get_from_dict(self._data, ["config", "post_channels"])
+
+    @property
+    def hashtag_filters(self):
+        """Get hashtag filters."""
+        return get_from_dict(self._data, ["config", "hashtag_filters"])
+
+    @property
+    def data(self):
+        """Get the extracted data."""
+        return self._data
+
+    @property
+    def active_posts(self):
+        """Get the active posts object."""
+        return get_from_dict(self._data, ["active_posts"])
+
+    @staticmethod
+    def generate_post_caption(
+        caption_credits: Optional[Tuple[str, str]] = None, post_caption_details: Optional[dict] = None
+    ):
+        """Generates the post caption."""
+        if (
+            post_caption_details is not None
+            and post_caption_details != {}
+            and dict_has_key(post_caption_details, "caption")
+        ):
+            caption = f'```ml\n{post_caption_details["caption"].replace("```", "")} '
+
+            if caption_credits is not None and post_caption_details["has_credits"]:
+                caption += f"| cr: {caption_credits[0]} (@{caption_credits[1]})"
+
+            caption += "\n```"
+
+            return caption
+        return None
+
+    @staticmethod
+    def anatomize_post_caption(caption: str):
+        """Breaks down the post caption and extracts the caption credits."""
+        name = re.search(r"cr:\s{1}.+?\(", caption)
+        username = re.search(r"\(@.+?\)", caption)
+
+        if name is not None and username is not None:
+            # Split the name by removing `cr: ` and username by removing the `@()`
+            return (name.group()[4:-2], username.group()[2:-1])
+
+        return None
+
+    @staticmethod
+    def get_post_caption_content(caption: str):
+        """Breaks down the post caption and extracts the contents."""
+        content = re.search(r".+\s{1}\|", caption)
+        has_credits = True
+
+        if content is None:
+            # Return a custom caption
+            content = re.search(r"\n.+", caption).group().strip()
+            has_credits = False
+        else:
+            content = content.group()[:-2]
+
+        return {"caption": content, "has_credits": has_credits}
+
+    def get_feed_channel(self, client: discord.Client):
+        """Gets the feed channel instance."""
+        try:
+            return client.get_channel(self.data["config"]["feed_channel_id"])
+        except:
+            return None
+
+    def get_data(self):
+        """Get a copied version of the extracted data."""
+        return self._data.copy()
+
+    def get_post_channel(self, channel_id: str):
+        """Search for a post channel. Returns a tuple with the structure (`index`, `channel`)."""
+        return next(
+            ((idx, channel) for idx, channel in enumerate(self.post_channels) if channel["id"] == channel_id),
+            None,
+        )
+
+    def generate_post_channel_options(self, defaults: Optional[List[str]] = None):
+        """Generates a list of select options for post channels."""
+        return [
+            discord.SelectOption(
+                label=post_channel["label"],
+                value=post_channel["id"],
+                default=str(post_channel["id"]) in defaults if defaults is not None else None,
+            )
+            for post_channel in self.post_channels
+        ]
+
+    def add_active_post(self, message_id: int, tweet_details: dict):
+        """Adds active post to the config file."""
+        data = self.get_data()
+        data["active_posts"][str(message_id)] = tweet_details
+        self.dump(data)
+
+    def remove_active_post(self, message_id: int):
+        """Removes active post from the config file."""
+        data = self.get_data()
+        del data["active_posts"][str(message_id)]
+        self.dump(data)
+
+    def dump(self, data):
+        """Dump data into the `content_poster.yaml` file."""
+        with open("src/data/content_poster.yaml", "w") as content_poster_file:
+            yaml.dump(data, content_poster_file)

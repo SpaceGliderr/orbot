@@ -3,9 +3,9 @@ from typing import Any, List, Literal, Optional, Union
 
 import discord
 
+from src.modules.ui.common import Button, Modal, Select, View
 from src.utils.config import RolePickerConfig
 from src.utils.helper import dict_has_key
-from src.utils.ui import Button, Modal, Select, View
 
 
 # =================================================================================================================
@@ -128,7 +128,14 @@ class RoleCategoryView(View):
             - Controls the number of maximum values for the select menu. The `multiple` option takes the total number of options as the maximum selectable values in the select menu.
     """
 
-    def __init__(self, input_type: Literal["button", "select"] = "button", max_value_type: Literal["single", "multiple"] = "multiple", stop_view: bool = False, *args, **kwargs):
+    def __init__(
+        self,
+        input_type: Literal["button", "select"] = "button",
+        max_value_type: Literal["single", "multiple"] = "multiple",
+        stop_view: bool = False,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
 
         rp_conf = RolePickerConfig()
@@ -137,7 +144,10 @@ class RoleCategoryView(View):
             for category in rp_conf.role_categories:
                 self.add_item(
                     Button(
-                        label=category["label"], value=category["name"], stop_view=stop_view, style=discord.ButtonStyle.primary
+                        label=category["label"],
+                        value=category["name"],
+                        stop_view=stop_view,
+                        style=discord.ButtonStyle.primary,
                     )
                 )
         else:
@@ -170,7 +180,16 @@ class RolesView(View):
             - Controls the number of maximum values for the select menu. The `multiple` option takes the total number of options as the maximum selectable values in the select menu.
     """
 
-    def __init__(self, role_category: str, min_values: int = 1, max_value_type: Literal["single", "multiple"] = "multiple", defaults: Optional[list] = None, stop_view: bool = False, *args, **kwargs):
+    def __init__(
+        self,
+        role_category: str,
+        min_values: int = 1,
+        max_value_type: Literal["single", "multiple"] = "multiple",
+        defaults: Optional[list] = None,
+        stop_view: bool = False,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
 
         rp_conf = RolePickerConfig()
@@ -301,7 +320,7 @@ class PersistentRoleCategoryButton(discord.ui.Button):
             return
 
         await roles_view.interaction.response.defer()
-        
+
         if roles_view.is_confirmed and roles_view.ret_val is not None:
             selected_role_ids = [int(role_id) for role_id in roles_view.ret_val]  # The selected role IDs
             common_current_role_ids = list(
@@ -309,9 +328,7 @@ class PersistentRoleCategoryButton(discord.ui.Button):
             )  # The same previous user role IDs compared to the selected category role IDs
 
             if set(selected_role_ids) != set(common_current_role_ids):
-                await interaction.edit_original_response(
-                    content="Changing your roles...", view=None
-                )
+                await interaction.edit_original_response(content="Changing your roles...", view=None)
 
                 common_selected_role_ids = list(
                     set(selected_role_ids).intersection(set(user_role_ids))
@@ -319,16 +336,19 @@ class PersistentRoleCategoryButton(discord.ui.Button):
 
                 # Filter out role IDs to add and delete
                 roles_to_add = [
-                    interaction.guild.get_role(int(role_id)) for role_id in selected_role_ids if role_id not in common_selected_role_ids
+                    interaction.guild.get_role(int(role_id))
+                    for role_id in selected_role_ids
+                    if role_id not in common_selected_role_ids
                 ]
                 roles_to_del = [
-                    interaction.guild.get_role(int(role_id)) for role_id in common_current_role_ids if role_id not in common_selected_role_ids
+                    interaction.guild.get_role(int(role_id))
+                    for role_id in common_current_role_ids
+                    if role_id not in common_selected_role_ids
                 ]
 
                 # Add / Remove roles
                 await asyncio.gather(
-                    interaction.user.add_roles(*roles_to_add),
-                    interaction.user.remove_roles(*roles_to_del)
+                    interaction.user.add_roles(*roles_to_add), interaction.user.remove_roles(*roles_to_del)
                 )
 
                 await interaction.edit_original_response(
@@ -355,6 +375,9 @@ class PersistentRolePickerView(View):
             if rp_conf.get_roles(category["name"]) is not None:  # Not supposed to show categories with empty roles
                 self.add_item(
                     PersistentRoleCategoryButton(
-                        label=category["label"], value=category["name"], custom_id=f"persistent:{category['name']}", style=discord.ButtonStyle.primary
+                        label=category["label"],
+                        value=category["name"],
+                        custom_id=f"persistent:{category['name']}",
+                        style=discord.ButtonStyle.primary,
                     )
                 )

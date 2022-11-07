@@ -167,9 +167,7 @@ class RolePicker(commands.GroupCog, name="role-picker"):
         """
         await interaction.response.send_message("Refreshing role picker...", ephemeral=True)
         await self.setup_or_refresh(interaction.guild)
-        await interaction.edit_original_response(
-            content=f"The role picker has been successfully refreshed!"
-        )
+        await interaction.edit_original_response(content=f"The role picker has been successfully refreshed!")
 
     # =================================================================================================================
     # ADD OPERATION SLASH COMMANDS

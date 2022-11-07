@@ -1,7 +1,6 @@
-from code import interact
 import re
 import traceback
-from typing import Any, List, Optional, Union
+from typing import Any, Awaitable, Callable, List, Optional, Union
 
 import discord
 
@@ -15,17 +14,22 @@ class Select(discord.ui.Select):
 
     Additional Parameters and Attributes
     ----------
+        * name: Optional[:class:`str`]
+            - A replacement for `custom_id`. To use when you want the Button to have an identifier.
         * stop_view: :class:`bool`
             - Stops the parent view if `True`.
         * defer: :class:`bool`
             - Defers the Interaction in the Buttons callback.
     """
 
-    def __init__(self, stop_view: bool = False, defer: bool = False, *args, **kwargs) -> None:
+    def __init__(
+        self, name: Optional[str] = None, stop_view: bool = False, defer: bool = False, *args, **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
+        self.name = name
         self.stop_view = stop_view
         self.defer = defer
-        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else None
+        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else name
 
     async def callback(self, interaction: discord.Interaction):
         if self.defer:
@@ -49,22 +53,42 @@ class Button(discord.ui.Button):
 
     Additional Parameters and Attributes
     ----------
+        * name: Optional[:class:`str`]
+            - A replacement for `custom_id`. To use when you want the Button to have an identifier.
         * value: Optional[:class:`Any`]
             - Stores the value of a Button item. If no value is provided, the label is taken as the value.
         * stop_view: :class:`bool`
             - Stops the parent view if `True`.
         * defer: :class:`bool`
             - Defers the Interaction in the Buttons callback.
+        * custom_callback: Optional[Callable[:class:`discord.Interaction`, :class:`discord.ui.Button`, Awaitable[None]]] | None
+            - A custom callback to be used as a replacement for the Discord `button` decorator, as the decorator is statically declared.
+            - Use it when the button attributes are subject to change, i.e. label, style.
     """
 
-    def __init__(self, value: Optional[Any] = None, stop_view: bool = False, defer: bool = False, *args, **kwargs):
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        value: Optional[Any] = None,
+        stop_view: bool = False,
+        defer: bool = False,
+        custom_callback: Optional[Callable[[discord.Interaction, discord.ui.Button], Awaitable[None]]] = None,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
+        self.name = name  # TODO: Use name instead of custom_id for user_declared_id
         self.value = value
         self.stop_view = stop_view
         self.defer = defer
-        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else None
+        self.user_declared_id = kwargs.get("custom_id") if "custom_id" in kwargs else name
+        self.custom_callback = custom_callback
 
     async def callback(self, interaction: discord.Interaction):
+        if self.custom_callback is not None:
+            await self.custom_callback(interaction, self)
+            return
+
         if self.defer:
             await interaction.response.defer()
 
@@ -75,7 +99,7 @@ class Button(discord.ui.Button):
 
         if self.user_declared_id is not None:
             self.view.ret_dict[self.user_declared_id] = self.values
-        
+
         self.view.interaction = interaction
 
         if self.stop_view:
@@ -127,7 +151,14 @@ class Modal(discord.ui.Modal):
             - Returns the Interaction object from the modal. Can be `None` type.
     """
 
-    def __init__(self, success_msg: Optional[str] = None, error_msg: Optional[str] = None, checks: Optional[List[dict]] = None, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        success_msg: Optional[str] = None,
+        error_msg: Optional[str] = None,
+        checks: Optional[List[dict]] = None,
+        *args,
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.success_msg = success_msg
         self.error_msg = error_msg
