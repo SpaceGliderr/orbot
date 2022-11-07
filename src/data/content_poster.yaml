@@ -7,15 +7,16 @@ config:
       비비, kimlip, 김립, jinsoul, 진솔, choerry, 최리, yves, 이브, chuu, 츄, gowon, 고원, oliviahye,
       올리비아혜]
   post_channels:
+  - {id: 864118529200488465, label: "\U0001F319 Group", name: "\U0001F319__group"}
   - {id: 864118529200488466, label: "\U0001F430 Heejin", name: "\U0001F430__heejin"}
   - {id: 864118529200488467, label: "\U0001F431 Hyunjin", name: "\U0001F431__hyunjin"}
   - {id: 864118529451884564, label: "\U0001F426 Haseul", name: "\U0001F426__haseul"}
   - {id: 864118529451884565, label: "\U0001F438 Yeojin", name: "\U0001F438__yeojin"}
   - {id: 864118529451884566, label: "\U0001F98C Vivi", name: "\U0001F98C__vivi"}
-  - {id: 864118529451884567, label: "\U0001F989 Kim Lip", name: "\U0001F989__kim__lip"}
-  - {id: 864118529451884568, label: "\U0001F41F Jinsoul", name: "\U0001F41F__jinsoul"}
+  - {id: 864118529451884567, label: "\U0001F989Kim Lip", name: "\U0001F989_kim__lip"}
+  - {id: 864118529451884568, label: "\U0001F41FJinsoul", name: "\U0001F41F_jinsoul"}
   - {id: 864118529451884569, label: "\U0001F987 Choerry", name: "\U0001F987__choerry"}
-  - {id: 864118529451884570, label: "\U0001F9A2 Yves", name: "\U0001F9A2__yves"}
+  - {id: 864118529451884570, label: "\U0001F9A2Yves", name: "\U0001F9A2_yves"}
   - {id: 864118529451884571, label: "\U0001F427 Chuu", name: "\U0001F427__chuu"}
-  - {id: 864118529451884572, label: "\U0001F98B Go Won", name: "\U0001F98B__go__won"}
-  - {id: 864118529451884573, label: "\U0001F43A  Olivia Hye", name: "\U0001F43A___olivia__hye"}
+  - {id: 864118529451884572, label: "\U0001F98BGo Won", name: "\U0001F98B_go__won"}
+  - {id: 864118529451884573, label: "\U0001F43A Olivia Hye", name: "\U0001F43A__olivia__hye"}
