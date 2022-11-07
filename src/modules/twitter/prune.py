@@ -21,6 +21,25 @@ def add_field_to_embed(
     user: Union[dict, None],
     reason: str,
 ):
+    """A function that adds fields to a given embed. If the `ids_to_prune` is divisible by 25, it appends the embeds into the `pruned_account` as a `discord.Embed` cannot have more than 25 fields.
+
+    Parameters
+    ----------
+        * ids_to_prune: List[:class:`int`]
+        * pruned_account_embeds: List[:class:`discord.Embed`]
+        * embed: :class:`discord.Embed`
+            - The embed to add the field to.
+        * user_id: :class:`int`
+            - To be used in the embed field title if no `user` is provided.
+        * user: Union[:class:`int`, `None`]
+            - To be used in the embed field title.
+        * reason: :class:`str`
+            - The embed field content.
+
+    Returns
+    ----------
+        * tuple[List[:class:`int`], List[:class:`discord.Embed`], :class:`discord.Embed`]
+    """
     ids_to_prune.append(user_id)
 
     embed.add_field(
@@ -35,6 +54,19 @@ def add_field_to_embed(
 
 
 async def prune_accounts(duration: int, twitter_client: AsyncClient):
+    """A function that prunes the accounts and generates the embeds.
+
+    Parameters
+    ----------
+        * duration: :class:`int`
+            - The inactivity threshold to prune an account.
+        * twitter_client: :class:`AsyncClient`
+            - The twitter API client to use.
+
+    Returns
+    ----------
+        * tuple[List[:class:`int`], List[:class:`discord.Embed`]]
+    """
     user_ids = TwitterFeed.get_user_ids()
     ids_to_prune = []
     pruned_account_embeds = []
@@ -96,13 +128,21 @@ async def prune_accounts(duration: int, twitter_client: AsyncClient):
             pruned_account_embeds = pruned_account_embeds
             embed = embed
 
-        if idx == len(user_ids) - 1:
+        if idx == len(user_ids) - 1:  # If it is the last item, append the embed into `pruned_account_embeds`
             pruned_account_embeds.append(embed)
 
     return ids_to_prune, pruned_account_embeds
 
 
 async def send_paginated_embed_view(pruned_account_embeds: List[discord.Embed], interaction: discord.Interaction):
+    """A function that prunes the accounts and generates the embeds.
+
+    Parameters
+    ----------
+        * pruned_account_embeds: List[:class:`discord.Embed`]
+            - The list of embeds to render.
+        * interaction: :class:`discord.Interaction`
+    """
     if len(pruned_account_embeds) == 1:
         await interaction.followup.send(embed=pruned_account_embeds[0], wait=True, ephemeral=False)
     else:
@@ -119,6 +159,23 @@ async def send_paginated_embed_view(pruned_account_embeds: List[discord.Embed], 
 
 
 class PruneAccountsThread(threading.Thread):
+    """A class that spawns a thread to prune accounts.
+
+    This operation requires a thread and cannot be run in the main Discord event loop because it takes awhile. This causes it to block the main event loop.
+
+    Parameters
+    ----------
+        * duration: :class:`int`
+            - The inactivity threshold to prune an account.
+        * interaction: :class:`discord.Interaction`
+        * client_loop: :class:`asyncio.AbstractEventLoop`
+            - The main running event loop.
+        * client: :class:`discord.Client`
+            - The client instance that will be used to send messages.
+        * twitter_client: :class:`AsyncClient`
+            - The twitter API client.
+    """
+
     def __init__(
         self,
         duration: int,
@@ -136,6 +193,7 @@ class PruneAccountsThread(threading.Thread):
         self.twitter_client = twitter_client
 
     def run(self):
+        # Creates a new event loop and executes the asynchronous function
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -144,7 +202,7 @@ class PruneAccountsThread(threading.Thread):
         )
         loop.close()
 
-        if len(ids_to_prune) == 0:
+        if len(ids_to_prune) == 0:  # If there are no ids to prune, then send the message updating the main event loop
             asyncio.run_coroutine_threadsafe(self.interaction.delete_original_response(), self.client_loop)
             asyncio.run_coroutine_threadsafe(
                 self.interaction.followup.send(content="No accounts were pruned!", ephemeral=True), self.client_loop
@@ -163,6 +221,7 @@ class PruneAccountsThread(threading.Thread):
         ids_to_keep = list(set(TwitterFeed.get_user_ids()).difference(set(ids_to_prune)))
         self.client.twitter_stream.overwrite_ids(user_ids=ids_to_keep)
 
+        # Run the functions in the client event loop
         asyncio.run_coroutine_threadsafe(self.interaction.delete_original_response(), self.client_loop)
         asyncio.run_coroutine_threadsafe(self.client.twitter_stream.restart(), self.client_loop)
         asyncio.run_coroutine_threadsafe(
