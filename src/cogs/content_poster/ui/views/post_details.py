@@ -363,7 +363,15 @@ class PostChannelView(View):
 
         if input_type == "button":
             for channel in cp_conf.post_channels:
-                self.add_item(Button(label=channel["label"], value=channel["id"], stop_view=stop_view, defer=defer))
+                self.add_item(
+                    Button(
+                        label=channel["label"],
+                        value=channel["id"],
+                        style=discord.ButtonStyle.primary,
+                        stop_view=stop_view,
+                        defer=defer,
+                    )
+                )
         else:
             options = cp_conf.generate_post_channel_options(defaults=defaults)
             self.add_item(
@@ -394,13 +402,13 @@ class PostChannelView(View):
     async def confirm(self, interaction: discord.Interaction, *_):
         """Callback attached to the `confirm` button which checks whether a channel has been selected and ends the user interaction."""
         if self.input_type == "select" and (
-            (self.ret_val is None and self.defaults is None) or (self.ret_val is not None and len(self.ret_val == 0))
+            (self.ret_val is None and self.defaults is None) or (self.ret_val is not None and len(self.ret_val) == 0)
         ):  # User did not select anything
             await interaction.response.send_message(content="Please select media(s) to create post", ephemeral=True)
             return
 
         await interaction.response.defer()
-        self.is_confirmed = self.ret_val is None
+        self.is_confirmed = self.ret_val is not None
         self.interaction = interaction
         self.stop()
 
@@ -470,13 +478,13 @@ class PostMediaView(View):
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, emoji="✔", row=1)
     async def confirm(self, interaction: discord.Interaction, *_):
         if (self.ret_val is None and self.defaults is None) or (
-            self.ret_val is not None and len(self.ret_val == 0)
+            self.ret_val is not None and len(self.ret_val) == 0
         ):  # User did not select anything
             await interaction.response.send_message(content="Please select media(s) to create post", ephemeral=True)
             return
 
         await interaction.response.defer()
-        self.is_confirmed = self.ret_val is None  # Whether any new channels were selected
+        self.is_confirmed = self.ret_val is not None  # Whether any new channels were selected
         self.interaction = interaction
         self.stop()
 
