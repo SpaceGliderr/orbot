@@ -1,12 +1,11 @@
-import math
+import asyncio
 import os
-from datetime import datetime
-from typing import List, Literal
+from typing import Literal
+import aiohttp
 
 import discord
 import stringcase
 import tweepy
-from dateutil import parser
 from discord import Permissions, app_commands
 from discord.ext import commands
 
@@ -15,8 +14,8 @@ from src.cogs.content_poster.ui.modals import PostChannelModal
 from src.cogs.content_poster.ui.views.edit_post import EditPostView
 from src.cogs.content_poster.ui.views.post_details import PostChannelView
 from src.modules.twitter.feed import TwitterFeed
+from src.modules.twitter.prune import PruneAccountsThread
 from src.modules.twitter.twitter import TwitterHelper
-from src.modules.ui.custom import PaginatedEmbedsView
 from src.orbot import client
 from src.utils.config import ContentPosterConfig
 
@@ -26,6 +25,25 @@ class ContentPoster(commands.GroupCog, name="poster"):
         self.bot = bot
         self.twitter_client = tweepy.Client(bearer_token=os.getenv("TWITTER_BEARER_TOKEN"))
         self.account_action_callbacks = {"check": self.check, "follow": self.follow, "unfollow": self.unfollow}
+        self.status_information = {
+            "connected": {
+                "name": "💚 Connected",
+                "value": "Twitter feed connection is alive and healthy!"
+            },
+            "disconnected": {
+                "name": "💔 Disconnected",
+                "value": "Twitter feed is disconnected. Run `feed setup` or `feed connect` to connect the Twitter feed."
+            },
+            "retrying": {
+                "name": "⚠️ Reconnecting...",
+                "value": "Twitter feed is attempting to reconnect. Please check the `feed status` again in ~5-10 seconds."
+            },
+            "unknown": {
+                "name": "🤨 What Happened Here?",
+                "value": "Twitter feed has failed to connect. Please contact my creator for a fix."
+            },
+        }
+        self.status_message = "The Twitter feed may take ~5-10 seconds to connect. Please use the `status` command to check the status of the stream."
 
         global global_bot
         global_bot = bot
@@ -33,21 +51,27 @@ class ContentPoster(commands.GroupCog, name="poster"):
     # =================================================================================================================
     # COMMAND GROUPS
     # =================================================================================================================
-    add_group = app_commands.Group(
-        name="add",
-        description="Add new elements to the Content Manager auto-post feature.",
+    feed_group = app_commands.Group(
+        name="feed",
+        description="Complete operations to the Twitter feed.",
         default_permissions=Permissions(manage_messages=True),
         guild_only=True,
     )
-    edit_group = app_commands.Group(
-        name="edit",
-        description="Edit existing elements in the Content Manager auto-post feature.",
+    post_channel_group = app_commands.Group(
+        name="post-channel",
+        description="Complete operations to the post channels.",
         default_permissions=Permissions(manage_messages=True),
         guild_only=True,
     )
-    delete_group = app_commands.Group(
-        name="delete",
-        description="Delete existing elements in the Content Manager auto-post feature.",
+    twitter_group = app_commands.Group(
+        name="twitter",
+        description="Complete Twitter related operations, such as Twitter following, unfollowing, and pruning, accounts.",
+        default_permissions=Permissions(manage_messages=True),
+        guild_only=True,
+    )
+    hashtag_filter_group = app_commands.Group(
+        name="hashtag-filter",
+        description="Complete Twitter hashtag filter related operations.",
         default_permissions=Permissions(manage_messages=True),
         guild_only=True,
     )
@@ -144,7 +168,10 @@ class ContentPoster(commands.GroupCog, name="poster"):
             # Write to file
             self.bot.twitter_stream.save_user_id(user_id=user_id, purpose="add")
             # Restart stream
-            await self.bot.twitter_stream.restart()
+            await asyncio.gather(
+                interaction.response.send_message(content="This account is successfully followed! The Twitter feed may take ~5-10 seconds to restart. Please use the `status` command to check the status of the stream.", ephemeral=True),
+                self.bot.twitter_stream.restart()
+            )
         else:
             await interaction.response.send_message(content="This account is already being followed!", ephemeral=True)
 
@@ -167,11 +194,14 @@ class ContentPoster(commands.GroupCog, name="poster"):
             # Remove from file
             self.bot.twitter_stream.save_user_id(user_id=user_id, purpose="remove")
             # Restart stream
-            await self.bot.twitter_stream.restart()
+            await asyncio.gather(
+                interaction.response.send_message(content="This account is successfully unfollowed! The Twitter feed may take ~5-10 seconds to restart. Please use the `status` command to check the status of the stream.", ephemeral=True),
+                self.bot.twitter_stream.restart()
+            )
         else:
             await interaction.response.send_message(content="This account is not being followed!", ephemeral=True)
 
-    @app_commands.command(name="setup", description="Setup the Twitter feed in a text channel.")
+    @feed_group.command(name="setup", description="Setup the Twitter feed in a text channel.")
     @app_commands.guild_only()
     @app_commands.describe(channel="the text channel to setup")
     @app_commands.checks.has_permissions(manage_messages=True)
@@ -192,18 +222,79 @@ class ContentPoster(commands.GroupCog, name="poster"):
         ----------
         `manage_messages`
         """
-        await interaction.response.send_message(
-            content=f"The Twitter fansite feed has been successfully setup in <#{channel.id}>"
-        )
 
         cp_conf = ContentPosterConfig()
         data = cp_conf.get_data()
         data["config"]["feed_channel_id"] = channel.id
         cp_conf.dump(data)
 
-        await self.bot.twitter_stream.restart()
+        await asyncio.gather(
+            interaction.response.send_message(
+                content=f"The Twitter fansite feed has been successfully setup in <#{channel.id}>. {self.status_message}", ephemeral=True
+            ),
+            self.bot.twitter_stream.restart()
+        )
 
-    @app_commands.command(
+    @feed_group.command(name="connection", description="Either connects, restarts, or disconnects the Twitter feed.")
+    @app_commands.guild_only()
+    @app_commands.describe(action="the action to perform on the Twitter feed")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def connection(self, interaction: discord.Interaction, action: Literal["connect", "restart", "disconnect"]):
+        """A slash command that allows the user to manipulate the Twitter feed connection.
+
+        Parameters
+        ----------
+            * action: Literal[`connect`, `restart`, `disconnect`]
+                - The action to perform on the Twitter feed.
+
+        Permissions
+        ----------
+        `manage_messages`
+        """
+        if action == "connect":
+            await asyncio.gather(
+                interaction.response.send_message(content=self.status_message, ephemeral=True),
+                self.bot.twitter_stream.start()
+            )
+        elif action == "restart":
+            await asyncio.gather(
+                interaction.response.send_message(content=self.status_message, ephemeral=True),
+                self.bot.twitter_stream.restart()
+            )
+        else:
+            await asyncio.gather(
+                interaction.response.send_message(content="The Twitter feed has been successfully disconnected.", ephemeral=True),
+                self.bot.twitter_stream.close()
+            )
+
+    @feed_group.command(name="status", description="Shows the status of the Twitter feed.")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def status(self, interaction: discord.Interaction):
+        """A slash command that checks the status of the Twitter feed.
+
+        User Flow
+        ----------
+            * Sends an embed showing the status of the Twitter feed.
+
+        Permissions
+        ----------
+        `manage_messages`
+        """
+        embed = discord.Embed(title="Twitter Feed Status", description="The status for the Twitter feed. It does not update in real time, so please run this command again in ~5-10 seconds to see whether the status has changed.\n\u200B")
+
+        feed_status = await self.bot.twitter_stream.get_stream_status()
+        embed.add_field(name=self.status_information[feed_status]["name"], value=f"{self.status_information[feed_status]['value']}\n\u200B", inline=False)
+
+        feed_channel = ContentPosterConfig().get_feed_channel(self.bot)
+        if feed_channel is not None:
+            embed.add_field(name="🤖 Feed Channel", value=f"Twitter feed is connected in <#{feed_channel.id}>.", inline=False)
+        else:
+            embed.add_field(name="📝 No Setup", value="Twitter feed is connected, but there is no feed channel setup. Run `setup` to setup the feed channel.", inline=False)
+
+        await interaction.response.send_message(embed=embed)
+
+    @twitter_group.command(
         name="account", description="Either check the follow status of, follow or unfollow a Twitter account."
     )
     @app_commands.guild_only()
@@ -225,10 +316,9 @@ class ContentPoster(commands.GroupCog, name="poster"):
         ----------
         `manage_messages`
         """
-        # TODO: Handle interaction defer properly
         await self.account_action_callbacks[action](interaction, username)
 
-    @add_group.command(name="post-channel", description="Add a posting channel to the Auto-Poster.")
+    @post_channel_group.command(name="add", description="Add a posting channel to the Auto-Poster.")
     @app_commands.guild_only()
     @app_commands.describe(channel="the post-able text channel")
     @app_commands.checks.has_permissions(manage_messages=True)
@@ -256,8 +346,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             title="Add Post Channel",
             custom_id="add_post_channel_modal",
             timeout=90,
-            success_msg="A new post channel was successfully added!",
-            error_msg="A few problems were encountered when adding a post channel, please try again!",
+            error_msg="A few problems were encountered when recording post channel details, please try again!",
             defaults={"id": channel.id, "label": channel.name},
         )
 
@@ -273,12 +362,22 @@ class ContentPoster(commands.GroupCog, name="poster"):
         new_post_channel["name"] = stringcase.snakecase(str(new_post_channel["label"]))
 
         data = cp_conf.get_data()
-        data["config"]["post_channels"].append(new_post_channel)
 
-        cp_conf.dump(data)
+        id_match = [new_post_channel["id"] == post_channel["id"] for post_channel in cp_conf.post_channels]
 
-    @edit_group.command(
-        name="post-channel", description="Edit details of an existing posting channel in the Auto-Poster."
+        if any(id_match):
+            await interaction.followup.send(
+                content="The channel already exists as a post channel! Use the edit post channel command instead.",
+                ephemeral=True,
+            )
+        else:
+            data["config"]["post_channels"].append(new_post_channel)
+            cp_conf.dump(data)
+
+            await interaction.followup.send(content="A new post channel was successfully added!", ephemeral=True)
+
+    @post_channel_group.command(
+        name="edit", description="Edit details of an existing posting channel in the Auto-Poster."
     )
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_messages=True)
@@ -300,7 +399,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         # Send PostChannelView
         post_channel_view = PostChannelView(timeout=90, stop_view=True)
 
-        await interaction.response.send_message("Select post channel to edit", view=post_channel_view)
+        await interaction.response.send_message("Select post channel to edit:", view=post_channel_view)
         timeout = await post_channel_view.wait()
         await interaction.delete_original_response()
 
@@ -317,8 +416,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             title="Edit Post Channel",
             custom_id="edit_post_channel_modal",
             timeout=90,
-            success_msg="The post channel was successfully edited!",
-            error_msg="A few problems were encountered when editing the post channel, please try again!",
+            error_msg="A few problems were encountered when recording post channel details, please try again!",
             defaults=post_channel_details,
         )
 
@@ -345,7 +443,9 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         cp_conf.dump(data)
 
-    @delete_group.command(name="post-channel", description="Delete an existing posting channel in the Auto-Poster.")
+        await interaction.followup.send(content="The post channel was successfully edited!", ephemeral=True)
+
+    @post_channel_group.command(name="delete", description="Delete an existing posting channel in the Auto-Poster.")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_messages=True)
     async def delete_post_channel(self, interaction: discord.Interaction):
@@ -366,7 +466,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
         # Send PostChannelView
         post_channel_view = PostChannelView(timeout=90, stop_view=True)
 
-        await interaction.response.send_message("Select post channel to edit", view=post_channel_view)
+        await interaction.response.send_message("Select post channel to delete:", view=post_channel_view)
         timeout = await post_channel_view.wait()
         await interaction.delete_original_response()
 
@@ -380,6 +480,8 @@ class ContentPoster(commands.GroupCog, name="poster"):
         del data["config"]["post_channels"][idx]
 
         cp_conf.dump(data)
+
+        await interaction.followup.send(content="The post channel was successfully deleted!", ephemeral=True)
 
     @client.tree.context_menu(name="Edit Post")
     @app_commands.guild_only()
@@ -508,13 +610,13 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         await interaction.followup.send(content=f"Tweet successfully created in <#{channel.id}>", ephemeral=True)
 
-    @app_commands.command(
+    @twitter_group.command(
         name="prune-accounts", description="Removes Twitter accounts which have been inactive for a period of time"
     )
     @app_commands.guild_only()
     @app_commands.describe(duration="period of inactivity (in days)")
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def prune_accounts(self, interaction: discord.Interaction, duration: int):
+    async def prune(self, interaction: discord.Interaction, duration: int):
         """A slash command that allows users to prune Twitter IDs older than a user provided duration in days.
 
         It is an expensive operation, do not run this more than a few times a month, due to Twitter APIs Tweet reading limitation (2 million Tweets can be read a month).
@@ -536,118 +638,19 @@ class ContentPoster(commands.GroupCog, name="poster"):
         ----------
         `manage_messages`
         """
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.send_message(content="Pruning accounts...", ephemeral=True)
 
-        user_ids = TwitterFeed.get_user_ids()
-        ids_to_prune = []
-        pruned_account_embeds = []
-
-        embed = discord.Embed(
-            title="Pruned Accounts", description="Shows the Twitter accounts that were pruned:\n\u200B"
+        thread = PruneAccountsThread(
+            duration=duration,
+            interaction=interaction,
+            client_loop=asyncio.get_event_loop(),
+            client=self.bot,
+            twitter_client=self.twitter_client,
         )
+        thread.start()
 
-        def add_field_to_embed(
-            ids_to_prune: List[int],
-            pruned_account_embeds: List[discord.Embed],
-            embed: discord.Embed,
-            user_id: int,
-            user: dict,
-            reason: str,
-        ):
-            ids_to_prune.append(user_id)
-
-            embed.add_field(
-                name=f"{user['name']} @{user['username']}" if user is not None else user_id, value=reason, inline=False
-            )
-
-            if len(ids_to_prune) % 25 == 0:
-                pruned_account_embeds.append(embed)
-                embed.clear_fields()
-
-            return ids_to_prune, pruned_account_embeds, embed
-
-        for user_id in user_ids:
-            # Get the 5 most recent tweets from a given user ID
-            result = self.twitter_client.get_users_tweets(
-                id=user_id, max_results=5, tweet_fields=["created_at"], expansions="author_id"
-            )
-            # Get the user information of the user ID
-            # Cannot obtain user information from `get_users_tweets` as in the case when a user has not posted any tweets,
-            # `get_users_tweets` will return an empty object for the user even though the user exists
-            user_response = client.get_user(id=user_id, user_fields=["name", "username"])
-
-            # Get user object
-            user = None
-            if user_response.data is not None:
-                user = user_response.data.data
-
-            if user is None:  # If user can't be found, means it is deleted or does not exist
-                ids_to_prune, pruned_account_embeds, embed = add_field_to_embed(
-                    ids_to_prune=ids_to_prune,
-                    pruned_account_embeds=pruned_account_embeds,
-                    embed=embed,
-                    user_id=user_id,
-                    user=user,
-                    reason="_<Account deleted or does not exist>_",
-                )
-            elif (
-                len(result.errors) != 0
-            ):  # If there is an error, it means that the account is protected and the tweets cannot be accessed
-                ids_to_prune, pruned_account_embeds, embed = add_field_to_embed(
-                    ids_to_prune=ids_to_prune,
-                    pruned_account_embeds=pruned_account_embeds,
-                    embed=embed,
-                    user_id=user_id,
-                    user=user,
-                    reason="_<Account privated>_",
-                )
-            else:
-                try:
-                    # Access the most recent tweet
-                    recent_tweet_date = parser.parse(result.data[0].data["created_at"]).date()
-                    date_diff = datetime.now().date() - recent_tweet_date  # Find duration of the last post
-
-                    if (
-                        date_diff.days > duration
-                    ):  # Check whether the days since the last post exceeds specified duration threshold
-                        ids_to_prune, pruned_account_embeds, embed = add_field_to_embed(
-                            ids_to_prune=ids_to_prune,
-                            pruned_account_embeds=pruned_account_embeds,
-                            embed=embed,
-                            user_id=user_id,
-                            user=user,
-                            reason=f"_Last Tweet on {recent_tweet_date}, {date_diff} days ago_",
-                        )
-                except:  # Handles error thrown by accessing an empty object (no tweets available)
-                    ids_to_prune, pruned_account_embeds, embed = add_field_to_embed(
-                        ids_to_prune=ids_to_prune,
-                        pruned_account_embeds=pruned_account_embeds,
-                        embed=embed,
-                        user_id=user_id,
-                        user=user,
-                        reason="_<Account has no Tweets>_",
-                    )
-
-        if len(ids_to_prune) == 0:
-            await interaction.followup.send(content="No accounts were pruned!", ephemeral=True)
-            return
-
-        # Set embed footer
-        number_of_pages = math.ceil(len(ids_to_prune) / 25)
-        for page_num, embed in enumerate(pruned_account_embeds):
-            embed.set_footer(text=f"Page {page_num + 1} of {number_of_pages}")
-
-        # Update the Twitter stream user IDs and `IDs.txt`
-        ids_to_keep = list(set(user_ids).difference(set(ids_to_prune)))
-        self.bot.twitter_stream.overwrite_ids(user_ids=ids_to_keep)
-
-        await interaction.followup.send(
-            embed=pruned_account_embeds[0],
-            view=PaginatedEmbedsView(embeds=pruned_account_embeds) if len(pruned_account_embeds) != 1 else None,
-        )
-
-    @edit_group.command(
-        name="hashtag-filters",
+    @hashtag_filter_group.command(
+        name="update",
         description="Updates the whitelisted and blacklisted hashtags to filter incoming Tweets",
     )
     @app_commands.guild_only()
@@ -745,8 +748,8 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @app_commands.command(
-        name="view-hashtag-filters",
+    @hashtag_filter_group.command(
+        name="view",
         description="View the whitelisted and blacklisted hashtags that filters incoming Tweets",
     )
     @app_commands.guild_only()
