@@ -5,7 +5,7 @@ import discord
 from src.cogs.content_poster.ui.embeds import PostDetailsEmbed, set_embed_author
 from src.cogs.content_poster.ui.views.new_post import NewPostView
 from src.modules.ui.common import Button, View
-from src.typings.content_poster import TweetDetails
+from src.typings.content_poster import PostDetails, TweetDetails
 from src.utils.config import ContentPosterConfig
 
 
@@ -84,7 +84,7 @@ class PersistentTweetView(View):
     async def new_post(self, interaction: discord.Interaction, *_):
         """Callback attached to the `new_post` button which sends a `PostDetailsEmbed` and a `NewPostView` to allow users to create a new post."""
         # Send user a `PostDetailsEmbed` to keep track of the entered information
-        post_details = PostDetailsEmbed(
+        post_details = PostDetails(
             files=self.files,
             caption_credits=(self.tweet_details["user"]["name"], self.tweet_details["user"]["username"]),
         )
