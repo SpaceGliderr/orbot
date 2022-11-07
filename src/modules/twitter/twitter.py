@@ -83,7 +83,7 @@ class TwitterHelper:
         filenames_per_post = TwitterHelper.get_items_per_post(media_filenames)
 
         metadata = {
-            "user": tweets.includes["users"][0],
+            "user": tweets.includes["users"][0].data,
             "tweet_url": expanded_url.rsplit("/", 2)[0],
             "conversation_id": tweet["conversation_id"],
             "tweet_text": tweet["text"].replace(tweet_url, ""),
