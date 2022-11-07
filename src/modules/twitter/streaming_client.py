@@ -28,6 +28,7 @@ class TwitterStreamingClient(AsyncStreamingClient):
         self.client = client
         self.channel = ContentPosterConfig().get_feed_channel(self.client)
         self.tweets = {}
+        self.status = ""
 
     def is_valid_tweet(self, tweet: dict):
         """A function that checks whether the Tweets hashtag passes the hashtag filter.
@@ -85,9 +86,17 @@ class TwitterStreamingClient(AsyncStreamingClient):
 
     async def on_connect(self):
         logging.info("Twitter stream has been connected successfully")
+        self.status = "connected"
 
     async def on_disconnect(self):
         logging.info("Twitter stream has been disconnected successfully")
+        self.status = "disconnected"
+
+    async def on_request_error(self, status_code):
+        if status_code == 429:
+            self.status = "retrying"
+        else:
+            self.status = "unknown"
 
     async def on_data(self, raw_data):
         """Triggered when data is received from the stream."""

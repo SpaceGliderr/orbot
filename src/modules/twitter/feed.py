@@ -23,8 +23,7 @@ class TwitterFeed:
     max_rule_content_length = 512 - (len(rule_prefix) + len(rule_postfix))
 
     def __init__(self, client: discord.Client):
-        # self.follow = self.get_user_ids()
-        self.follow = ["1578046589578661888", "714867360822235136"]  # ! Remove this once the testing is complete
+        self.follow = self.get_user_ids()
         self.follow_change_flag = (
             False  # This flag indicates whether the follow list needs to be refreshed on Stream restart
         )
@@ -136,11 +135,10 @@ class TwitterFeed:
             self.client
         )  # ! Can't setup more than 1 stream concurrently if there are more than a certain amount of user IDs
 
-        current_rules = await self.stream.get_rules()
-        if current_rules.data is None or self.follow_change_flag:
-            # Only regenerate stream rules if there are no current rules or the follow list has been changed
-            await self.clear_all_stream_rules()
-            await self.stream.add_rules(self.generate_stream_rules())
+        # Regenerate stream rules every time the client is restarted
+        # Takes awhile to compile all the stream rules, but it helps prevent any outdated rules from staying
+        await self.clear_all_stream_rules()
+        await self.stream.add_rules(self.generate_stream_rules())
 
         self.stream.filter(
             tweet_fields=["attachments", "conversation_id", "entities"],
@@ -161,4 +159,10 @@ class TwitterFeed:
     async def restart(self):
         """Restarts the stream."""
         await self.close()
-        await self.start(self.client)
+        await self.start()
+
+    async def get_stream_status(self):
+        if self.stream is not None:
+            return self.stream.status
+        else:
+            return "disconnected"
