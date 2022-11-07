@@ -69,10 +69,15 @@ class Orbot(commands.Bot):
         logging.info("Orbot is ready")
 
     async def reactivate_persistent_views(self):
-        cm_conf = ContentPosterConfig()
+        cp_conf = ContentPosterConfig()
 
-        active_posts = cm_conf.active_posts
-        channel = await self.fetch_channel(cm_conf.data["config"]["feed_channel_id"])
+        active_posts = cp_conf.active_posts
+        feed_channel_id = cp_conf.data["config"]["feed_channel_id"]
+
+        if feed_channel_id is None:
+            return
+
+        channel = await self.fetch_channel(feed_channel_id)
 
         for msg_id, tweet_details in active_posts.items():
             message = await channel.fetch_message(msg_id)
