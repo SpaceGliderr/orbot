@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import List, Union
 
 import discord
-import tweepy
 from dateutil import parser
+from tweepy.asynchronous import AsyncClient
 
 from src.cogs.content_poster.ui.embeds import set_embed_author
 from src.modules.twitter.feed import TwitterFeed
@@ -34,7 +34,7 @@ def add_field_to_embed(
     return ids_to_prune, pruned_account_embeds, embed
 
 
-async def prune_accounts(duration: int, twitter_client: tweepy.Client):
+async def prune_accounts(duration: int, twitter_client: AsyncClient):
     user_ids = TwitterFeed.get_user_ids()
     ids_to_prune = []
     pruned_account_embeds = []
@@ -43,23 +43,15 @@ async def prune_accounts(duration: int, twitter_client: tweepy.Client):
 
     for idx, user_id in enumerate(user_ids):
         # Get the 5 most recent tweets from a given user ID
-        result = twitter_client.get_users_tweets(
+        result = await twitter_client.get_users_tweets(
             id=user_id, max_results=5, tweet_fields=["created_at"], expansions="author_id"
         )
-        # Get the user information of the user ID
-        # Cannot obtain user information from `get_users_tweets` as in the case when a user has not posted any tweets,
-        # `get_users_tweets` will return an empty object for the user even though the user exists
-        user_response = twitter_client.get_user(id=user_id, user_fields=["name", "username"])
 
-        # Get user object
-        user = None
-        if user_response.data is not None:
-            user = user_response.data.data
-
+        user = None  # Store user object
+        search_user = True
         reason = ""
-        if user is None:  # If user can't be found, means it is deleted or does not exist
-            reason = "_<Account deleted or does not exist>_"
-        elif (
+
+        if (
             len(result.errors) != 0
         ):  # If there is an error, it means that the account is protected and the tweets cannot be accessed
             reason = "_<Account privated>_"
@@ -69,12 +61,26 @@ async def prune_accounts(duration: int, twitter_client: tweepy.Client):
                 recent_tweet_date = parser.parse(result.data[0].data["created_at"]).date()
                 date_diff = datetime.now().date() - recent_tweet_date  # Find duration of the last post
 
+                search_user = False  # Prevents additional unnecessary API calls
+
                 if (
                     date_diff.days > duration
                 ):  # Check whether the days since the last post exceeds specified duration threshold
                     reason = f"_Last Tweet on {recent_tweet_date}, {date_diff.days} days ago_"
+                    user = result.includes["users"][0].data  # Store user
             except:  # Handles error thrown by accessing an empty object (no tweets available)
                 reason = "_<Account has no Tweets>_"
+
+        if search_user:
+            # Get the user information of the user ID
+            # Cannot obtain user information from `get_users_tweets` as in the case when a user has not posted any tweets,
+            # `get_users_tweets` will return an empty object for the user even though the user exists
+            user_response = await twitter_client.get_user(id=user_id, user_fields=["name", "username"])
+
+            if user_response.data is not None:
+                user = user_response.data.data
+            else:  # If user can't be found, means it is deleted or does not exist
+                reason = "_<Account deleted or does not exist>_"
 
         if reason != "":
             ids_to_prune, pruned_account_embeds, embed = add_field_to_embed(
@@ -97,14 +103,15 @@ async def prune_accounts(duration: int, twitter_client: tweepy.Client):
 
 
 async def send_paginated_embed_view(pruned_account_embeds: List[discord.Embed], interaction: discord.Interaction):
-    paginated_embed_view = (
-        PaginatedEmbedsView(embeds=pruned_account_embeds, timeout=30) if len(pruned_account_embeds) > 1 else None
-    )
-    message: discord.WebhookMessage = await interaction.followup.send(
-        embed=pruned_account_embeds[0], view=paginated_embed_view, wait=True, ephemeral=False
-    )
+    if len(pruned_account_embeds) == 1:
+        await interaction.followup.send(embed=pruned_account_embeds[0], wait=True, ephemeral=False)
+    else:
+        paginated_embed_view = PaginatedEmbedsView(embeds=pruned_account_embeds, timeout=60)
 
-    if paginated_embed_view is not None:
+        message: discord.WebhookMessage = await interaction.followup.send(
+            embed=pruned_account_embeds[0], view=paginated_embed_view, wait=True, ephemeral=False
+        )
+
         timeout = await paginated_embed_view.wait()
 
         if timeout:
@@ -118,7 +125,7 @@ class PruneAccountsThread(threading.Thread):
         interaction: discord.Interaction,
         client_loop: asyncio.AbstractEventLoop,
         client: discord.Client,
-        twitter_client: tweepy.Client,
+        twitter_client: AsyncClient,
     ):
         threading.Thread.__init__(self)
 
@@ -157,6 +164,8 @@ class PruneAccountsThread(threading.Thread):
         self.client.twitter_stream.overwrite_ids(user_ids=ids_to_keep)
 
         asyncio.run_coroutine_threadsafe(self.interaction.delete_original_response(), self.client_loop)
+        asyncio.run_coroutine_threadsafe(self.client.twitter_stream.restart(), self.client_loop)
         asyncio.run_coroutine_threadsafe(
-            send_paginated_embed_view(embeds=pruned_account_embeds, interaction=self.interaction), self.client_loop
+            send_paginated_embed_view(pruned_account_embeds=pruned_account_embeds, interaction=self.interaction),
+            self.client_loop,
         )

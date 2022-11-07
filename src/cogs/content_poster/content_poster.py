@@ -1,13 +1,12 @@
 import asyncio
 import os
 from typing import Literal
-import aiohttp
 
 import discord
 import stringcase
-import tweepy
 from discord import Permissions, app_commands
 from discord.ext import commands
+from tweepy.asynchronous import AsyncClient
 
 from src.cogs.content_poster.ui.embeds import PostDetailsEmbed
 from src.cogs.content_poster.ui.modals import PostChannelModal
@@ -23,24 +22,21 @@ from src.utils.config import ContentPosterConfig
 class ContentPoster(commands.GroupCog, name="poster"):
     def __init__(self, bot):
         self.bot = bot
-        self.twitter_client = tweepy.Client(bearer_token=os.getenv("TWITTER_BEARER_TOKEN"))
+        self.twitter_client = AsyncClient(bearer_token=os.getenv("TWITTER_BEARER_TOKEN"), wait_on_rate_limit=True)
         self.account_action_callbacks = {"check": self.check, "follow": self.follow, "unfollow": self.unfollow}
         self.status_information = {
-            "connected": {
-                "name": "💚 Connected",
-                "value": "Twitter feed connection is alive and healthy!"
-            },
+            "connected": {"name": "💚 Connected", "value": "Twitter feed connection is alive and healthy!"},
             "disconnected": {
                 "name": "💔 Disconnected",
-                "value": "Twitter feed is disconnected. Run `feed setup` or `feed connect` to connect the Twitter feed."
+                "value": "Twitter feed is disconnected. Run `feed setup` or `feed connect` to connect the Twitter feed.",
             },
             "retrying": {
                 "name": "⚠️ Reconnecting...",
-                "value": "Twitter feed is attempting to reconnect. Please check the `feed status` again in ~5-10 seconds."
+                "value": "Twitter feed is attempting to reconnect. Please check the `feed status` again in ~5-10 seconds.",
             },
             "unknown": {
                 "name": "🤨 What Happened Here?",
-                "value": "Twitter feed has failed to connect. Please contact my creator for a fix."
+                "value": "Twitter feed has failed to connect. Please contact my creator for a fix.",
             },
         }
         self.status_message = "The Twitter feed may take ~5-10 seconds to connect. Please use the `status` command to check the status of the stream."
@@ -79,7 +75,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
     # =================================================================================================================
     # FUNCTIONS
     # =================================================================================================================
-    def is_following(self, username: str) -> tuple[bool, str]:
+    async def is_following(self, username: str) -> tuple[bool, str]:
         """A method to check whether a Twitter user with a given username is being followed by comparing the ID received with the IDs in `IDs.txt`.
 
         Parameters
@@ -97,7 +93,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             * `tuple[bool, str]`
         """
         user_ids = TwitterFeed.get_user_ids()
-        user = self.twitter_client.get_user(username=username)
+        user = await self.twitter_client.get_user(username=username)
 
         if len(user.errors) != 0:
             raise Exception("Can't find username")
@@ -120,7 +116,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             * `tuple[bool, str]` | `None`
         """
         try:
-            res = self.is_following(username)
+            res = await self.is_following(username)
         except:
             await interaction.response.send_message(content="No user found with that username", ephemeral=True)
             return None
@@ -169,8 +165,11 @@ class ContentPoster(commands.GroupCog, name="poster"):
             self.bot.twitter_stream.save_user_id(user_id=user_id, purpose="add")
             # Restart stream
             await asyncio.gather(
-                interaction.response.send_message(content="This account is successfully followed! The Twitter feed may take ~5-10 seconds to restart. Please use the `status` command to check the status of the stream.", ephemeral=True),
-                self.bot.twitter_stream.restart()
+                interaction.response.send_message(
+                    content="This account is successfully followed! The Twitter feed may take ~5-10 seconds to restart. Please use the `status` command to check the status of the stream.",
+                    ephemeral=True,
+                ),
+                self.bot.twitter_stream.restart(),
             )
         else:
             await interaction.response.send_message(content="This account is already being followed!", ephemeral=True)
@@ -195,8 +194,11 @@ class ContentPoster(commands.GroupCog, name="poster"):
             self.bot.twitter_stream.save_user_id(user_id=user_id, purpose="remove")
             # Restart stream
             await asyncio.gather(
-                interaction.response.send_message(content="This account is successfully unfollowed! The Twitter feed may take ~5-10 seconds to restart. Please use the `status` command to check the status of the stream.", ephemeral=True),
-                self.bot.twitter_stream.restart()
+                interaction.response.send_message(
+                    content="This account is successfully unfollowed! The Twitter feed may take ~5-10 seconds to restart. Please use the `status` command to check the status of the stream.",
+                    ephemeral=True,
+                ),
+                self.bot.twitter_stream.restart(),
             )
         else:
             await interaction.response.send_message(content="This account is not being followed!", ephemeral=True)
@@ -230,9 +232,10 @@ class ContentPoster(commands.GroupCog, name="poster"):
 
         await asyncio.gather(
             interaction.response.send_message(
-                content=f"The Twitter fansite feed has been successfully setup in <#{channel.id}>. {self.status_message}", ephemeral=True
+                content=f"The Twitter fansite feed has been successfully setup in <#{channel.id}>. {self.status_message}",
+                ephemeral=True,
             ),
-            self.bot.twitter_stream.restart()
+            self.bot.twitter_stream.restart(),
         )
 
     @feed_group.command(name="connection", description="Either connects, restarts, or disconnects the Twitter feed.")
@@ -254,17 +257,19 @@ class ContentPoster(commands.GroupCog, name="poster"):
         if action == "connect":
             await asyncio.gather(
                 interaction.response.send_message(content=self.status_message, ephemeral=True),
-                self.bot.twitter_stream.start()
+                self.bot.twitter_stream.start(),
             )
         elif action == "restart":
             await asyncio.gather(
                 interaction.response.send_message(content=self.status_message, ephemeral=True),
-                self.bot.twitter_stream.restart()
+                self.bot.twitter_stream.restart(),
             )
         else:
             await asyncio.gather(
-                interaction.response.send_message(content="The Twitter feed has been successfully disconnected.", ephemeral=True),
-                self.bot.twitter_stream.close()
+                interaction.response.send_message(
+                    content="The Twitter feed has been successfully disconnected.", ephemeral=True
+                ),
+                self.bot.twitter_stream.close(),
             )
 
     @feed_group.command(name="status", description="Shows the status of the Twitter feed.")
@@ -281,16 +286,29 @@ class ContentPoster(commands.GroupCog, name="poster"):
         ----------
         `manage_messages`
         """
-        embed = discord.Embed(title="Twitter Feed Status", description="The status for the Twitter feed. It does not update in real time, so please run this command again in ~5-10 seconds to see whether the status has changed.\n\u200B")
+        embed = discord.Embed(
+            title="Twitter Feed Status",
+            description="The status for the Twitter feed. It does not update in real time, so please run this command again in ~5-10 seconds to see whether the status has changed.\n\u200B",
+        )
 
         feed_status = await self.bot.twitter_stream.get_stream_status()
-        embed.add_field(name=self.status_information[feed_status]["name"], value=f"{self.status_information[feed_status]['value']}\n\u200B", inline=False)
+        embed.add_field(
+            name=self.status_information[feed_status]["name"],
+            value=f"{self.status_information[feed_status]['value']}\n\u200B",
+            inline=False,
+        )
 
         feed_channel = ContentPosterConfig().get_feed_channel(self.bot)
         if feed_channel is not None:
-            embed.add_field(name="🤖 Feed Channel", value=f"Twitter feed is connected in <#{feed_channel.id}>.", inline=False)
+            embed.add_field(
+                name="🤖 Feed Channel", value=f"Twitter feed is connected in <#{feed_channel.id}>.", inline=False
+            )
         else:
-            embed.add_field(name="📝 No Setup", value="Twitter feed is connected, but there is no feed channel setup. Run `setup` to setup the feed channel.", inline=False)
+            embed.add_field(
+                name="📝 No Setup",
+                value="Twitter feed is connected, but there is no feed channel setup. Run `setup` to setup the feed channel.",
+                inline=False,
+            )
 
         await interaction.response.send_message(embed=embed)
 
@@ -573,7 +591,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             tweet_id = split_link[-1]
 
             # Get the recent tweets using the Twitter API (only need the Tweet IDs)
-            recent_tweets = self.twitter_client.search_recent_tweets(
+            recent_tweets = await self.twitter_client.search_recent_tweets(
                 query=f'(url:"{tweet_link}" OR conversation_id:{tweet_id}) from:{username} has:media'
             )
 
@@ -592,7 +610,7 @@ class ContentPoster(commands.GroupCog, name="poster"):
             ids_chronological_order = [link.strip().split("/")[-1] for link in links]
 
         # Get all the relevant Tweets using the Twitter API (returns all tweet information)
-        tweets = self.twitter_client.get_tweets(
+        tweets = await self.twitter_client.get_tweets(
             ids=ids_chronological_order,
             tweet_fields=["attachments", "conversation_id", "entities"],
             media_fields=["url", "variants"],
