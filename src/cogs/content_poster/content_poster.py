@@ -19,6 +19,48 @@ from src.orbot import client
 from src.utils.config import ContentPosterConfig
 
 
+@client.tree.context_menu(name="Edit Post")
+@app_commands.guild_only()
+@app_commands.checks.has_permissions(manage_messages=True)
+async def edit_post(interaction: discord.Interaction, message: discord.Message):
+    """A context menu command that allows users to edit an existing Post made in a Post Channel.
+
+    User Flow
+    ----------
+        * Sends an `EditPostView` to the user in the feed channel
+
+    Permissions
+    ----------
+    `manage_messages`
+    """
+    cp_conf = ContentPosterConfig()
+    feed_channel = await message.channel.guild.fetch_channel(cp_conf.data["config"]["feed_channel_id"])
+    await interaction.response.send_message(content=f"Edit this post in <#{feed_channel.id}>", ephemeral=True)
+
+    files = [await attachment.to_file() for attachment in message.attachments]
+    post_details = {
+        "message": message,
+        "caption": message.content,
+        "caption_credits": ContentPosterConfig.anatomize_post_caption(message.content),
+        "files": files.copy(),
+        "channels": [str(interaction.channel.id)],
+    }
+
+    post_details_embed = PostDetailsEmbed(post_details=post_details)
+    post_details_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
+    embedded_message = await feed_channel.send(embed=post_details_embed)
+    view = EditPostView(
+        post_details=post_details,
+        embedded_message=embedded_message,
+        bot=global_bot,
+        files=files,
+        interaction_user=interaction.user,
+    )
+    await embedded_message.edit(view=view)
+
+    await view.wait()
+    await embedded_message.edit(view=None)
+
 class ContentPoster(commands.GroupCog, name="poster"):
     def __init__(self, bot):
         self.bot = bot
@@ -500,48 +542,6 @@ class ContentPoster(commands.GroupCog, name="poster"):
         cp_conf.dump(data)
 
         await interaction.followup.send(content="The post channel was successfully deleted!", ephemeral=True)
-
-    @client.tree.context_menu(name="Edit Post")
-    @app_commands.guild_only()
-    @app_commands.checks.has_permissions(manage_messages=True)
-    async def edit_post(interaction: discord.Interaction, message: discord.Message):
-        """A context menu command that allows users to edit an existing Post made in a Post Channel.
-
-        User Flow
-        ----------
-            * Sends an `EditPostView` to the user in the feed channel
-
-        Permissions
-        ----------
-        `manage_messages`
-        """
-        cp_conf = ContentPosterConfig()
-        feed_channel = await message.channel.guild.fetch_channel(cp_conf.data["config"]["feed_channel_id"])
-        await interaction.response.send_message(content=f"Edit this post in <#{feed_channel.id}>", ephemeral=True)
-
-        files = [await attachment.to_file() for attachment in message.attachments]
-        post_details = {
-            "message": message,
-            "caption": message.content,
-            "caption_credits": ContentPosterConfig.anatomize_post_caption(message.content),
-            "files": files.copy(),
-            "channels": [str(interaction.channel.id)],
-        }
-
-        post_details_embed = PostDetailsEmbed(post_details=post_details)
-        post_details_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
-        embedded_message = await feed_channel.send(embed=post_details_embed)
-        view = EditPostView(
-            post_details=post_details,
-            embedded_message=embedded_message,
-            bot=global_bot,
-            files=files,
-            interaction_user=interaction.user,
-        )
-        await embedded_message.edit(view=view)
-
-        await view.wait()
-        await embedded_message.edit(view=None)
 
     @app_commands.command(name="create-post", description="Makes a new post with a given Tweet link")
     @app_commands.guild_only()

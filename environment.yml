@@ -5,7 +5,6 @@ dependencies:
       - aiohttp
       - asyncpg
       - discord.py
-      - jishaku
       - ruamel.yaml
       - python-dotenv
       - stringcase
