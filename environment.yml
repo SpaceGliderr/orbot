@@ -9,5 +9,8 @@ dependencies:
       - ruamel.yaml
       - python-dotenv
       - stringcase
+      - tweepy[async]
+      - python-dateutil
+      - typing-extensions
       - black
       - isort

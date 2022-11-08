@@ -2,10 +2,10 @@ import logging
 
 from dotenv import load_dotenv
 
-from .orbot import Orbot
+from .orbot import client
 
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
-Orbot().run()
+client.run()

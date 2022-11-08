@@ -1,0 +1,168 @@
+import logging
+from typing import List, Literal
+
+import discord
+import tweepy
+
+from src.modules.twitter.streaming_client import TwitterStreamingClient
+
+
+class TwitterFeed:
+    """A class that contains the resources to handle the Twitter feed.
+
+    Parameters
+    ----------
+        * client: :class:`discord.Client`
+            - The client instance that will be used to send messages.
+    """
+
+    # Static class variables
+    rule_prefix = "(from:"
+    rule_postfix = ") has:media"
+    rule_connector = " OR from:"
+    max_rule_content_length = 512 - (len(rule_prefix) + len(rule_postfix))
+
+    def __init__(self, client: discord.Client):
+        self.follow = self.get_user_ids()
+        self.follow_change_flag = (
+            False  # This flag indicates whether the follow list needs to be refreshed on Stream restart
+        )
+        self.stream: TwitterStreamingClient = None
+
+        self.client: discord.Client = client
+
+    @classmethod
+    async def init_then_start(cls, client: discord.Client):
+        """A class method that initializes an instance of `FansiteFeed` and then starts a Twitter stream."""
+        feed = cls(client)
+        await feed.start()
+        return feed
+
+    @staticmethod
+    def get_user_ids():
+        """Gets the Twitter user IDs of fansites that the `StreamingClient` listens to."""
+        with open("src/data/IDs.txt") as data:
+            lines = data.read().splitlines()
+            return [user_id for user_id in lines]
+
+    def overwrite_ids(self, user_ids: str):
+        """Replaces the IDs in the `IDs.txt` file."""
+        with open("src/data/IDs.txt", "w") as data:
+            data.write("\n".join(user_ids))
+            data.truncate()
+
+        self.follow = self.get_user_ids()
+        self.follow_change_flag = True
+
+    def save_user_id(self, user_id: str, purpose: Literal["add", "remove"]):
+        """Adds or removes a Twitter user ID to the `IDs.txt` file.
+
+        Parameters
+        ----------
+            * user_id: :class:`str`
+                - The user ID to be appended onto the `rule_content` string.
+            * purpose: Literal[`add`, `remove`]
+                - The action to perform on the user ID.
+        """
+        with open("src/data/IDs.txt", "r+") as data:
+            lines = data.read().splitlines()
+            data.seek(0)  # Moves the file pointer to the first index so it replaces the content
+
+            if purpose == "remove":
+                lines.remove(user_id)
+            elif purpose == "add":
+                lines.append(user_id)
+
+            data.write("\n".join(lines))  # Adds newlines between IDs
+            data.truncate()  # Removes the extra lines at the end of the file
+
+        self.follow = self.get_user_ids()
+        self.follow_change_flag = True
+
+    def generate_rule_contents(
+        self, user_id: str, user_ids: List[str], rule_content: str = "", rule_contents: List[str] = []
+    ):
+        """
+        A recursive function that generates rule contents based on the Twitter user IDs.
+        Only 25 `StreamRule`s with content lengths of 512 characters are allowed per `Stream`.
+        This recursive function ensures that these requirements are met.
+
+        Parameters
+        ----------
+            * user_id: :class:`str`
+                - The user ID to be appended onto the `rule_content` string.
+            * user_ids: List[:class:`str`]
+                - The list of remaining user IDs to add.
+            * rule_content: `str` | `""`
+                - The current rule content string.
+            * rule_contents: List[:class:`str`] | `[]`
+                - The list of completed rule contents.
+        """
+        # Add the next user ID to the rule content
+        content = f"{user_id}" if rule_content == "" else f"{self.rule_connector}{user_id}"
+        temp_rule_content = f"{rule_content}{content}"
+
+        if len(user_ids) == 0:
+            # If there are no more User IDs, append the rule content to the array and end the recursive loop
+            rule_contents.append(f"{self.rule_prefix}{temp_rule_content}{self.rule_postfix}")
+            return rule_contents
+
+        if len(temp_rule_content) >= self.max_rule_content_length:
+            # If the new rule content exceeds 512 characters, append the old rule content and use the current user ID in the next recursion
+            rule_contents.append(f"{self.rule_prefix}{rule_content}{self.rule_postfix}")
+            return self.generate_rule_contents(user_id, user_ids, rule_contents=rule_contents)
+        else:
+            # Otherwise, append the new rule content and use the next user ID in the next recursion
+            next_user_id = user_ids.pop(0)
+            return self.generate_rule_contents(next_user_id, user_ids, temp_rule_content, rule_contents)
+
+    def generate_stream_rules(self):
+        """Generates a list of `StreamRule`s by using the rule contents generated by `generate_rule_contents` method."""
+        user_ids = self.follow.copy()  # Copy this to prevent it from mutating the follow list
+        first_user_id = user_ids.pop(0)
+        rule_contents = self.generate_rule_contents(first_user_id, user_ids)
+        return [tweepy.StreamRule(rule_content) for rule_content in rule_contents]
+
+    async def clear_all_stream_rules(self):
+        """Deletes the `StreamRule`s that the current `Stream` has."""
+        current_rules = await self.stream.get_rules()
+        if self.stream is not None and current_rules.data is not None:
+            await self.stream.delete_rules([rule.id for rule in current_rules.data])
+
+    async def start(self):
+        """Starts the `TwitterStreamingClient`."""
+        self.stream = TwitterStreamingClient(
+            self.client
+        )  # ! Can't setup more than 1 stream concurrently if there are more than a certain amount of user IDs
+
+        # Regenerate stream rules every time the client is restarted
+        # Takes awhile to compile all the stream rules, but it helps prevent any outdated rules from staying
+        await self.clear_all_stream_rules()
+        await self.stream.add_rules(self.generate_stream_rules())
+
+        self.stream.filter(
+            tweet_fields=["attachments", "conversation_id", "entities"],
+            media_fields=["url", "variants"],
+            user_fields=["name", "username"],
+            expansions=["attachments.media_keys", "author_id"],
+        )  # Don't need await so it doesn't block the main loop execution
+
+    async def close(self):
+        """Closes the stream."""
+        if self.stream is not None:
+            self.stream.disconnect()  # Doesn't force a direct disconnection as it waits until the next cycle in the event loop to disconnect
+            await self.stream.session.close()  # Close the websocket connection to Twitter's API - this forces a direct disconnection
+            self.stream = None
+
+            logging.info("Twitter stream has been terminated successfully")
+
+    async def restart(self):
+        """Restarts the stream."""
+        await self.close()
+        await self.start()
+
+    async def get_stream_status(self):
+        if self.stream is not None:
+            return self.stream.status
+        else:
+            return "disconnected"

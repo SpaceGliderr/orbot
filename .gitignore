@@ -142,3 +142,6 @@ dmypy.json
 # Node modules
 node_modules/
 .DS_Store
+# TODO: Remove this when done testing
+loonatheworld/
+testing.py
