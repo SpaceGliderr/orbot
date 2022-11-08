@@ -24,7 +24,8 @@ MY_GUILD = discord.Object(id=482594344390623240)
 class Orbot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=">", case_insensitive=True, intents=intents)
-        self.exts = ["jishaku"]
+        # self.exts = ["jishaku"]
+        # self.exts = []
         self.cogs_path = "src/cogs"
         self.cogs_ext_prefix = "src.cogs."
         self.twitter_stream = None
@@ -45,6 +46,7 @@ class Orbot(commands.Bot):
 
     async def setup_hook(self):
         self.add_view(PersistentRolePickerView())
+        print(os.listdir("src/data"))
         await self.reactivate_persistent_views()
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
@@ -59,12 +61,13 @@ class Orbot(commands.Bot):
             ],
         )
 
-        extensions = list(cogs) + self.exts
+        extensions = list(cogs)
 
         for extension in extensions:
             await self.load_extension(extension)
 
     async def on_ready(self):
+        print(os.listdir("src/data"))
         self.twitter_stream = await TwitterFeed.init_then_start(client=self)
         logging.info("Orbot is ready")
 
