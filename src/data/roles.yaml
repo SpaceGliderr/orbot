@@ -4,7 +4,7 @@ categories:
       (Main), limit: multiple, name: l_o_oΠΔ_(_main)}
   - {description: Show your never-ending support for the members and subunits of LOONA!,
     label: LOOΠΔ (Sub), limit: multiple, name: l_o_oΠΔ_(_sub)}
-  - {description: Roles that notify you on various LOOΠΔ related updates!, label: LOOΠΔ
+  - {description: Roles that notify you on various LOONA related updates!, label: LOOΠΔ
       Activity, limit: multiple, name: l_o_oΠΔ__activity}
   - {description: Roles that give you notifications and access to various server activities!,
     label: Server, limit: multiple, name: server}
