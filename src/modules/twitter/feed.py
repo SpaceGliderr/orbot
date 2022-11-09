@@ -18,7 +18,7 @@ class TwitterFeed:
 
     # Static class variables
     rule_prefix = "(from:"
-    rule_postfix = ") has:media"
+    rule_postfix = ") has:media -is:retweet"
     rule_connector = " OR from:"
     max_rule_content_length = 512 - (len(rule_prefix) + len(rule_postfix))
 
