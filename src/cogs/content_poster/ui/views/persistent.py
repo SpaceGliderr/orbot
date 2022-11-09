@@ -87,6 +87,7 @@ class PersistentTweetView(View):
         post_details = PostDetails(
             files=self.files,
             caption_credits=(self.tweet_details["user"]["name"], self.tweet_details["user"]["username"]),
+            tweet_url=self.tweet_details["url"]
         )
         await interaction.response.send_message(
             embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=post_details))
