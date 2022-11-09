@@ -83,7 +83,7 @@ class PostDetailsEmbed(discord.Embed):
             self.description = f"Edits the post made in <#{post_details['message'].channel.id}> with a message ID of {post_details['message'].id}\n\u200B"
         else:
             self.title = "New Post"
-            self.description = "Enter details to make a new post\n\u200B"
+            self.description = f"Enter details to make a new post for {post_details['tweet_url']}\n\u200B"
 
         self.add_field(
             name="Caption",

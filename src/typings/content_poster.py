@@ -15,6 +15,7 @@ class PostDetails(TypedDict):
     caption_credits: NotRequired[Tuple[str, str] | None]
     channels: NotRequired[List[str] | None]
     files: List[discord.File]
+    tweet_url: NotRequired[str | None]
 
 
 class PostCaptionDetails(TypedDict):

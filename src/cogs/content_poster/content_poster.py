@@ -61,6 +61,7 @@ async def edit_post(interaction: discord.Interaction, message: discord.Message):
     await view.wait()
     await embedded_message.edit(view=None)
 
+
 class ContentPoster(commands.GroupCog, name="poster"):
     def __init__(self, bot):
         self.bot = bot
