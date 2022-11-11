@@ -4,7 +4,7 @@ import discord
 
 from src.typings.content_poster import PostCaptionDetails, PostDetails
 from src.utils.config import ContentPosterConfig
-from src.utils.helper import dict_has_key
+from src.utils.helper import dict_has_key, get_from_dict
 
 
 def set_embed_author(interaction: discord.Interaction, embed: discord.Embed):
@@ -88,7 +88,7 @@ class PostDetailsEmbed(discord.Embed):
         self.add_field(
             name="Caption",
             value=f'{post_details["caption"]}\u200B'
-            if dict_has_key(post_details, "caption")
+            if get_from_dict(post_details, ["caption"]) is not None
             else "_-No caption entered-_\n\u200B",
             inline=False,
         )

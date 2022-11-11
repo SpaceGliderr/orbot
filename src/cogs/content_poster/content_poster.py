@@ -40,11 +40,13 @@ async def edit_post(interaction: discord.Interaction, message: discord.Message):
     files = [await attachment.to_file() for attachment in message.attachments]
     post_details = {
         "message": message,
-        "caption": message.content,
         "caption_credits": ContentPosterConfig.anatomize_post_caption(message.content),
         "files": files.copy(),
         "channels": [str(interaction.channel.id)],
     }
+
+    if message.content != "":
+        post_details["caption"] = message.content
 
     post_details_embed = PostDetailsEmbed(post_details=post_details)
     post_details_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)

@@ -48,7 +48,7 @@ class ClearButton(discord.ui.Button):
                     del self.view.post_details[field]
 
         await self.view.embedded_message.edit(
-            embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.post_details))
+            embed=set_embed_author(interaction=interaction, embed=PostDetailsEmbed(post_details=self.view.post_details))
         )
 
 
@@ -205,7 +205,7 @@ class NewPostView(View):
                 media_binary.seek(0)
                 files.append(discord.File(media_binary, media.filename))
 
-        await post_channel.send(content=self.post_details["caption"], files=self.post_details["files"])
+        await post_channel.send(content=get_from_dict(self.post_details, ["caption"]), files=self.post_details["files"])
 
     # =================================================================================================================
     # BUTTON CALLBACKS
@@ -332,15 +332,12 @@ class NewPostView(View):
         """Callback attached to the `post` button which creates a post with the entered details."""
         # Ensure the following conditions are met before creating the post:
         #   1. There are files uploaded
-        #   2. There is a caption entered
-        #   3. There are channel(s) selected
-        if (
-            len(self.post_details["files"]) == 0
-            or get_from_dict(self.post_details, ["caption"]) is None
-            or get_from_dict(self.post_details, ["channels"]) is None
-        ) and (get_from_dict(self.post_details, ["channels"]) is not None and len(self.post_details["channels"]) == 0):
+        #   2. There are channel(s) selected
+        if (len(self.post_details["files"]) == 0 or get_from_dict(self.post_details, ["channels"]) is None) or (
+            get_from_dict(self.post_details, ["channels"]) is not None and len(self.post_details["channels"]) == 0
+        ):
             await interaction.response.send_message(
-                content="Failed to make post. Ensure that you have entered a caption and selected the channels to post in and files to upload.",
+                content="Failed to make post. Ensure that you have selected at least one post channel and file(s) to upload.",
                 ephemeral=True,
             )
             return
