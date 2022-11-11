@@ -280,7 +280,7 @@ class PostCaptionView(View):
                         url=self.post_url,
                         embed_type=self.embed_type,
                         caption_credits=self.caption_credits,
-                        post_caption_details=self.view.post_details,
+                        post_caption_details=self.post_caption_details,
                     ),
                 )
             ),
@@ -289,12 +289,8 @@ class PostCaptionView(View):
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, emoji="✔️", row=2)
     async def confirm(self, interaction: discord.Interaction, *_):
-        caption = ContentPosterConfig.generate_post_caption(self.caption_credits, self.post_caption_details)
-        if caption is None:
-            await interaction.response.send_message(content="Please enter a caption before posting", ephemeral=True)
-            return
-
         await asyncio.gather(interaction.response.defer(), self.clear_tasks_and_msg())
+
         self.is_confirmed = True
         self.interaction = interaction
         self.stop()

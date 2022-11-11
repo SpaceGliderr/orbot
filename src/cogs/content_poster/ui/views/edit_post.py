@@ -12,7 +12,7 @@ from src.cogs.content_poster.ui.views.post_details import (
 from src.modules.ui.common import Button, View
 from src.typings.content_poster import PostDetails
 from src.utils.config import ContentPosterConfig
-from src.utils.helper import dict_has_key
+from src.utils.helper import dict_has_key, get_from_dict
 from src.utils.user_input import get_user_input, send_input_message
 
 
@@ -296,7 +296,7 @@ class EditPostView(View):
             self.stop_active_views(),
             interaction.response.send_message(content="Updating...", ephemeral=True),
             self.post_details["message"].edit(
-                content=self.post_details["caption"], attachments=self.post_details["files"]
+                content=get_from_dict(self.post_details, ["caption"]), attachments=self.post_details["files"]
             ),
         )
 
