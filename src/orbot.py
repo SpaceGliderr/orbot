@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 
@@ -6,8 +7,10 @@ from discord.ext import commands
 
 from src.cogs.content_poster.ui.views.persistent import PersistentTweetView
 from src.cogs.role_picker.ui import PersistentRolePickerView
+from src.modules.auth.google_credentials import GoogleCredentials
+from src.modules.google_forms.subscriber import GoogleFormsResponseListener
 from src.modules.twitter.feed import TwitterFeed
-from src.utils.config import ContentPosterConfig
+from src.utils.config import ContentPosterConfig, GoogleCloudConfig
 
 intents = discord.Intents(
     guilds=True,
@@ -65,6 +68,8 @@ class Orbot(commands.Bot):
 
     async def on_ready(self):
         self.twitter_stream = await TwitterFeed.init_then_start(client=self)
+        GoogleCredentials.init_credentials()
+        self.setup_form_listeners()
         logging.info("Orbot is ready")
 
     async def reactivate_persistent_views(self):
@@ -83,6 +88,11 @@ class Orbot(commands.Bot):
             files = [await attachment.to_file() for attachment in message.attachments]
 
             self.add_view(PersistentTweetView(message=message, files=files, tweet_details=tweet_details, bot=self))
+
+    def setup_form_listeners(self):
+        listener = GoogleFormsResponseListener(client=self, client_loop=asyncio.get_event_loop())
+        listener.listen_in_thread()
+        print("Successfully listened in thread")
 
 
 client = Orbot()
