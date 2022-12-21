@@ -1,7 +1,8 @@
 import io
 import zipfile
+from dataclasses import _MISSING_TYPE, MISSING
 from functools import reduce
-from typing import List, Optional
+from typing import List, Literal, Optional, Sequence
 
 import aiohttp
 import discord
@@ -73,3 +74,88 @@ async def convert_files_to_zip(files: List[discord.File], filename: Optional[str
     zip_buffer.seek(0)
     filename = f"{filename}.zip" if filename is not None else "images.zip"
     return discord.File(zip_buffer, filename)
+
+
+async def send_or_edit_interaction_message(
+    interaction: discord.Interaction,
+    edit_original_response: Optional[bool] = False,
+    content: Optional[str] = None,
+    embed: Optional[discord.Embed] = MISSING,
+    embeds: Optional[List[discord.Embed]] = MISSING,
+    file: Optional[discord.File] = MISSING,
+    files: Optional[List[discord.File]] = MISSING,
+    tts: Optional[bool] = False,
+    view: Optional[discord.ui.View] = MISSING,
+    ephemeral: Optional[bool] = False,
+    allowed_mentions: Optional[discord.AllowedMentions] = None,
+    suppress_embeds: Optional[bool] = False,
+    delete_after: Optional[float] = None,
+    attachments: Optional[Sequence[discord.Attachment | discord.File]] = MISSING,
+):
+    kwargs = {}
+
+    if not isinstance(view, _MISSING_TYPE):
+        kwargs["view"] = view
+
+    if not isinstance(embed, _MISSING_TYPE):
+        kwargs["embed"] = embed
+
+    if not isinstance(embeds, _MISSING_TYPE):
+        kwargs["embeds"] = embeds
+
+    if not isinstance(file, _MISSING_TYPE) and (not interaction.response.is_done() or not edit_original_response):
+        kwargs["file"] = file
+
+    if not isinstance(files, _MISSING_TYPE) and (not interaction.response.is_done() or not edit_original_response):
+        kwargs["files"] = files
+
+    if not isinstance(attachments, _MISSING_TYPE) and interaction.response.is_done() and edit_original_response:
+        kwargs["attachments"] = attachments
+
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                content=content,
+                tts=tts,
+                ephemeral=ephemeral,
+                allowed_mentions=allowed_mentions,
+                suppress_embeds=suppress_embeds,
+                delete_after=delete_after,
+                **kwargs,
+            )
+            return await interaction.original_response()
+        elif edit_original_response:
+            try:
+                await interaction.edit_original_response(content=content, allowed_mentions=allowed_mentions, **kwargs)
+                return await interaction.original_response()
+            except discord.errors.NotFound:
+                return await interaction.followup.send(
+                    content=content,
+                    wait=True,
+                    tts=tts,
+                    ephemeral=ephemeral,
+                    allowed_mentions=allowed_mentions,
+                    suppress_embeds=suppress_embeds,
+                    **kwargs,
+                )
+        else:
+            return await interaction.followup.send(
+                content=content,
+                wait=True,
+                tts=tts,
+                ephemeral=ephemeral,
+                allowed_mentions=allowed_mentions,
+                suppress_embeds=suppress_embeds,
+                **kwargs,
+            )
+    except Exception as e:
+        print(e)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                content="Error occurred while sending a message.", ephemeral=True, delete_after=10
+            )
+            return await interaction.original_response()
+        else:
+            return await interaction.followup.send(
+                content="Error occurred while sending a message.", wait=True, ephemeral=True
+            )
