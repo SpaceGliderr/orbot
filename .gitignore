@@ -143,3 +143,6 @@ dmypy.json
 node_modules/
 .DS_Store
 service-account-info.json
+token.json
+oauth2-client-id.json
+google_credentials.yaml
