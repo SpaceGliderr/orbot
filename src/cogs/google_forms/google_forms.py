@@ -5,6 +5,7 @@ from typing import Literal, Optional
 import discord
 from discord import Permissions, app_commands
 from discord.ext import commands
+from modules.google_forms.forms import GoogleFormsHelper
 
 from src.modules.auth.google_credentials import GoogleCredentials
 from src.modules.google_forms.service import GoogleFormsService
@@ -231,9 +232,7 @@ class GoogleForms(commands.GroupCog, name="google"):
                 gc_conf = (
                     GoogleCloudConfig()
                 )  # Need to create a new instance of the configuration class as the data has been updated from before
-                form_schema = gc_conf.get_schema_from_response(
-                    response=form_details
-                )  # Generate the schema from the form details
+                form_schema = GoogleFormsHelper.generate_schema(response=form_details)  # Generate the schema from the form details
                 gc_conf.upsert_form_schema(
                     form_id=form_id, schema=form_schema
                 )  # Insert a new/update an existing schema into the `google_cloud.yaml` file
@@ -509,9 +508,7 @@ class GoogleForms(commands.GroupCog, name="google"):
 
             if form_details:
                 gc_conf = GoogleCloudConfig()
-                form_schema = gc_conf.get_schema_from_response(
-                    response=form_details
-                )  # Generate a schema from the form details
+                form_schema = GoogleFormsHelper.generate_schema(response=form_details)  # Generate the schema from the form details
                 gc_conf.upsert_form_schema(
                     form_id=form_id, schema=form_schema
                 )  # Upsert the schema into the `google_cloud.yaml` file
