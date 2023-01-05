@@ -315,30 +315,6 @@ class GoogleCloudConfig:
     def default_topic(self):
         return get_from_dict(self._data, ["default_topic"])
 
-    def generate_response_embed(self, answers: List[dict], form_id: str):
-        embed = discord.Embed(title=self.active_form_schemas[form_id]["info"]["title"])
-        for answer in answers:
-            print("ANSWER >>> ", answer)
-            question = self.get_question_details(answer["questionId"], form_id)
-            print("QUESTION >>> ", question)
-            print("ANSWERS >>> ", ", ".join([ans["value"] for ans in answer["textAnswers"]["answers"]]))
-            embed.add_field(
-                name=question["title"] if question else "<No question title found>",
-                value=", ".join([ans["value"] for ans in answer["textAnswers"]["answers"]]),
-                inline=False,
-            )
-        return embed
-
-    def generate_response_embed_from_sheets(self, responses: List[dict], form_id: str):
-        print("EMBED RESPONSES >>> ", responses)
-        embed = discord.Embed(title=self.active_form_schemas[form_id]["info"]["title"])
-        for response in responses:
-            question = list(response.keys())[0]
-            answer = list(response.values())[0]
-            print("QnA >>> ", question, answer)
-            embed.add_field(name=question, value=answer, inline=False)
-        return embed
-
     def get_question_details(self, question_id: str, form_id: str):
         form_schema = get_from_dict(self.active_form_schemas, [form_id])
         print("FORM SCHEMA >>> ", self.active_form_schemas)
@@ -346,19 +322,6 @@ class GoogleCloudConfig:
         if form_schema:
             return get_from_dict(form_schema["questions"], [question_id])
         return None
-
-    def generate_response_embeds(self, responses: Union[dict, List[dict]], form_id: str):
-        print("RESPONSES LIST >>> ", responses)
-        if isinstance(responses, dict):
-            responses_list = list(responses.values())
-            return [
-                self.generate_response_embed(responses_list[i : i + 25], form_id)
-                for i in range(0, len(responses_list), 25)
-            ]
-        return [
-            self.generate_response_embed_from_sheets(responses[i : i + 25], form_id)
-            for i in range(0, len(responses), 25)
-        ]
 
     def search_active_form_watch(
         self,
@@ -378,6 +341,7 @@ class GoogleCloudConfig:
                 return False
             if topic_name and not watch["topic_name"] == topic_name:
                 return False
+            # TODO: Double check the expiry date with the current date
             return True
 
         if result:
@@ -423,28 +387,6 @@ class GoogleCloudConfig:
             del data["active_form_watches"][form_id][result[0]]
         return result == None
 
-    def get_schema_from_response(self, response: dict):
-        data = {}
-        data["info"] = response["info"]
-        data["questions"] = {}
-
-        linked_sheet_id = get_from_dict(response, ["linkedSheetId"])
-        if linked_sheet_id:
-            data["linked_sheet_id"] = response["linkedSheetId"]
-
-        # questions = []
-        for item in response["items"]:
-            question_id = item["questionItem"]["question"]["questionId"]
-            data["questions"][question_id] = {
-                "id": question_id,
-                "title": item["title"],
-            }
-            # questions.append(question)
-
-        # data["questions"] = questions
-
-        return data
-
     def upsert_form_schema(self, form_id: str, schema: dict):
         data = self.get_data()
         data["active_form_schemas"][form_id] = schema
@@ -479,7 +421,7 @@ class GoogleCloudConfig:
         data["default_topic"] = topic_name
         self.dump(data)
 
-    def manage_channel(self, action: Literal["upsert", "delete"], channel: Optional[discord.Interaction]):
+    def manage_channel(self, action: Literal["upsert", "delete"], channel: Optional[discord.TextChannel]):
         data = self.get_data()
         data["form_channel_id"] = None if action == "delete" else channel.id if channel else self.form_channel_id
         self.dump(data)
@@ -492,3 +434,32 @@ class GoogleCloudConfig:
         """Dump data into the `google_cloud.yaml` file."""
         with open("src/data/google_cloud.yaml", "w") as google_cloud_file:
             yaml.dump(data, google_cloud_file)
+
+
+class GoogleCredentialsConfig:
+    """The GoogleCredentialsConfig class helps load the `google_credentials.yaml` file and provides other util methods to manipulate the extracted data."""
+
+    def __init__(self) -> None:
+        with open("src/data/google_credentials.yaml", "r") as google_cred_file:
+            self._data = yaml.load(google_cred_file)
+
+    @property
+    def oauth2_client_id_credentials(self):
+        return get_from_dict(self._data, ["oauth2_client_id_credentials"])
+
+    @property
+    def service_account_credentials(self):
+        return get_from_dict(self._data, ["service_account_credentials"])
+
+    def get_data(self):
+        return self._data.copy()
+
+    def manage_credential(self, type: Literal["service_account, oauth2_client_id"], credential: Optional[dict]):
+        data = self.get_data()
+        data[f"{type}_credentials"] = credential
+        self.dump(data=data)
+
+    def dump(self, data):
+        """Dump data into the `google_credentials.yaml` file."""
+        with open("src/data/google_credentials.yaml", "w") as google_cred_file:
+            yaml.dump(data, google_cred_file)
