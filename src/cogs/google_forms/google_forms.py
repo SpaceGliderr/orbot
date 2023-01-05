@@ -5,8 +5,8 @@ from typing import Literal, Optional
 import discord
 from discord import Permissions, app_commands
 from discord.ext import commands
-from modules.google_forms.forms import GoogleFormsHelper
 
+from modules.google_forms.forms import GoogleFormsHelper
 from src.modules.auth.google_credentials import GoogleCredentialsHelper
 from src.modules.google_forms.service import GoogleFormsService
 from src.modules.ui.custom import ConfirmationView
@@ -124,7 +124,7 @@ class GoogleForms(commands.GroupCog, name="google"):
                 return await interaction.followup.send(content="Failed to authenticate Google account.", ephemeral=True)
         else:
             # By "logging out" the user only removes their credentials from the cache (the `google_credentials.yaml` file)
-            GoogleCredentialsConfig().manage_credential(type="oauth2_client_id", credential=None)
+            GoogleCredentialsConfig().manage_credential(type="oauth2_client_id", credential_dict=None)
             await send_or_edit_interaction_message(
                 interaction=interaction, content="Successfully logged out of Google feature.", ephemeral=True
             )
@@ -140,8 +140,8 @@ class GoogleForms(commands.GroupCog, name="google"):
                 - The action to perform on the Google account.
         """
         GoogleCloudConfig().manage_channel(action="delete", channel=None)
-        GoogleCredentialsConfig().manage_credential(type="oauth2_client_id", credential=None)
-        GoogleCredentialsConfig().manage_credential(type="service_account", credential=None)
+        GoogleCredentialsConfig().manage_credential(type="oauth2_client_id", credential_dict=None)
+        GoogleCredentialsConfig().manage_credential(type="service_account", credential_dict=None)
         await send_or_edit_interaction_message(
             interaction=interaction, content="Successfully reset default settings.", ephemeral=True
         )
@@ -191,7 +191,7 @@ class GoogleForms(commands.GroupCog, name="google"):
 
         try:
             await interaction.response.defer(ephemeral=True)
-            await GoogleCredentialsHelper.set_oauth_cred(interaction=interaction)  # TODO: Change this to get_oauth_cred
+            await GoogleCredentialsHelper.set_oauth_cred(interaction=interaction)
         except:
             return await send_or_edit_interaction_message(
                 interaction=interaction,
@@ -224,7 +224,9 @@ class GoogleForms(commands.GroupCog, name="google"):
                 gc_conf = (
                     GoogleCloudConfig()
                 )  # Need to create a new instance of the configuration class as the data has been updated from before
-                form_schema = GoogleFormsHelper.generate_schema(response=form_details)  # Generate the schema from the form details
+                form_schema = GoogleFormsHelper.generate_schema(
+                    response=form_details
+                )  # Generate the schema from the form details
                 gc_conf.upsert_form_schema(
                     form_id=form_id, schema=form_schema
                 )  # Insert a new/update an existing schema into the `google_cloud.yaml` file
@@ -500,7 +502,9 @@ class GoogleForms(commands.GroupCog, name="google"):
 
             if form_details:
                 gc_conf = GoogleCloudConfig()
-                form_schema = GoogleFormsHelper.generate_schema(response=form_details)  # Generate the schema from the form details
+                form_schema = GoogleFormsHelper.generate_schema(
+                    response=form_details
+                )  # Generate the schema from the form details
                 gc_conf.upsert_form_schema(
                     form_id=form_id, schema=form_schema
                 )  # Upsert the schema into the `google_cloud.yaml` file
