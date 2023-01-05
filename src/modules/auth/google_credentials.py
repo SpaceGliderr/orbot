@@ -9,8 +9,8 @@ from google_auth_oauthlib import flow
 from ruamel.yaml import YAML
 
 from src.cogs.google_forms.ui.views import AuthenticationLinkView
-from src.utils.helper import get_from_dict, send_or_edit_interaction_message
 from src.utils.config import GoogleCredentialsConfig
+from src.utils.helper import get_from_dict, send_or_edit_interaction_message
 
 yaml = YAML(typ="safe")
 
@@ -36,20 +36,32 @@ class GoogleCredentialsHelper:
     def init_credentials():
         gc_conf = GoogleCredentialsConfig()
 
-        oauth2_cred = oauth2_credentials.Credentials(gc_conf.oauth2_client_id_credentials) if gc_conf.oauth2_client_id_credentials else None
-        service_acc_cred = credentials.Credentials(gc_conf.service_account_credentials) if gc_conf.service_account_credentials else None
+        oauth2_cred = (
+            oauth2_credentials.Credentials(gc_conf.oauth2_client_id_credentials)
+            if gc_conf.oauth2_client_id_credentials
+            else None
+        )
+        service_acc_cred = (
+            credentials.Credentials(gc_conf.service_account_credentials)
+            if gc_conf.service_account_credentials
+            else None
+        )
 
-        GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED = oauth2_credentials if oauth2_cred and oauth2_cred.valid else None
-        GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED = service_acc_cred if service_acc_cred and service_acc_cred.valid else None
+        GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED = (
+            oauth2_credentials if oauth2_cred and oauth2_cred.valid else None
+        )
+        GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED = (
+            service_acc_cred if service_acc_cred and service_acc_cred.valid else None
+        )
 
     @staticmethod
     def service_acc_cred():
         """This function will help set the account service credentials before returning the service account credentials"""
-        GoogleCredentialsHelper.set_service_acc_cred()
+        GoogleCredentialsHelper.set_service_acc_cred(save_to_file=True)
         return GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED
 
     @staticmethod
-    def set_service_acc_cred():
+    def set_service_acc_cred(save_to_file: bool = False):
         if not GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED or (
             GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED and not GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED.valid
         ):
@@ -58,6 +70,14 @@ class GoogleCredentialsHelper:
                 scopes=GoogleCredentialsHelper.SERVICE_ACCOUNT_SCOPES,
                 additional_claims={"audience": GoogleCredentialsHelper.SUBSCRIBER_AUDIENCE},
             )
+
+            if save_to_file:
+                GoogleCredentialsConfig().manage_credential(
+                    type="service_account",
+                    credential_dict=GoogleCredentialsHelper.credentials_to_dict(
+                        credentials=GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED
+                    ),
+                )
 
     @staticmethod
     def get_authorization_url():
@@ -93,7 +113,12 @@ class GoogleCredentialsHelper:
             GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED = auth_flow.credentials
 
             if save_to_file:
-                pass
+                GoogleCredentialsConfig().manage_credential(
+                    type="oauth2_client_id",
+                    credential_dict=GoogleCredentialsHelper.credentials_to_dict(
+                        credentials=GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED
+                    ),
+                )
 
             return "Successfully logged in with Google account."
         except:
@@ -105,7 +130,9 @@ class GoogleCredentialsHelper:
         auth_url, auth_flow = GoogleCredentialsHelper.get_authorization_url()
 
         # 2. Send Discord message and wait for user to enter the authentication code
-        _, auth_link_view = await GoogleCredentialsHelper.send_enter_auth_code_view(interaction=interaction, auth_url=auth_url)
+        _, auth_link_view = await GoogleCredentialsHelper.send_enter_auth_code_view(
+            interaction=interaction, auth_url=auth_url
+        )
 
         # 3. Handle user inputted authentication code
         timeout = await auth_link_view.wait()
@@ -113,12 +140,14 @@ class GoogleCredentialsHelper:
             return await send_or_edit_interaction_message(
                 interaction=interaction,
                 edit_original_response=True,
-                content="The command timed out, please try again!" if timeout else "Authentication process was cancelled.",
+                content="The command timed out, please try again!"
+                if timeout
+                else "Authentication process was cancelled.",
                 view=None,
                 embed=None,
-                ephemeral=True
+                ephemeral=True,
             )
-        
+
         token_response = GoogleCredentialsHelper.set_oauth2_client_id_token(
             auth_flow=auth_flow, auth_code=auth_link_view.auth_code, save_to_file=True
         )
@@ -128,16 +157,26 @@ class GoogleCredentialsHelper:
             content=token_response,
             view=None,
             embed=None,
-            ephemeral=True
+            ephemeral=True,
         )
 
     @staticmethod
-    def oauth_cred(interaction: Optional[discord.Interaction] = None):
-        pass
+    def oauth_cred(interaction: Optional[discord.Interaction] = None, reset_cred: bool = False):
+        if interaction and reset_cred:
+            GoogleCredentialsHelper.set_oauth_cred(interaction=interaction)
+        return GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED
 
     @staticmethod
-    async def set_oauth_cred(interaction: discord.Interaction):
-        await GoogleCredentialsHelper.google_oauth_discord_flow(interaction=interaction)
+    async def set_oauth_cred(interaction: discord.Interaction, reset_cred: bool = False):
+        if (
+            not GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED
+            or (
+                GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED
+                and not GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED.valid
+            )
+            or reset_cred
+        ):
+            await GoogleCredentialsHelper.google_oauth_discord_flow(interaction=interaction)
 
         if not GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED:
             raise Exception("Authentication via Discord has failed.")
