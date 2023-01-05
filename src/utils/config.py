@@ -454,9 +454,9 @@ class GoogleCredentialsConfig:
     def get_data(self):
         return self._data.copy()
 
-    def manage_credential(self, type: Literal["service_account, oauth2_client_id"], credential: Optional[dict]):
+    def manage_credential(self, type: Literal["service_account, oauth2_client_id"], credential_dict: Optional[dict]):
         data = self.get_data()
-        data[f"{type}_credentials"] = credential
+        data[f"{type}_credentials"] = credential_dict
         self.dump(data=data)
 
     def dump(self, data):
