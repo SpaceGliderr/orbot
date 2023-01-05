@@ -7,10 +7,10 @@ from discord import Permissions, app_commands
 from discord.ext import commands
 from modules.google_forms.forms import GoogleFormsHelper
 
-from src.modules.auth.google_credentials import GoogleCredentials
+from src.modules.auth.google_credentials import GoogleCredentialsHelper
 from src.modules.google_forms.service import GoogleFormsService
 from src.modules.ui.custom import ConfirmationView
-from src.utils.config import GoogleCloudConfig
+from src.utils.config import GoogleCloudConfig, GoogleCredentialsConfig
 from src.utils.helper import send_or_edit_interaction_message
 
 
@@ -116,13 +116,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         """
         if action == "login":
             try:
-                await GoogleCredentials.google_oauth_process(interaction=interaction)
-
-                if (
-                    not GoogleCredentials.OAUTH2_CLIENT_ID_CRED
-                ):  # Check whether the OAuth credentials have been successfully set
-                    raise Exception("Authentication via Discord has failed.")
-
+                await GoogleCredentialsHelper.set_oauth_cred(interaction=interaction)
                 await send_or_edit_interaction_message(
                     interaction=interaction, content="Successfully authenticated Google account.", ephemeral=True
                 )
@@ -130,7 +124,7 @@ class GoogleForms(commands.GroupCog, name="google"):
                 return await interaction.followup.send(content="Failed to authenticate Google account.", ephemeral=True)
         else:
             # By "logging out" the user only removes their credentials from the cache (the `google_credentials.yaml` file)
-            GoogleCredentials.delete_credential_from_file(type="oauth2_client_id")
+            GoogleCredentialsConfig().manage_credential(type="oauth2_client_id", credential=None)
             await send_or_edit_interaction_message(
                 interaction=interaction, content="Successfully logged out of Google feature.", ephemeral=True
             )
@@ -146,8 +140,8 @@ class GoogleForms(commands.GroupCog, name="google"):
                 - The action to perform on the Google account.
         """
         GoogleCloudConfig().manage_channel(action="delete", channel=None)
-        GoogleCredentials.delete_credential_from_file("oauth2_client_id")
-        GoogleCredentials.delete_credential_from_file("service_account")
+        GoogleCredentialsConfig().manage_credential(type="oauth2_client_id", credential=None)
+        GoogleCredentialsConfig().manage_credential(type="service_account", credential=None)
         await send_or_edit_interaction_message(
             interaction=interaction, content="Successfully reset default settings.", ephemeral=True
         )
@@ -197,9 +191,7 @@ class GoogleForms(commands.GroupCog, name="google"):
 
         try:
             await interaction.response.defer(ephemeral=True)
-            await GoogleCredentials.get_oauth_cred(
-                interaction=interaction
-            )  # Set the OAuth credentials if it hasn't been set already
+            await GoogleCredentialsHelper.set_oauth_cred(interaction=interaction)  # TODO: Change this to get_oauth_cred
         except:
             return await send_or_edit_interaction_message(
                 interaction=interaction,

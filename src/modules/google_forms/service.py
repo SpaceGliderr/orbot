@@ -4,7 +4,7 @@ import discord
 from apiclient import discovery
 from googleapiclient.errors import HttpError
 
-from src.modules.auth.google_credentials import GoogleCredentials
+from src.modules.auth.google_credentials import GoogleCredentialsHelper
 from src.utils.helper import get_from_dict
 
 
@@ -16,11 +16,11 @@ class GoogleFormsService:
 
     @classmethod
     def init_oauth(cls):
-        return cls(GoogleCredentials.OAUTH2_CLIENT_ID_CRED)
+        return cls(GoogleCredentialsHelper.oauth_cred())
 
     @classmethod
     def init_service_acc(cls):
-        return cls(GoogleCredentials.get_service_acc_cred())
+        return cls(GoogleCredentialsHelper.service_acc_cred())
 
     def get_form_details(self, form_id: str):
         try:
