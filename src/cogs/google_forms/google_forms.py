@@ -221,15 +221,11 @@ class GoogleForms(commands.GroupCog, name="google"):
             # Get the form details
             form_details = form_service.get_form_details(form_id=form_id)
             if form_details:
-                gc_conf = (
-                    GoogleCloudConfig()
-                )  # Need to create a new instance of the configuration class as the data has been updated from before
-                form_schema = GoogleFormsHelper.generate_schema(
-                    response=form_details
-                )  # Generate the schema from the form details
-                gc_conf.upsert_form_schema(
-                    form_id=form_id, schema=form_schema
-                )  # Insert a new/update an existing schema into the `google_cloud.yaml` file
+                # Generate the schema from the form details
+                form_schema = GoogleFormsHelper.generate_schema(response=form_details)
+
+                # Insert a new/update an existing schema into the `google_cloud.yaml` file
+                GoogleCloudConfig().upsert_form_schema(form_id=form_id, schema=form_schema)
 
                 content += f" and retrieved form schema for form with ID of {form_id}."
             else:
