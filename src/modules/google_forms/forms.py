@@ -1,7 +1,9 @@
+import asyncio
 from typing import List, Optional, Union
 
 import discord
 
+from modules.ui.custom import PaginatedEmbedsView
 from src.utils.config import GoogleCloudConfig
 from src.utils.helper import get_from_dict
 
@@ -72,3 +74,24 @@ class GoogleFormsHelper:
             schema["questions"][question_id] = {"id": question_id, "title": question["title"]}
 
         return schema
+
+    @staticmethod
+    async def broadcast_form_response_to_channel(
+        form_id: str,
+        form_response: Union[dict, List[dict]],
+        broadcast_channel_id: int | str,
+        client: discord.Client,
+        client_loop: asyncio.AbstractEventLoop,
+    ):
+        broadcast_channel = await client.fetch_channel(int(broadcast_channel_id))
+
+        embeds = GoogleFormsHelper.generate_form_response_embeds(
+            form_id=form_id, response=form_response["answers"] if isinstance(form_response, dict) else form_response
+        )
+
+        asyncio.run_coroutine_threadsafe(
+            broadcast_channel.send(
+                embed=embeds[0], view=PaginatedEmbedsView(embeds=embeds) if len(embeds) > 1 else None
+            ),
+            client_loop,
+        )

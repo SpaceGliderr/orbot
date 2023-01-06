@@ -1,12 +1,66 @@
 import asyncio
 import logging
 import threading
-from typing import List
+from typing import List, Literal
 
 import discord
 from google.cloud import pubsub_v1
 
+from src.modules.google_forms.forms import GoogleFormsHelper
+from src.modules.google_forms.service import GoogleFormsService
+from src.utils.config import GoogleCloudConfig
 from src.utils.helper import get_from_dict
+
+
+class GoogleTopicHandler:
+    def __init__(
+        self,
+        message: pubsub_v1.subscriber.message.Message,
+        client: discord.Client,
+        client_loop: asyncio.AbstractEventLoop,
+    ):
+        self.message = message
+        self.form_service = GoogleFormsService.init_service_acc()
+        self.client = client
+        self.client_loop = client_loop
+
+    def form_watch_callback(self, form_id: str, watch_id: str, event_type: Literal["RESPONSES", "SCHEMA"]):
+        form_schema = get_from_dict(GoogleCloudConfig().active_form_schemas, [form_id])
+
+        if not form_schema:
+            form_details = self.form_service.get_form_details(form_id=form_id)
+
+            if form_details:
+                form_schema = GoogleFormsHelper.generate_schema(response=form_details)
+                GoogleCloudConfig().upsert_form_schema(form_id=form_id, schema=form_schema)
+            else:
+                raise Exception("Failed to retrieve schema")
+
+        latest_response = self.form_service.get_latest_form_response(
+            form_id=form_id, sheet_id=get_from_dict(form_schema, ["linked_sheet_id"])
+        )
+        _, watch = GoogleCloudConfig().search_active_form_watch(
+            form_id=form_id, watch_id=watch_id, event_type=event_type
+        )
+
+        asyncio.run_coroutine_threadsafe(
+            GoogleFormsHelper.broadcast_form_response_to_channel(
+                form_id=form_id,
+                form_response=latest_response,
+                broadcast_channel_id=watch["broadcast_channel_id"],
+                client=self.client,
+                client_loop=self.client_loop,
+            ),
+            self.client_loop,
+        )
+
+    def execute(self):
+        form_id = get_from_dict(self.message.attributes, ["formId"])
+        watch_id = get_from_dict(self.message.attributes, ["watchId"])
+        event_type = get_from_dict(self.message.attributes, ["eventType"])
+
+        if form_id and watch_id and event_type:
+            self.form_watch_callback(form_id=form_id, watch_id=watch_id, event_type=event_type)
 
 
 class GoogleTopicListenerThread(threading.Thread):
@@ -22,6 +76,7 @@ class GoogleTopicListenerThread(threading.Thread):
 
     def callback(self, message: pubsub_v1.subscriber.message.Message):
         message.ack()
+        GoogleTopicHandler(message=message, client=self.client, client_loop=self.client_loop).execute()
 
     def run(self):
         logging.info(f"Listener started for {self.topic_subscription_path}")
@@ -52,7 +107,7 @@ class GoogleTopicListenerManager:
         for _, listener in self.listener_threads:
             listener.run()
 
-    def add_subscription(self, topic_subscription_path: str):
+    def start_stream(self, topic_subscription_path: str):
         existing_thread = get_from_dict(self.listener_threads, [topic_subscription_path])
 
         if existing_thread:
@@ -61,7 +116,9 @@ class GoogleTopicListenerManager:
             return
 
         # Add subscription
-        self.listener_threads[topic_subscription_path] = GoogleTopicListenerThread(topic_subscription_path=topic_subscription_path)
+        self.listener_threads[topic_subscription_path] = GoogleTopicListenerThread(
+            topic_subscription_path=topic_subscription_path
+        )
         self.listener_threads[topic_subscription_path].run()
 
     def close_stream(self, topic_subscription_path: str):
