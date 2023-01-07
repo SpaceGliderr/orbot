@@ -363,8 +363,8 @@ class GoogleForms(commands.GroupCog, name="google"):
         await self.setup_settings_callbacks[action.value](interaction=interaction, action=action.value, channel=channel)
 
     @app_commands.command(
-        name="manage-default-topic",
-        description="Manage the default Google Pub/Sub topic that publishes messages to Discord channels.",
+        name="manage-topics",
+        description="Manage the Google Pub/Sub topic that publishes messages to Discord channels."
     )
     @app_commands.guild_only()
     @app_commands.rename(topic_name="topic")
@@ -377,11 +377,9 @@ class GoogleForms(commands.GroupCog, name="google"):
             app_commands.Choice(name="replace the default subscription", value="unsubscribe"),
         ]
     )
-    @app_commands.checks.has_permissions(manage_messages=True)
-    async def manage_default_topic(
-        self, interaction: discord.Interaction, action: app_commands.Choice[str], topic_name: Optional[str]
-    ):
-        """A slash command that allows the user to manage the default subscribed topic of the Google module.
+    @app_commands.checks.has_permissions()
+    async def manage_topics(self, interaction: discord.Interaction, action: app_commands.Choice[str], topic_name: str):
+        """A slash command that allows the user to manage the list of subscribed topics of the Google module.
 
         Parameters
         ----------
@@ -392,49 +390,20 @@ class GoogleForms(commands.GroupCog, name="google"):
                 - The topic name to carry out the action on. To subscribe, a `topic_name` must be provided.
         """
         gc_conf = GoogleCloudConfig()
+
         if action.value == "subscribe":
-            if not topic_name:  # Check whether the `topic_name` argument is provided
-                return await interaction.response.send_message(
-                    content="Please ensure a topic name is entered.", ephemeral=True
-                )
+            if gc_conf.subscribe_topic(topic_name=topic_name):
+                self.bot.listener.start_stream(topic_subscription_path=topic_name)
+                await send_or_edit_interaction_message(interaction=interaction, content="Successfully subscribed to topic", ephemeral=True)
+            else:
+                await send_or_edit_interaction_message(interaction=interaction, content="Topic is already subscribed to", ephemeral=True)
 
-            if gc_conf.default_topic:
-                # If there is already a default topic subscription, ask the user whether they would want to replace it with a new one.
-                confirmation_view = ConfirmationView(timeout=180)
-
-                topic_embed = discord.Embed(
-                    title="Default Topic Subscription Exists",
-                    description=f'A topic with the name "{gc_conf.default_topic}" is already subscribed to. Would you like to replace this topic subscription?',
-                )
-
-                await asyncio.gather(
-                    interaction.response.send_message(embed=topic_embed, view=confirmation_view, ephemeral=True),
-                    confirmation_view.wait(),
-                )
-
-                if not confirmation_view.is_confirmed:
-                    return await send_or_edit_interaction_message(
-                        interaction=interaction,
-                        edit_original_response=True,
-                        content="The topic subscription was not changed.",
-                        embed=None,
-                        view=None,
-                        ephemeral=True,
-                    )
-
-            # Set the new default topic to the user entered default topic
-            gc_conf.set_default_topic(topic_name=topic_name)
-            await send_or_edit_interaction_message(
-                interaction=interaction,
-                edit_original_response=True,
-                content="Successfully subscribed to a new default topic.",
-                ephemeral=True,
-            )
         else:
-            gc_conf.set_default_topic(None)  # Remove the default topic from `google_cloud.yaml`
-            await send_or_edit_interaction_message(
-                interaction=interaction, content="Successfully unsubscribed from the default topic.", ephemeral=True
-            )
+            if gc_conf.unsubscribe_topic(topic_name=topic_name):
+                self.bot.listener.close_stream(topic_subscription_path=topic_name)
+                await send_or_edit_interaction_message(interaction=interaction, content="Successfully unsubscribed from topic", ephemeral=True)
+            else:
+                await send_or_edit_interaction_message(interaction=interaction, content="Topic is not subscribed to", ephemeral=True)
 
     @forms_group.command(name="manage-feed")
     @app_commands.guild_only()
