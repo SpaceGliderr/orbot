@@ -4,11 +4,11 @@ import os
 
 import discord
 from discord.ext import commands
+from src.modules.google_forms.topic_listener import GoogleTopicListenerManager
 
 from src.cogs.content_poster.ui.views.persistent import PersistentTweetView
 from src.cogs.role_picker.ui import PersistentRolePickerView
 from src.modules.auth.google_credentials import GoogleCredentialsHelper
-from src.modules.google_forms.subscriber import GoogleFormsResponseListener
 from src.modules.twitter.feed import TwitterFeed
 from src.utils.config import ContentPosterConfig, GoogleCloudConfig
 
@@ -44,9 +44,8 @@ class Orbot(commands.Bot):
             await self.twitter_stream.close()
 
         if self.listener:
-            await self.listener.close_thread()
-            # await asyncio.sleep(1)
-            print("IS THREAD ALIVE >>> ", self.listener.thread.is_alive())
+            await self.listener.close_all_streams()
+            logging.info("All streams shut down successfully")
 
         logging.info("Orbot is shutting down... Goodbye!")
         await super().close()
@@ -96,9 +95,10 @@ class Orbot(commands.Bot):
             self.add_view(PersistentTweetView(message=message, files=files, tweet_details=tweet_details, bot=self))
 
     def setup_form_listeners(self):
-        self.listener = GoogleFormsResponseListener(client=self, client_loop=asyncio.get_event_loop())
-        self.listener.listen_in_thread()
-        print("Successfully listened in thread")
+        topics = GoogleCloudConfig().topics
+        if topics:
+            self.listener = GoogleTopicListenerManager.init_and_run(topic_names=topics)
+            logging.info("Topic manager set up successfully")
 
 
 client = Orbot()
