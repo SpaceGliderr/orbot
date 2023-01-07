@@ -317,8 +317,6 @@ class GoogleCloudConfig:
 
     def get_question_details(self, question_id: str, form_id: str):
         form_schema = get_from_dict(self.active_form_schemas, [form_id])
-        print("FORM SCHEMA >>> ", self.active_form_schemas)
-        print("FORM ID >>> ", form_id)
         if form_schema:
             return get_from_dict(form_schema["questions"], [question_id])
         return None
