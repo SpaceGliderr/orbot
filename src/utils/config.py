@@ -400,7 +400,7 @@ class GoogleCloudConfig:
 
     def subscribe_topic(self, topic_name: str):
         if topic_name not in self.topics:
-            data = self.data()
+            data = self.get_data()
             data["topics"].append(topic_name)
             self.dump(data)
             return True
@@ -408,7 +408,7 @@ class GoogleCloudConfig:
 
     def unsubscribe_topic(self, topic_name: str):
         if topic_name in self.topics:
-            data = self.data()
+            data = self.get_data()
             data["topics"].remove(topic_name)
             self.dump(data)
             return True
@@ -452,7 +452,7 @@ class GoogleCredentialsConfig:
     def get_data(self):
         return self._data.copy()
 
-    def manage_credential(self, type: Literal["service_account, oauth2_client_id"], credential_dict: Optional[dict]):
+    def manage_credential(self, type: Literal["oauth2_client_id"], credential_dict: Optional[dict]):
         data = self.get_data()
         data[f"{type}_credentials"] = credential_dict
         self.dump(data=data)

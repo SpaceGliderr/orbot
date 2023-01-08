@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 import discord
 
-from modules.ui.custom import PaginatedEmbedsView
+from src.modules.ui.custom import PaginatedEmbedsView
 from src.utils.config import GoogleCloudConfig
 from src.utils.helper import get_from_dict
 

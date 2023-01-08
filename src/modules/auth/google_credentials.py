@@ -1,8 +1,7 @@
 import json
-from typing import Literal, Optional
+from typing import Optional
 
 import discord
-from google.auth import credentials
 from google.oauth2 import credentials as oauth2_credentials
 from google.oauth2 import service_account
 from google_auth_oauthlib import flow
@@ -41,43 +40,28 @@ class GoogleCredentialsHelper:
             if gc_conf.oauth2_client_id_credentials
             else None
         )
-        service_acc_cred = (
-            credentials.Credentials(gc_conf.service_account_credentials)
-            if gc_conf.service_account_credentials
-            else None
-        )
-
         GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED = (
             oauth2_credentials if oauth2_cred and oauth2_cred.valid else None
         )
-        GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED = (
-            service_acc_cred if service_acc_cred and service_acc_cred.valid else None
-        )
+
+        GoogleCredentialsHelper.set_service_acc_cred()
 
     @staticmethod
     def service_acc_cred():
         """This function will help set the account service credentials before returning the service account credentials"""
-        GoogleCredentialsHelper.set_service_acc_cred(save_to_file=True)
+        GoogleCredentialsHelper.set_service_acc_cred()
         return GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED
 
     @staticmethod
-    def set_service_acc_cred(save_to_file: bool = False):
+    def set_service_acc_cred():
         if not GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED or (
             GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED and not GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED.valid
         ):
-            GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED = service_account.Credentials.from_service_account_file(
-                "service-account-info.json",
+            GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED = service_account.Credentials.from_service_account_info(
+                GoogleCredentialsConfig().service_account_credentials,
                 scopes=GoogleCredentialsHelper.SERVICE_ACCOUNT_SCOPES,
                 additional_claims={"audience": GoogleCredentialsHelper.SUBSCRIBER_AUDIENCE},
             )
-
-            if save_to_file:
-                GoogleCredentialsConfig().manage_credential(
-                    type="service_account",
-                    credential_dict=GoogleCredentialsHelper.credentials_to_dict(
-                        credentials=GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED
-                    ),
-                )
 
     @staticmethod
     def get_authorization_url():
@@ -115,7 +99,7 @@ class GoogleCredentialsHelper:
             if save_to_file:
                 GoogleCredentialsConfig().manage_credential(
                     type="oauth2_client_id",
-                    credential_dict=GoogleCredentialsHelper.credentials_to_dict(
+                    credential_dict=GoogleCredentialsHelper.oauth2_credentials_to_dict(
                         credentials=GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED
                     ),
                 )
@@ -182,9 +166,5 @@ class GoogleCredentialsHelper:
             raise Exception("Authentication via Discord has failed.")
 
     @staticmethod
-    def credentials_to_dict(credentials: oauth2_credentials.Credentials | service_account.Credentials):
-        return (
-            json.loads(credentials.to_json())
-            if isinstance(credentials, oauth2_credentials.Credentials)
-            else {"token": credentials.token, "scopes": credentials.scopes}
-        )
+    def oauth2_credentials_to_dict(credentials: oauth2_credentials.Credentials):
+        return json.loads(credentials.to_json())

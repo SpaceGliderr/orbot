@@ -6,8 +6,8 @@ import discord
 from discord import Permissions, app_commands
 from discord.ext import commands
 
-from modules.google_forms.forms import GoogleFormsHelper
 from src.modules.auth.google_credentials import GoogleCredentialsHelper
+from src.modules.google_forms.forms import GoogleFormsHelper
 from src.modules.google_forms.service import GoogleFormsService
 from src.modules.ui.custom import ConfirmationView
 from src.utils.config import GoogleCloudConfig, GoogleCredentialsConfig
@@ -363,8 +363,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         await self.setup_settings_callbacks[action.value](interaction=interaction, action=action.value, channel=channel)
 
     @app_commands.command(
-        name="manage-topics",
-        description="Manage the Google Pub/Sub topic that publishes messages to Discord channels."
+        name="manage-topics", description="Manage the Google Pub/Sub topic that publishes messages to Discord channels."
     )
     @app_commands.guild_only()
     @app_commands.rename(topic_name="topic")
@@ -393,17 +392,25 @@ class GoogleForms(commands.GroupCog, name="google"):
 
         if action.value == "subscribe":
             if gc_conf.subscribe_topic(topic_name=topic_name):
-                self.bot.listener.start_stream(topic_subscription_path=topic_name)
-                await send_or_edit_interaction_message(interaction=interaction, content="Successfully subscribed to topic", ephemeral=True)
+                self.bot.listener.start_stream(topic_subscription_path=topic_name, client=self.bot, client_loop=self.bot.loop)
+                await send_or_edit_interaction_message(
+                    interaction=interaction, content="Successfully subscribed to topic", ephemeral=True
+                )
             else:
-                await send_or_edit_interaction_message(interaction=interaction, content="Topic is already subscribed to", ephemeral=True)
+                await send_or_edit_interaction_message(
+                    interaction=interaction, content="Topic is already subscribed to", ephemeral=True
+                )
 
         else:
             if gc_conf.unsubscribe_topic(topic_name=topic_name):
                 self.bot.listener.close_stream(topic_subscription_path=topic_name)
-                await send_or_edit_interaction_message(interaction=interaction, content="Successfully unsubscribed from topic", ephemeral=True)
+                await send_or_edit_interaction_message(
+                    interaction=interaction, content="Successfully unsubscribed from topic", ephemeral=True
+                )
             else:
-                await send_or_edit_interaction_message(interaction=interaction, content="Topic is not subscribed to", ephemeral=True)
+                await send_or_edit_interaction_message(
+                    interaction=interaction, content="Topic is not subscribed to", ephemeral=True
+                )
 
     @forms_group.command(name="manage-feed")
     @app_commands.guild_only()
