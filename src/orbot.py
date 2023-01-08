@@ -4,11 +4,11 @@ import os
 
 import discord
 from discord.ext import commands
-from src.modules.google_forms.topic_listener import GoogleTopicListenerManager
 
 from src.cogs.content_poster.ui.views.persistent import PersistentTweetView
 from src.cogs.role_picker.ui import PersistentRolePickerView
 from src.modules.auth.google_credentials import GoogleCredentialsHelper
+from src.modules.google_forms.topic_listener import GoogleTopicListenerManager
 from src.modules.twitter.feed import TwitterFeed
 from src.utils.config import ContentPosterConfig, GoogleCloudConfig
 
@@ -44,7 +44,7 @@ class Orbot(commands.Bot):
             await self.twitter_stream.close()
 
         if self.listener:
-            await self.listener.close_all_streams()
+            self.listener.close_all_streams()
             logging.info("All streams shut down successfully")
 
         logging.info("Orbot is shutting down... Goodbye!")
@@ -72,7 +72,8 @@ class Orbot(commands.Bot):
             await self.load_extension(extension)
 
     async def on_ready(self):
-        self.twitter_stream = await TwitterFeed.init_then_start(client=self)
+        # TODO: Uncomment twitter stream initialise after testing topic listeners
+        # self.twitter_stream = await TwitterFeed.init_then_start(client=self)
         GoogleCredentialsHelper.init_credentials()
         self.setup_form_listeners()
         logging.info("Orbot is ready")
@@ -96,9 +97,8 @@ class Orbot(commands.Bot):
 
     def setup_form_listeners(self):
         topics = GoogleCloudConfig().topics
-        if topics:
-            self.listener = GoogleTopicListenerManager.init_and_run(topic_names=topics)
-            logging.info("Topic manager set up successfully")
+        self.listener = GoogleTopicListenerManager.init_and_run(topic_names=topics if topics else [], client=self, client_loop=self.loop)
+        logging.info("Topic manager set up successfully")
 
 
 client = Orbot()
