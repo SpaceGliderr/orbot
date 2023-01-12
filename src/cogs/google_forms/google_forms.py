@@ -1,17 +1,20 @@
 import asyncio
+import datetime
+import logging
 import os
 from typing import Literal, Optional
 
 import discord
+from dateutil import parser
 from discord import Permissions, app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from src.modules.auth.google_credentials import GoogleCredentialsHelper
 from src.modules.google_forms.forms import GoogleFormsHelper
 from src.modules.google_forms.service import GoogleFormsService
-from src.modules.ui.custom import ConfirmationView
+from src.modules.ui.custom import ConfirmationView, PaginatedEmbedsView
 from src.utils.config import GoogleCloudConfig, GoogleCredentialsConfig
-from src.utils.helper import send_or_edit_interaction_message
+from src.utils.helper import get_from_dict, send_or_edit_interaction_message
 
 
 class GoogleForms(commands.GroupCog, name="google"):
@@ -30,6 +33,8 @@ class GoogleForms(commands.GroupCog, name="google"):
             "delete": self.delete_feed,
         }
 
+        self.renew_watches_task.start()
+
     # =================================================================================================================
     # COMMAND GROUPS
     # =================================================================================================================
@@ -39,6 +44,9 @@ class GoogleForms(commands.GroupCog, name="google"):
         default_permissions=Permissions(manage_messages=True),
         guild_only=True,
     )
+
+    def cog_unload(self) -> None:
+        self.renew_watches_task.cancel()
 
     # =================================================================================================================
     # GENERAL FUNCTIONS
@@ -85,7 +93,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         """
         gc_conf = GoogleCloudConfig()
 
-        if action.value == "upsert":
+        if action == "upsert":
             if not channel:  # Check whether channel is present during an `upsert` action
                 return await interaction.response.send_message(
                     "To insert or update a form channel, please enter a Discord channel.", ephemeral=True
@@ -104,7 +112,7 @@ class GoogleForms(commands.GroupCog, name="google"):
             ephemeral=True,
         )
 
-    async def manage_credentials(self, *, interaction: discord.Interaction, action: Literal["login", "logout"]):
+    async def manage_credentials(self, interaction: discord.Interaction, action: Literal["login", "logout"], **_):
         """Allows the user to login or logout from their Google account.
 
         Parameters
@@ -116,7 +124,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         """
         if action == "login":
             try:
-                await GoogleCredentialsHelper.set_oauth_cred(interaction=interaction)
+                await GoogleCredentialsHelper.set_oauth_cred(interaction=interaction, reset_cred=True)
                 await send_or_edit_interaction_message(
                     interaction=interaction, content="Successfully authenticated Google account.", ephemeral=True
                 )
@@ -129,7 +137,7 @@ class GoogleForms(commands.GroupCog, name="google"):
                 interaction=interaction, content="Successfully logged out of Google feature.", ephemeral=True
             )
 
-    async def reset_settings(self, *, interaction: discord.Interaction):
+    async def reset_settings(self, interaction: discord.Interaction, **_):
         """Resets all default settings of the entire Google module - default broadcast channels, cached OAuth and service account credentials.
 
         Parameters
@@ -184,10 +192,18 @@ class GoogleForms(commands.GroupCog, name="google"):
         )  # Search for currently active form feeds
 
         if form_feed:  # If the feed already exists, redirect the user to use the `update` command instead
-            return await interaction.response.send_message(
-                content="A feed for the form and specific form event already exists. Please use the `update form` command to update the feed details.",
-                ephemeral=True,
-            )
+            current_date = datetime.date.today()
+            expiry_date = parser.parse(form_feed["expire_time"]).date()
+
+            delta_days = (expiry_date - current_date).days
+
+            if delta_days < 0:
+                gc_conf.delete_form_watch(form_id=form_id, watch_id=form_feed["watch_id"], event_type=form_feed["event_type"], topic_name=form_feed["topic_name"])
+            else:
+                return await interaction.response.send_message(
+                    content="A feed for the form and specific form event already exists. Please use the `update form` command to update the feed details.",
+                    ephemeral=True,
+                )
 
         try:
             await interaction.response.defer(ephemeral=True)
@@ -392,7 +408,9 @@ class GoogleForms(commands.GroupCog, name="google"):
 
         if action.value == "subscribe":
             if gc_conf.subscribe_topic(topic_name=topic_name):
-                self.bot.listener.start_stream(topic_subscription_path=topic_name, client=self.bot, client_loop=self.bot.loop)
+                self.bot.listener.start_stream(
+                    topic_subscription_path=topic_name, client=self.bot, client_loop=self.bot.loop
+                )
                 await send_or_edit_interaction_message(
                     interaction=interaction, content="Successfully subscribed to topic", ephemeral=True
                 )
@@ -486,6 +504,60 @@ class GoogleForms(commands.GroupCog, name="google"):
                 await interaction.response.send_message(
                     content="Form schema refresh has failed. Could not find form details.", ephemeral=True
                 )
+
+    async def view_active_form_watches(self, interaction: discord.Interaction):
+        pass
+
+    # =================================================================================================================
+    # ROUTINE TASK FUNCTIONS
+    # =================================================================================================================
+    # TODO: Add a task that updates every 24 hours, checks the google cloud yaml file for watches that are about to expire on that day, and then renew them
+    # Refer to this documentation https://discordpy.readthedocs.io/en/latest/ext/tasks/
+    @tasks.loop(time=datetime.time(hour=23, minute=0, tzinfo=datetime.timezone(offset=datetime.timedelta(hours=8))))
+    async def renew_watches_task(self):
+        form_service = GoogleFormsService.init_service_acc()
+
+        gc_conf = GoogleCloudConfig()
+        data = gc_conf.get_data()
+
+        expired_watches_with_idx = []
+
+        for watches in gc_conf.active_form_watches.values():
+            for idx, watch in enumerate(watches):
+                print("Watch >>> ", watch)
+
+                current_date = datetime.date.today()
+                expiry_date = parser.parse(watch["expire_time"]).date()
+
+                delta_days = (expiry_date - current_date).days
+
+                print("Delta Days >>> ", delta_days)
+
+                if delta_days < 0:
+                    expired_watches_with_idx.append([idx, watch])
+                elif delta_days <= 1:
+                    renewed_watch = form_service.renew_form_watch(form_id=watch["form_id"], watch_id=watch["watch_id"])
+                    print("Watch Renewed >>> ", renewed_watch)
+
+                    if renewed_watch:
+                        data[watch["form_id"]][idx]["expire_time"] = renewed_watch["expire_time"]
+                    else:
+                        logging.info(f"Failed to renew watch with watch ID of {watch['watch_id']}")
+
+        gc_conf.dump(data=data)
+
+        if len(expired_watches_with_idx) > 0:
+            gc_conf = GoogleCloudConfig()
+            gc_conf.delete_form_watches_with_index(form_watches=expired_watches_with_idx)
+
+            if gc_conf.form_channel_id:
+                guild = await self.bot.fetch_guild(864118528134742026)
+                channel = await guild.fetch_channel(gc_conf.form_channel_id)
+
+                _, expired_watches = zip(*expired_watches_with_idx)
+                expired_form_embeds = GoogleFormsHelper.generate_expired_form_watch_embeds(expired_watches=expired_watches)
+
+                await channel.send(embed=expired_form_embeds[0], view=None if len(expired_form_embeds) == 1 else PaginatedEmbedsView(embeds=expired_form_embeds))
 
 
 async def setup(bot):
