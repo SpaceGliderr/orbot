@@ -1,3 +1,4 @@
+import http
 from typing import Literal, Optional
 
 import discord
@@ -87,6 +88,12 @@ class GoogleFormsService:
     def delete_form_watch(self, form_id: str, watch_id: str):
         try:
             return self.forms_service.forms().watches().delete(formId=form_id, watchId=watch_id).execute()
+        except:
+            return None
+
+    def renew_form_watch(self, form_id: str, watch_id: str):
+        try:
+            return self.forms_service.forms().watches().renew(formId=form_id, watchId=watch_id).execute()
         except:
             return None
 

@@ -95,3 +95,21 @@ class GoogleFormsHelper:
             ),
             client_loop,
         )
+
+    @staticmethod
+    def generate_expired_form_watch_embed(expired_watch: dict):
+        embed = discord.Embed(title="Form Watch Expired", description=f"A form watch with the form ID of {expired_watch['form_id']} has expired. Please create a new watch with the same form ID instead.\nHere are the details for the expired form watch:")
+
+        embed.add_field(name="Form ID", value=expired_watch["form_id"], inline=False)
+        embed.add_field(name="Watch ID", value=expired_watch["watch_id"], inline=False)
+        embed.add_field(name="Event Type", value=expired_watch["event_type"])
+        embed.add_field(name="Broadcast Channel", value=f"<#{expired_watch['broadcast_channel_id']}>")
+
+        return embed
+
+    @staticmethod
+    def generate_expired_form_watch_embeds(expired_watches: List[dict]):
+        return [
+            GoogleFormsHelper.generate_expired_form_watch_embed(expired_watch=expired_watch)
+            for expired_watch in expired_watches
+        ]
