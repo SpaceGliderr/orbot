@@ -36,12 +36,19 @@ class GoogleCredentialsHelper:
         gc_conf = GoogleCredentialsConfig()
 
         oauth2_cred = (
-            oauth2_credentials.Credentials(gc_conf.oauth2_client_id_credentials)
+            oauth2_credentials.Credentials(
+                gc_conf.oauth2_client_id_credentials["token"],
+                client_id=gc_conf.oauth2_client_id_credentials["client_id"],
+                client_secret=gc_conf.oauth2_client_id_credentials["client_secret"],
+                refresh_token=gc_conf.oauth2_client_id_credentials["refresh_token"],
+                scopes=gc_conf.oauth2_client_id_credentials["scopes"],
+                token_uri=gc_conf.oauth2_client_id_credentials["token_uri"]
+            )
             if gc_conf.oauth2_client_id_credentials
             else None
         )
         GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED = (
-            oauth2_credentials if oauth2_cred and oauth2_cred.valid else None
+            oauth2_cred if oauth2_cred and oauth2_cred.valid else None
         )
 
         GoogleCredentialsHelper.set_service_acc_cred()
