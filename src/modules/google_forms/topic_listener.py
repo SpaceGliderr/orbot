@@ -5,8 +5,8 @@ from typing import List, Literal
 
 import discord
 from google.cloud import pubsub_v1
-from src.modules.auth.google_credentials import GoogleCredentialsHelper
 
+from src.modules.auth.google_credentials import GoogleCredentialsHelper
 from src.modules.google_forms.forms import GoogleFormsHelper
 from src.modules.google_forms.service import GoogleFormsService
 from src.utils.config import GoogleCloudConfig
@@ -65,9 +65,7 @@ class GoogleTopicHandler:
 
 
 class GoogleTopicListenerThread(threading.Thread):
-    def __init__(
-        self, topic_subscription_path: str, client: discord.Client, client_loop: asyncio.AbstractEventLoop
-    ):
+    def __init__(self, topic_subscription_path: str, client: discord.Client, client_loop: asyncio.AbstractEventLoop):
         threading.Thread.__init__(self)
 
         self.topic_subscription_path = topic_subscription_path
@@ -96,7 +94,9 @@ class GoogleTopicListenerThread(threading.Thread):
 class GoogleTopicListenerManager:
     def __init__(self, topic_names: List[str], client: discord.Client, client_loop: asyncio.AbstractEventLoop):
         self.listener_threads = {
-            topic_subscription_path: GoogleTopicListenerThread(topic_subscription_path=topic_subscription_path, client=client, client_loop=client_loop)
+            topic_subscription_path: GoogleTopicListenerThread(
+                topic_subscription_path=topic_subscription_path, client=client, client_loop=client_loop
+            )
             for topic_subscription_path in topic_names
         }
 
@@ -110,7 +110,9 @@ class GoogleTopicListenerManager:
         for _, listener in self.listener_threads.items():
             listener.start()
 
-    def start_stream(self, topic_subscription_path: str, client: discord.Client, client_loop: asyncio.AbstractEventLoop):
+    def start_stream(
+        self, topic_subscription_path: str, client: discord.Client, client_loop: asyncio.AbstractEventLoop
+    ):
         existing_thread = get_from_dict(self.listener_threads, [topic_subscription_path])
 
         if existing_thread:
