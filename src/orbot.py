@@ -97,7 +97,9 @@ class Orbot(commands.Bot):
 
     def setup_form_listeners(self):
         topics = GoogleCloudConfig().topics
-        self.listener = GoogleTopicListenerManager.init_and_run(topic_names=topics if topics else [], client=self, client_loop=self.loop)
+        self.listener = GoogleTopicListenerManager.init_and_run(
+            topic_names=topics if topics else [], client=self, client_loop=self.loop
+        )
         logging.info("Topic manager set up successfully")
 
 
