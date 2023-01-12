@@ -378,12 +378,23 @@ class GoogleCloudConfig:
 
         self.dump(data)
 
-    def delete_form_watch(self, form_id: str, event_type: str, topic_name: Optional[str] = None):
-        result = self.search_active_form_watch(form_id=form_id, event_type=event_type, topic_name=topic_name)
+    def delete_form_watch(self, form_id: str, watch_id: Optional[str] = None, event_type: Optional[str] = None, topic_name: Optional[str] = None):
+        result = self.search_active_form_watch(form_id=form_id, watch_id=watch_id, event_type=event_type, topic_name=topic_name)
+
         if result:
             data = self.get_data()
             del data["active_form_watches"][form_id][result[0]]
+
+        self.dump(data=data)
         return result == None
+
+    def delete_form_watches_with_index(self, form_watches: List[Tuple[int, dict]]):
+        data = self.get_data()
+
+        for idx, watch in form_watches:
+            del data["active_form_watches"][watch["form_id"]][idx]
+
+        self.dump(data=data)
 
     def upsert_form_schema(self, form_id: str, schema: dict):
         data = self.get_data()
