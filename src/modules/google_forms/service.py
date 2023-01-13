@@ -16,10 +16,6 @@ class GoogleFormsService:
         self.sheets_service = discovery.build("sheets", "v4", credentials=credentials)
 
     @classmethod
-    def init_oauth(cls):
-        return cls(GoogleCredentialsHelper.oauth_cred())
-
-    @classmethod
     def init_service_acc(cls):
         return cls(GoogleCredentialsHelper.service_acc_cred())
 

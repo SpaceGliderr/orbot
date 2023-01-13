@@ -8,13 +8,14 @@ import discord
 from dateutil import parser
 from discord import Permissions, app_commands
 from discord.ext import commands, tasks
+from google.oauth2 import credentials as oauth2_credentials
 
 from src.modules.auth.google_credentials import GoogleCredentialsHelper
 from src.modules.google_forms.forms import GoogleFormsHelper
 from src.modules.google_forms.service import GoogleFormsService
 from src.modules.ui.custom import ConfirmationView, PaginatedEmbedsView
-from src.utils.config import GoogleCloudConfig, GoogleCredentialsConfig
-from src.utils.helper import get_from_dict, send_or_edit_interaction_message
+from src.utils.config import GoogleCloudConfig
+from src.utils.helper import send_or_edit_interaction_message
 
 
 class GoogleForms(commands.GroupCog, name="google"):
@@ -23,8 +24,6 @@ class GoogleForms(commands.GroupCog, name="google"):
         self.setup_settings_callbacks = {
             "upsert": self.manage_default_channel,
             "delete": self.manage_default_channel,
-            "login": self.manage_credentials,
-            "logout": self.manage_credentials,
             "reset": self.reset_settings,
         }
         self.manage_form_feed_callbacks = {
@@ -112,31 +111,6 @@ class GoogleForms(commands.GroupCog, name="google"):
             ephemeral=True,
         )
 
-    async def manage_credentials(self, interaction: discord.Interaction, action: Literal["login", "logout"], **_):
-        """Allows the user to login or logout from their Google account.
-
-        Parameters
-        ----------
-            * interaction: :class:`discord.Interaction`
-                - The interaction instance to send a response message.
-            * action: :class:`Literal["login", "logout"]`
-                - The action to perform on the Google account.
-        """
-        if action == "login":
-            try:
-                await GoogleCredentialsHelper.set_oauth_cred(interaction=interaction, reset_cred=True)
-                await send_or_edit_interaction_message(
-                    interaction=interaction, content="Successfully authenticated Google account.", ephemeral=True
-                )
-            except:
-                return await interaction.followup.send(content="Failed to authenticate Google account.", ephemeral=True)
-        else:
-            # By "logging out" the user only removes their credentials from the cache (the `google_credentials.yaml` file)
-            GoogleCredentialsConfig().manage_credential(type="oauth2_client_id", credential_dict=None)
-            await send_or_edit_interaction_message(
-                interaction=interaction, content="Successfully logged out of Google feature.", ephemeral=True
-            )
-
     async def reset_settings(self, interaction: discord.Interaction, **_):
         """Resets all default settings of the entire Google module - default broadcast channels, cached OAuth and service account credentials.
 
@@ -148,8 +122,6 @@ class GoogleForms(commands.GroupCog, name="google"):
                 - The action to perform on the Google account.
         """
         GoogleCloudConfig().manage_channel(action="delete", channel=None)
-        GoogleCredentialsConfig().manage_credential(type="oauth2_client_id", credential_dict=None)
-        GoogleCredentialsConfig().manage_credential(type="service_account", credential_dict=None)
         await send_or_edit_interaction_message(
             interaction=interaction, content="Successfully reset default settings.", ephemeral=True
         )
@@ -198,56 +170,54 @@ class GoogleForms(commands.GroupCog, name="google"):
             delta_days = (expiry_date - current_date).days
 
             if delta_days < 0:
-                gc_conf.delete_form_watch(form_id=form_id, watch_id=form_feed["watch_id"], event_type=form_feed["event_type"], topic_name=form_feed["topic_name"])
+                gc_conf.delete_form_watch(
+                    form_id=form_id,
+                    watch_id=form_feed["watch_id"],
+                    event_type=form_feed["event_type"],
+                    topic_name=form_feed["topic_name"],
+                )
             else:
                 return await interaction.response.send_message(
                     content="A feed for the form and specific form event already exists. Please use the `update form` command to update the feed details.",
                     ephemeral=True,
                 )
 
-        try:
-            await interaction.response.defer(ephemeral=True)
-            await GoogleCredentialsHelper.set_oauth_cred(interaction=interaction)
-        except:
-            return await send_or_edit_interaction_message(
-                interaction=interaction,
-                content="Failed to authenticate Google account. Please try authenticating again, or use the `login` feature.",
-                ephemeral=True,
+        oauth_cred = await GoogleCredentialsHelper.google_oauth_discord_flow(interaction=interaction)
+
+        if isinstance(oauth_cred, oauth2_credentials.Credentials):
+            # Instantiate OAuth version of the GoogleFormsService class
+            # Needs to be OAuth credentials because the current Google Form API for creating form watches does not support service account credentials
+            # Link to issue: https://issuetracker.google.com/issues/242295786
+            # TODO: Consolidate all credentials to service account credentials instead of OAuth credentials
+            form_service = GoogleFormsService(credentials=oauth_cred)
+
+            # Create form watch using the form service
+            form_watch = form_service.create_form_watch(
+                form_id=form_id, event_type=event, topic_name=os.getenv("DEFAULT_FORMS_TOPIC_NAME")
             )
 
-        # Instantiate OAuth version of the GoogleFormsService class
-        # Needs to be OAuth credentials because the current Google Form API for creating form watches does not support service account credentials
-        # Link to issue: https://issuetracker.google.com/issues/242295786
-        # TODO: Consolidate all credentials to service account credentials instead of OAuth credentials
-        form_service = GoogleFormsService.init_oauth()
+            content = "Failed to create form feed and retrieve form schema."  # Keep track of the return message
 
-        # Create form watch using the form service
-        form_watch = form_service.create_form_watch(
-            form_id=form_id, event_type=event, topic_name=os.getenv("DEFAULT_FORMS_TOPIC_NAME")
-        )
+            if form_watch:
+                # Insert the created form watch into the `google_cloud.yaml` file
+                channel_id = channel.id if channel else gc_conf.form_channel_id
+                gc_conf.insert_new_form_watch(result=form_watch, form_id=form_id, channel_id=channel_id)
+                content = f"Successfully created form feed in <#{channel_id}>"
 
-        content = "Failed to create form feed and retrieve form schema."  # Keep track of the return message
+                # Get the form details
+                form_details = form_service.get_form_details(form_id=form_id)
+                if form_details:
+                    # Generate the schema from the form details
+                    form_schema = GoogleFormsHelper.generate_schema(response=form_details)
 
-        if form_watch:
-            # Insert the created form watch into the `google_cloud.yaml` file
-            channel_id = channel.id if channel else gc_conf.form_channel_id
-            gc_conf.insert_new_form_watch(result=form_watch, form_id=form_id, channel_id=channel_id)
-            content = f"Successfully created form feed in <#{channel_id}>"
+                    # Insert a new/update an existing schema into the `google_cloud.yaml` file
+                    GoogleCloudConfig().upsert_form_schema(form_id=form_id, schema=form_schema)
 
-            # Get the form details
-            form_details = form_service.get_form_details(form_id=form_id)
-            if form_details:
-                # Generate the schema from the form details
-                form_schema = GoogleFormsHelper.generate_schema(response=form_details)
+                    content += f" and retrieved form schema for form with ID of {form_id}."
+                else:
+                    content += f", but failed to retrieve form schema for form with ID of {form_id}."
 
-                # Insert a new/update an existing schema into the `google_cloud.yaml` file
-                GoogleCloudConfig().upsert_form_schema(form_id=form_id, schema=form_schema)
-
-                content += f" and retrieved form schema for form with ID of {form_id}."
-            else:
-                content += f", but failed to retrieve form schema for form with ID of {form_id}."
-
-        await send_or_edit_interaction_message(interaction=interaction, content=content, ephemeral=True)
+            await send_or_edit_interaction_message(interaction=interaction, content=content, ephemeral=True)
 
     async def edit_feed(
         self,
@@ -363,8 +333,6 @@ class GoogleForms(commands.GroupCog, name="google"):
         action=[
             app_commands.Choice(name="CHANNEL: set or update the default channel (channel required)", value="upsert"),
             app_commands.Choice(name="CHANNEL: remove the default channel", value="delete"),
-            app_commands.Choice(name="GOOGLE: login to Gmail account", value="login"),
-            app_commands.Choice(name="GOOGLE: logout of Gmail account", value="logout"),
             app_commands.Choice(name="reset default settings", value="reset"),
         ]
     )
@@ -555,9 +523,14 @@ class GoogleForms(commands.GroupCog, name="google"):
                 channel = await guild.fetch_channel(gc_conf.form_channel_id)
 
                 _, expired_watches = zip(*expired_watches_with_idx)
-                expired_form_embeds = GoogleFormsHelper.generate_expired_form_watch_embeds(expired_watches=expired_watches)
+                expired_form_embeds = GoogleFormsHelper.generate_expired_form_watch_embeds(
+                    expired_watches=expired_watches
+                )
 
-                await channel.send(embed=expired_form_embeds[0], view=None if len(expired_form_embeds) == 1 else PaginatedEmbedsView(embeds=expired_form_embeds))
+                await channel.send(
+                    embed=expired_form_embeds[0],
+                    view=None if len(expired_form_embeds) == 1 else PaginatedEmbedsView(embeds=expired_form_embeds),
+                )
 
 
 async def setup(bot):

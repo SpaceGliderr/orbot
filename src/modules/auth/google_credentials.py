@@ -1,15 +1,10 @@
-import json
-from typing import Optional
-
 import discord
-from google.oauth2 import credentials as oauth2_credentials
 from google.oauth2 import service_account
 from google_auth_oauthlib import flow
 from ruamel.yaml import YAML
 
 from src.cogs.google_forms.ui.views import AuthenticationLinkView
-from src.utils.config import GoogleCredentialsConfig
-from src.utils.helper import get_from_dict, send_or_edit_interaction_message
+from src.utils.helper import send_or_edit_interaction_message
 
 yaml = YAML(typ="safe")
 
@@ -29,29 +24,6 @@ class GoogleCredentialsHelper:
     SUBSCRIBER_AUDIENCE = "https://pubsub.googleapis.com/google.pubsub.v1.Subscriber"
 
     SERVICE_ACCOUNT_CRED = None
-    OAUTH2_CLIENT_ID_CRED = None
-
-    @staticmethod
-    def init_credentials():
-        gc_conf = GoogleCredentialsConfig()
-
-        oauth2_cred = (
-            oauth2_credentials.Credentials(
-                gc_conf.oauth2_client_id_credentials["token"],
-                client_id=gc_conf.oauth2_client_id_credentials["client_id"],
-                client_secret=gc_conf.oauth2_client_id_credentials["client_secret"],
-                refresh_token=gc_conf.oauth2_client_id_credentials["refresh_token"],
-                scopes=gc_conf.oauth2_client_id_credentials["scopes"],
-                token_uri=gc_conf.oauth2_client_id_credentials["token_uri"]
-            )
-            if gc_conf.oauth2_client_id_credentials
-            else None
-        )
-        GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED = (
-            oauth2_cred if oauth2_cred and oauth2_cred.valid else None
-        )
-
-        GoogleCredentialsHelper.set_service_acc_cred()
 
     @staticmethod
     def service_acc_cred():
@@ -64,8 +36,8 @@ class GoogleCredentialsHelper:
         if not GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED or (
             GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED and not GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED.valid
         ):
-            GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED = service_account.Credentials.from_service_account_info(
-                GoogleCredentialsConfig().service_account_credentials,
+            GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED = service_account.Credentials.from_service_account_file(
+                "service-account-info.json",
                 scopes=GoogleCredentialsHelper.SERVICE_ACCOUNT_SCOPES,
                 additional_claims={"audience": GoogleCredentialsHelper.SUBSCRIBER_AUDIENCE},
             )
@@ -98,24 +70,6 @@ class GoogleCredentialsHelper:
         return auth_message, auth_link_view
 
     @staticmethod
-    def set_oauth2_client_id_token(auth_flow: flow.Flow, auth_code: str, save_to_file: bool = False):
-        try:
-            auth_flow.fetch_token(code=auth_code)
-            GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED = auth_flow.credentials
-
-            if save_to_file:
-                GoogleCredentialsConfig().manage_credential(
-                    type="oauth2_client_id",
-                    credential_dict=GoogleCredentialsHelper.oauth2_credentials_to_dict(
-                        credentials=GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED
-                    ),
-                )
-
-            return "Successfully logged in with Google account."
-        except:
-            return "Authentication code invalid."
-
-    @staticmethod
     async def google_oauth_discord_flow(interaction: discord.Interaction):
         # 1. Get authorization URL
         auth_url, auth_flow = GoogleCredentialsHelper.get_authorization_url()
@@ -139,39 +93,28 @@ class GoogleCredentialsHelper:
                 ephemeral=True,
             )
 
-        token_response = GoogleCredentialsHelper.set_oauth2_client_id_token(
-            auth_flow=auth_flow, auth_code=auth_link_view.auth_code, save_to_file=True
-        )
-        await send_or_edit_interaction_message(
-            interaction=interaction,
-            edit_original_response=True,
-            content=token_response,
-            view=None,
-            embed=None,
-            ephemeral=True,
-        )
+        # 4. Fetch token and return credentials
+        try:
+            auth_flow.fetch_token(code=auth_link_view.auth_code)
 
-    @staticmethod
-    def oauth_cred(interaction: Optional[discord.Interaction] = None, reset_cred: bool = False):
-        if interaction and reset_cred:
-            GoogleCredentialsHelper.set_oauth_cred(interaction=interaction)
-        return GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED
-
-    @staticmethod
-    async def set_oauth_cred(interaction: discord.Interaction, reset_cred: bool = False):
-        if (
-            not GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED
-            or (
-                GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED
-                and not GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED.valid
+            await send_or_edit_interaction_message(
+                interaction=interaction,
+                edit_original_response=True,
+                content="Successfully logged in with Google account.",
+                view=None,
+                embed=None,
+                ephemeral=True,
             )
-            or reset_cred
-        ):
-            await GoogleCredentialsHelper.google_oauth_discord_flow(interaction=interaction)
 
-        if not GoogleCredentialsHelper.OAUTH2_CLIENT_ID_CRED:
-            raise Exception("Authentication via Discord has failed.")
+            return auth_flow.credentials
+        except:
+            await send_or_edit_interaction_message(
+                interaction=interaction,
+                edit_original_response=True,
+                content="Authentication code invalid.",
+                view=None,
+                embed=None,
+                ephemeral=True,
+            )
 
-    @staticmethod
-    def oauth2_credentials_to_dict(credentials: oauth2_credentials.Credentials):
-        return json.loads(credentials.to_json())
+            return None
