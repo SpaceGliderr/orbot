@@ -402,6 +402,9 @@ class GoogleCloudConfig:
         for idx, watch in form_watches:
             del data["active_form_watches"][watch["form_id"]][idx]
 
+            if len(data["active_form_watches"][watch["form_id"]]) == 0:
+                del data["active_form_watches"][watch["form_id"]]
+
         self.dump(data=data)
 
     def upsert_form_schema(self, form_id: str, schema: dict):
