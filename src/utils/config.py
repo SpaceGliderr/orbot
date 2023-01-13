@@ -378,8 +378,16 @@ class GoogleCloudConfig:
 
         self.dump(data)
 
-    def delete_form_watch(self, form_id: str, watch_id: Optional[str] = None, event_type: Optional[str] = None, topic_name: Optional[str] = None):
-        result = self.search_active_form_watch(form_id=form_id, watch_id=watch_id, event_type=event_type, topic_name=topic_name)
+    def delete_form_watch(
+        self,
+        form_id: str,
+        watch_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        topic_name: Optional[str] = None,
+    ):
+        result = self.search_active_form_watch(
+            form_id=form_id, watch_id=watch_id, event_type=event_type, topic_name=topic_name
+        )
 
         if result:
             data = self.get_data()
@@ -443,32 +451,3 @@ class GoogleCloudConfig:
         """Dump data into the `google_cloud.yaml` file."""
         with open("src/data/google_cloud.yaml", "w") as google_cloud_file:
             yaml.dump(data, google_cloud_file)
-
-
-class GoogleCredentialsConfig:
-    """The GoogleCredentialsConfig class helps load the `google_credentials.yaml` file and provides other util methods to manipulate the extracted data."""
-
-    def __init__(self) -> None:
-        with open("src/data/google_credentials.yaml", "r") as google_cred_file:
-            self._data = yaml.load(google_cred_file)
-
-    @property
-    def oauth2_client_id_credentials(self):
-        return get_from_dict(self._data, ["oauth2_client_id_credentials"])
-
-    @property
-    def service_account_credentials(self):
-        return get_from_dict(self._data, ["service_account_credentials"])
-
-    def get_data(self):
-        return self._data.copy()
-
-    def manage_credential(self, type: Literal["oauth2_client_id"], credential_dict: Optional[dict]):
-        data = self.get_data()
-        data[f"{type}_credentials"] = credential_dict
-        self.dump(data=data)
-
-    def dump(self, data):
-        """Dump data into the `google_credentials.yaml` file."""
-        with open("src/data/google_credentials.yaml", "w") as google_cred_file:
-            yaml.dump(data, google_cred_file)

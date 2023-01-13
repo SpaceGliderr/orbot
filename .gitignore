@@ -145,4 +145,3 @@ node_modules/
 service-account-info.json
 token.json
 oauth2-client-id.json
-google_credentials.yaml
