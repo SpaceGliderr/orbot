@@ -479,9 +479,10 @@ class GoogleForms(commands.GroupCog, name="google"):
     # =================================================================================================================
     # ROUTINE TASK FUNCTIONS
     # =================================================================================================================
-    # TODO: Add a task that updates every 24 hours, checks the google cloud yaml file for watches that are about to expire on that day, and then renew them
+    # This task updates every 24 hours, checks the google cloud yaml file for watches that are about to expire on that day, and then renew them
+    # It will do its job at 12:00:00 UTC+8 everyday
     # Refer to this documentation https://discordpy.readthedocs.io/en/latest/ext/tasks/
-    @tasks.loop(time=datetime.time(hour=23, minute=0, tzinfo=datetime.timezone(offset=datetime.timedelta(hours=8))))
+    @tasks.loop(time=datetime.time(hour=12, minute=0, tzinfo=datetime.timezone(offset=datetime.timedelta(hours=8))))
     async def renew_watches_task(self):
         form_service = GoogleFormsService.init_service_acc()
 
@@ -492,20 +493,15 @@ class GoogleForms(commands.GroupCog, name="google"):
 
         for watches in gc_conf.active_form_watches.values():
             for idx, watch in enumerate(watches):
-                print("Watch >>> ", watch)
-
                 current_date = datetime.date.today()
                 expiry_date = parser.parse(watch["expire_time"]).date()
 
                 delta_days = (expiry_date - current_date).days
 
-                print("Delta Days >>> ", delta_days)
-
                 if delta_days < 0:
                     expired_watches_with_idx.append([idx, watch])
                 elif delta_days <= 1:
                     renewed_watch = form_service.renew_form_watch(form_id=watch["form_id"], watch_id=watch["watch_id"])
-                    print("Watch Renewed >>> ", renewed_watch)
 
                     if renewed_watch:
                         data[watch["form_id"]][idx]["expire_time"] = renewed_watch["expire_time"]

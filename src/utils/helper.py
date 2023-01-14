@@ -149,7 +149,6 @@ async def send_or_edit_interaction_message(
                 **kwargs,
             )
     except Exception as e:
-        print(e)
         if not interaction.response.is_done():
             await interaction.response.send_message(
                 content="Error occurred while sending a message.", ephemeral=True, delete_after=10
