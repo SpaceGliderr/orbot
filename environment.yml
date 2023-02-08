@@ -13,3 +13,4 @@ dependencies:
       - typing-extensions
       - black
       - isort
+      - emoji
