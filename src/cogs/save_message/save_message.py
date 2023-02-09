@@ -12,7 +12,8 @@ async def send_save_message_dm(interaction: discord.Interaction, message: discor
 
     dm_channel = await client.create_dm(interaction.user)
     dm = await dm_channel.send(
-        content=f"💬 Message by **{message.author.name}#{message.author.discriminator}** saved", embed=SaveMessageEmbed(message=message, color=message.author.color)
+        content=f"💬 Message by **{message.author.name}#{message.author.discriminator}** saved",
+        embed=SaveMessageEmbed(message=message, color=message.author.color),
     )
 
     await interaction.edit_original_response(content=f"You have successfully saved a message!\n{dm.jump_url}")

@@ -2,6 +2,14 @@ import discord
 
 
 class SaveMessageEmbed(discord.Embed):
+    """Creates an embed that displays the contents of a saved message.
+
+    Parameters
+    ----------
+        * message: :class:`discord.Message`
+            - The message that was saved by the user.
+    """
+
     def __init__(self, message: discord.Message, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
