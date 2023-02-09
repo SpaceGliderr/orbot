@@ -36,9 +36,9 @@ class SaveMessage(commands.GroupCog):
         await interaction.response.defer(ephemeral=True)
 
         # 1. Get guild ID and channel ID from message link
-        guild_id = message_link.split("/")[3]
-        channel_id = message_link.split("/")[4]
-        message_id = message_link.split("/")[5]
+        guild_id = message_link.split("/")[4]
+        channel_id = message_link.split("/")[5]
+        message_id = message_link.split("/")[6]
 
         # 2. Fetch channel
         guild = await self.bot.fetch_guild(guild_id)
