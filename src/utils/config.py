@@ -309,7 +309,7 @@ class ThreadEventsConfig:
 
     def upsert_channel_event(
         self,
-        event: Literal["on_thread_create"],
+        event: Literal["on_thread_create", "on_thread_update"],
         channel_id: int,
         ordered: bool,
         react_emojis: List[int | str],
