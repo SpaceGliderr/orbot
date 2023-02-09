@@ -1,5 +1,3 @@
 events:
-  on_thread_create:
-    1026121848330657792:
-      ordered: true
-      react_emojis: [983807231390797874, "\U0001F606", 1️⃣]
+  on_thread_create: {}
+  on_thread_update: {}
