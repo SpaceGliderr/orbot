@@ -2,7 +2,7 @@ import io
 import zipfile
 from dataclasses import _MISSING_TYPE, MISSING
 from functools import reduce
-from typing import List, Literal, Optional, Sequence
+from typing import List, Optional, Sequence
 
 import aiohttp
 import discord
