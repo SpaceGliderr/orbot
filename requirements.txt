@@ -7,3 +7,4 @@ stringcase
 tweepy[async]
 python-dateutil
 typing-extensions
+emoji

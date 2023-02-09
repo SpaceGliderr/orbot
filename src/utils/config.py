@@ -1,5 +1,5 @@
 import re
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Literal, Optional, Tuple
 
 import discord
 from ruamel.yaml import YAML
@@ -285,3 +285,59 @@ class ContentPosterConfig:
         """Dump data into the `content_poster.yaml` file."""
         with open("src/data/content_poster.yaml", "w") as content_poster_file:
             yaml.dump(data, content_poster_file)
+
+
+class ThreadEventsConfig:
+    """The ThreadEventsConfig class helps load the `thread_events.yaml` file and provides other util methods to manipulate the extracted data."""
+
+    def __init__(self) -> None:
+        with open("src/data/thread_events.yaml", "r") as forum_events_file:
+            self._data = yaml.load(forum_events_file)
+
+    @property
+    def events(self):
+        return get_from_dict(self._data, ["events"])
+
+    def get_data(self):
+        """Get a copied version of the extracted data."""
+        return self._data.copy()
+
+    def get_channel_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
+        event = get_from_dict(self._data, ["events", event])
+        channel = get_from_dict(event, [channel_id])
+        return channel if channel else None
+
+    def upsert_channel_event(
+        self,
+        event: Literal["on_thread_create", "on_thread_update"],
+        channel_id: int,
+        ordered: bool,
+        react_emojis: List[int | str],
+        replace_reactions: bool,
+    ):
+        data = self.get_data()
+
+        channel_event = get_from_dict(data, ["events", event, channel_id])
+
+        if channel_event:
+            if replace_reactions:
+                channel_event["react_emojis"] = react_emojis
+            else:
+                channel_event["react_emojis"] = list(set(channel_event["react_emojis"]).union(set(react_emojis)))
+        else:
+            data["events"][event][channel_id] = {"ordered": ordered, "react_emojis": react_emojis}
+        self.dump(data)
+
+    def delete_channel_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
+        try:
+            data = self.get_data()
+            del data["events"][event][channel_id]
+            self.dump(data=data)
+            return True
+        except:
+            return False
+
+    def dump(self, data):
+        """Dump data into the `thread_events.yaml` file."""
+        with open("src/data/thread_events.yaml", "w") as forum_events_file:
+            yaml.dump(data, forum_events_file)

@@ -1,0 +1,3 @@
+events:
+  on_thread_create: {}
+  on_thread_update: {}
