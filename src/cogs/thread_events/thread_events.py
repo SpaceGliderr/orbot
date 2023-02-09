@@ -270,6 +270,9 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
             )
             await interaction.edit_original_response(view=edit_channel_event_view)
 
+            # TODO: Handle when no emojis are selected. Either prompt user to delete thread event or impose a restriction that at least one emoji must be selected to continue
+            # TODO: I'd probably pick the latter
+
             timeout = await edit_channel_event_view.wait()
             if timeout or edit_channel_event_view.is_cancelled:  # On timeout or view cancel
                 await asyncio.gather(
@@ -296,6 +299,32 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
                 )  # Update embedded message
         else:  # No channel event found
             await interaction.response.send_message(content="No channel event found.", ephemeral=True)
+
+    @app_commands.command(
+        name="delete-thread-reaction-event",
+        description="Delete thread or forum post events.",
+    )
+    @app_commands.guild_only()
+    @app_commands.choices(
+        event=[
+            app_commands.Choice(
+                name="when a thread or forum post is created",
+                value="on_thread_create",
+            ),
+            app_commands.Choice(name="when a thread or forum post is updated", value="on_thread_update"),
+        ],
+    )
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def delete_thread_reaction_event(
+        self,
+        interaction: discord.Interaction,
+        event: app_commands.Choice[str],
+        channel: Union[discord.TextChannel, discord.ForumChannel],
+    ):
+        if ThreadEventsConfig().delete_channel_event(event=event.value, channel_id=channel.id):
+            await interaction.response.send_message(content="Successfully deleted thread event.", ephemeral=True)
+        else:
+            await interaction.response.send_message(content="Failed to delete thread event. Thread event does not exist.", ephemeral=True)
 
     # =================================================================================================================
     # EVENT LISTENERS

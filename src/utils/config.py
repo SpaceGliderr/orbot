@@ -302,7 +302,7 @@ class ThreadEventsConfig:
         """Get a copied version of the extracted data."""
         return self._data.copy()
 
-    def get_channel_event(self, event: Literal["on_thread_create"], channel_id: int):
+    def get_channel_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
         event = get_from_dict(self._data, ["events", event])
         channel = get_from_dict(event, [channel_id])
         return channel if channel else None
@@ -328,7 +328,7 @@ class ThreadEventsConfig:
             data["events"][event][channel_id] = {"ordered": ordered, "react_emojis": react_emojis}
         self.dump(data)
 
-    def delete_channel_event(self, event: Literal["on_thread_create"], channel_id: int):
+    def delete_channel_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
         try:
             data = self.get_data()
             del data["events"][event][channel_id]
