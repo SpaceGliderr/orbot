@@ -539,3 +539,14 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
         self.add_item(button)
 
         await asyncio.gather(self.embedded_message.edit(view=self))
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, emoji="✅", row=3)
+    async def confirm(self, interaction: discord.Interaction, *_):
+        if len(self.enabled_react_emojis) == 0:
+            return await interaction.response.send_message(
+                content="Please ensure at least one react emoji is selected. If you wish to delete the channel event, use the `delete-thread-reaction-event` slash command instead.", ephemeral=True
+            )
+
+        await interaction.response.defer()
+        self.is_confirmed = True
+        self.stop()
