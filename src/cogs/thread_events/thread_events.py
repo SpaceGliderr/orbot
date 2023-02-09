@@ -1,6 +1,6 @@
 import asyncio
 import re
-from typing import Union
+from typing import Literal, Union
 
 import discord
 import emoji
@@ -16,11 +16,13 @@ from src.utils.config import ThreadEventsConfig
 from src.utils.helper import send_or_edit_interaction_message
 
 
-class ThreadEvents(commands.GroupCog, name="thread-or-forum"):
+class ThreadEvents(commands.GroupCog, name="thread-event"):
     def __init__(self, bot):
         self.bot = bot
-        self.embedded_messages = {}
 
+    # =================================================================================================================
+    # FUNCTIONS
+    # =================================================================================================================
     async def get_emojis_from_string(self, string: str, guild: discord.Guild):
         """Converts a list of `discord.File`s to a ZIP file.
 
@@ -66,9 +68,53 @@ class ThreadEvents(commands.GroupCog, name="thread-or-forum"):
 
         return emojis
 
+    async def add_reactions_to_thread(
+        self, thread: discord.Thread, event_type: Literal["on_thread_create", "on_thread_update"]
+    ):
+        """A method that adds channel event emojis from the `thread_events.yaml` file as reactions to the thread or forum post.
+
+        Parameters
+        ----------
+            * thread: :class:`discord.Thread`
+            * event_type: :class:`Literal["on_thread_create", "on_thread_update"]`
+        """
+        # Get threads first message
+        #  - Cannot use thread.starter_message as that fetches the starter message from the cache
+        #  - On creation, the cache would not have updated to give the `starter_message` property
+        #  - Therefore, since the threads ID is the same as the starter messages ID, use `fetch_message` to get the Message object
+        starter_message = await thread.fetch_message(thread.id)
+
+        # Edit the message with the appropriate reactions
+        event = ThreadEventsConfig().get_channel_event(event=event_type, channel_id=thread.parent_id)
+
+        if event:
+            # If the `react_emoji` is an integer type, it means that it is a custom Discord emoji
+            # - Therefore, we need to use the `thread.guild` to fetch the emoji and then only react
+            # - That's why the react emojis cannot be from a different guild that the channel is located in, otherwise the bot would not be able to grab the emoji
+            if event["ordered"]:
+                # The following logic ensures that the reactions are added in the specific order by going through the list and waiting for each individual reaction to be added
+                # This will be slower in terms of execution speed
+                for react_emoji in event["react_emojis"]:
+                    await starter_message.add_reaction(
+                        await thread.guild.fetch_emoji(react_emoji) if isinstance(react_emoji, int) else react_emoji
+                    )
+            else:
+                # The following logic uses the `gather` function to add the reacts in parallel, there will be a chance that the reacts appear out of the order it is stored
+                await asyncio.gather(
+                    *[
+                        starter_message.add_reaction(
+                            await thread.guild.fetch_emoji(react_emoji) if isinstance(react_emoji, int) else react_emoji
+                        )
+                        for react_emoji in event["react_emojis"]
+                    ]
+                )
+
+    # =================================================================================================================
+    # GENERAL SLASH COMMANDS
+    # =================================================================================================================
     @app_commands.command(
-        name="add-reactions",
-        description="Automatically adds reactions when a thread or forum post is created or created.",
+        name="create-thread-reaction-event",
+        description="Automatically adds reactions when a thread or forum post is created or updated.",
     )
     @app_commands.guild_only()
     @app_commands.rename(emoji_str="react_emojis")
@@ -86,7 +132,7 @@ class ThreadEvents(commands.GroupCog, name="thread-or-forum"):
         ],
     )
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def add_reactions_to_post(
+    async def create_thread_reaction_event(
         self,
         interaction: discord.Interaction,
         event: app_commands.Choice[str],
@@ -94,6 +140,20 @@ class ThreadEvents(commands.GroupCog, name="thread-or-forum"):
         ordered: app_commands.Choice[int],
         emoji_str: str,
     ):
+        """A slash command that allows the user to create a thread or forum event that adds reactions to the original thread message.
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+            * event: app_commands.Choice[:class:`str`]
+                - The type of thread or forum event that would be responded to. Reactions will be added either when the thread is created or when the thread is updated.
+            * channel: Union[:class:`discord.TextChannel`, :class:`discord.ForumChannel`]
+                - Channel to listen to for the event.
+            * ordered: app_commands.Choice[:class:`int`]
+                - Whether the emojis will be in the order it is entered in the `emoji_str` or not.
+            * emoji_str: :class:`str`
+                - The emojis to react to the thread with.
+        """
         te_conf = ThreadEventsConfig()
 
         replace_react_emoji_view = None
@@ -152,8 +212,8 @@ class ThreadEvents(commands.GroupCog, name="thread-or-forum"):
             )
 
     @app_commands.command(
-        name="delete-reactions",
-        description="Automatically adds reactions when a thread or forum post is created or created.",
+        name="edit-thread-reaction-event",
+        description="Edit reactions that are added to a thread or forum post on create or update.",
     )
     @app_commands.guild_only()
     @app_commands.choices(
@@ -166,18 +226,28 @@ class ThreadEvents(commands.GroupCog, name="thread-or-forum"):
         ],
     )
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def edit_channel_event(
+    async def edit_thread_reaction_event(
         self,
         interaction: discord.Interaction,
         event: app_commands.Choice[str],
         channel: Union[discord.TextChannel, discord.ForumChannel],
     ):
+        """A slash command that allows the user to create a thread or forum event that adds reactions to the original thread message.
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+            * event: app_commands.Choice[:class:`str`]
+                - The type of thread or forum event to search for.
+            * channel: Union[:class:`discord.TextChannel`, :class:`discord.ForumChannel`]
+                - The channel of the thread or forum event to search for.
+        """
         te_conf = ThreadEventsConfig()
         channel_event = te_conf.get_channel_event(event=event.value, channel_id=channel.id)
 
         if channel_event:
-            # Send an embedded message with the channel event details and edit channel details view
-
+            # Obtain all emojis from the `react_emojis` key from the `channel_event` variable and find their corresponding `discord.Emoji` object
+            # - If the `react_emoji` is an integer object, it means that it is a Discord emoji, otherwise it is a unicode emoji
             react_emojis = [
                 await interaction.guild.fetch_emoji(react_emoji) if isinstance(react_emoji, int) else react_emoji
                 for react_emoji in channel_event["react_emojis"]
@@ -187,67 +257,56 @@ class ThreadEvents(commands.GroupCog, name="thread-or-forum"):
                     interaction=interaction, react_emojis=react_emojis, ordered=channel_event["ordered"]
                 )
             )
-            embedded_message = await interaction.original_response()
 
+            embedded_message = await interaction.original_response()  # Obtain the embedded message
+
+            # Apply the EditChannelEventDetailsView to the embedded message
             edit_channel_event_view = EditChannelEventDetailsView(
-                channel_event=channel_event, embedded_message=embedded_message, react_emojis=react_emojis
+                channel_event=channel_event,
+                embedded_message=embedded_message,
+                react_emojis=react_emojis,
+                interaction_user=interaction.user,
+                timeout=180,
             )
-
             await interaction.edit_original_response(view=edit_channel_event_view)
 
             timeout = await edit_channel_event_view.wait()
-            if timeout or edit_channel_event_view.is_cancelled:
-                await interaction.edit_original_response(
-                    content="This command has timed out, please try again." if timeout else "Command cancelled, the channel event was not updated.", view=None, embed=None
+            if timeout or edit_channel_event_view.is_cancelled:  # On timeout or view cancel
+                await asyncio.gather(
+                    interaction.delete_original_response(),
+                    interaction.followup.send(
+                        content="This command has timed out, please try again."
+                        if timeout
+                        else "Command cancelled. The channel event was not updated.",
+                        ephemeral=True,
+                    ),
                 )
-            else:  # Add the embedded message reactions to the YAML file
+            else:
                 te_conf.upsert_channel_event(
                     event=event.value,
                     channel_id=channel.id,
                     ordered=edit_channel_event_view.channel_event["ordered"],
                     react_emojis=edit_channel_event_view.enabled_react_emojis,
                     replace_reactions=True,
-                )
+                )  # Update the channel event based on the interactions with the EditChannelEventDetailsView
 
                 await asyncio.gather(
                     interaction.edit_original_response(view=None),
                     interaction.followup.send(content="Successfully updated channel event reactions", ephemeral=True),
-                )
-        else:
+                )  # Update embedded message
+        else:  # No channel event found
             await interaction.response.send_message(content="No channel event found.", ephemeral=True)
 
+    # =================================================================================================================
+    # EVENT LISTENERS
+    # =================================================================================================================
     @commands.Cog.listener()
     async def on_thread_create(self, thread: discord.Thread):
-        # Get threads first message
-        #  - Cannot use thread.starter_message as that fetches the starter message from the cache
-        #  - On creation, the cache would not have updated to give the `starter_message` property
-        #  - Therefore, since the threads ID is the same as the starter messages ID, use `fetch_message` to get the Message object
-        starter_message = await thread.fetch_message(thread.id)
+        self.add_reactions_to_thread(thread=thread, event_type="on_thread_create")
 
-        # Edit the message with the appropriate reactions
-        event = ThreadEventsConfig().get_channel_event(event="on_thread_create", channel_id=thread.parent_id)
-
-        if event:
-            # If the `react_emoji` is an integer type, it means that it is a custom Discord emoji
-            # - Therefore, we need to use the `thread.guild` to fetch the emoji and then only react
-            # - That's why the react emojis cannot be from a different guild that the channel is located in, otherwise the bot would not be able to grab the emoji
-            if event["ordered"]:
-                # The following logic ensures that the reactions are added in the specific order by going through the list and waiting for each individual reaction to be added
-                # This will be slower in terms of execution speed
-                for react_emoji in event["react_emojis"]:
-                    await starter_message.add_reaction(
-                        await thread.guild.fetch_emoji(react_emoji) if isinstance(react_emoji, int) else react_emoji
-                    )
-            else:
-                # The following logic uses the `gather` function to add the reacts in parallel, there will be a chance that the reacts appear out of the order it is stored
-                await asyncio.gather(
-                    *[
-                        starter_message.add_reaction(
-                            await thread.guild.fetch_emoji(react_emoji) if isinstance(react_emoji, int) else react_emoji
-                        )
-                        for react_emoji in event["react_emojis"]
-                    ]
-                )
+    @commands.Cog.listener()
+    async def on_thread_update(self, thread: discord.Thread):
+        self.add_reactions_to_thread(thread=thread, event_type="on_thread_update")
 
 
 async def setup(bot):
