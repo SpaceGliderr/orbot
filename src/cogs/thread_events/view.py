@@ -373,7 +373,7 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
 
     def __init__(
         self,
-        channel_event: dict,
+        thread_event: dict,
         embedded_message: Union[discord.Message, discord.InteractionMessage],
         react_emojis: List[discord.Emoji | str],
         interaction_user: Union[discord.User, discord.Member],
@@ -382,7 +382,7 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
     ):
         super().__init__(
             embedded_message=embedded_message,
-            react_emoji_strs=channel_event["react_emojis"],
+            react_emoji_strs=thread_event["react_emojis"],
             react_emojis=react_emojis,
             emoji_button_style=discord.ButtonStyle.green,
             toggle_emoji=self.toggle_emoji,
@@ -392,7 +392,7 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
 
         self.is_order_view_active = False
 
-        self.channel_event = channel_event
+        self.thread_event = thread_event
         self.enabled_react_emojis = (
             self.react_emoji_strs.copy()
         )  # Copy the list of emoji strings to avoid manipulating the contents of the original list
@@ -400,9 +400,9 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
 
         self.add_item(
             Button(
-                label="Ordered" if self.channel_event["ordered"] else "Unordered",
-                style=discord.ButtonStyle.primary if self.channel_event["ordered"] else discord.ButtonStyle.grey,
-                emoji="🔢" if self.channel_event["ordered"] else "🎲",
+                label="Ordered" if self.thread_event["ordered"] else "Unordered",
+                style=discord.ButtonStyle.primary if self.thread_event["ordered"] else discord.ButtonStyle.grey,
+                emoji="🔢" if self.thread_event["ordered"] else "🎲",
                 row=2,
                 custom_callback=self.toggle_ordered,
             )
@@ -496,7 +496,7 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
         await asyncio.gather(
             self.embedded_message.edit(
                 embed=ChannelEventDetailsEmbed(
-                    interaction=interaction, react_emojis=self.get_react_emojis(), ordered=self.channel_event["ordered"]
+                    interaction=interaction, react_emojis=self.get_react_emojis(), ordered=self.thread_event["ordered"]
                 ),
                 view=self,
             ),
@@ -505,7 +505,7 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
 
     async def toggle_ordered(self, interaction: discord.Interaction, button: discord.ui.Button):
         """A callback used by the Order button to control the order of the emojis."""
-        if self.channel_event["ordered"]:
+        if self.thread_event["ordered"]:
             await interaction.response.defer()
         else:  # Only if we are switching from Unordered -> Ordered, we need to get the new emoji arrangement
             self.is_order_view_active = True
@@ -521,7 +521,7 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
                 embed=ChannelEventDetailsEmbed(
                     interaction=interaction,
                     react_emojis=self.get_react_emojis(),
-                    ordered=self.channel_event["ordered"],
+                    ordered=self.thread_event["ordered"],
                 )
             )
             self.is_order_view_active = (
@@ -529,11 +529,11 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
             )
 
         # Update the `ordered` variable and update the Order button
-        self.channel_event["ordered"] = not self.channel_event["ordered"]
+        self.thread_event["ordered"] = not self.thread_event["ordered"]
 
-        button.emoji = "🔢" if self.channel_event["ordered"] else "🎲"
-        button.label = "Ordered" if self.channel_event["ordered"] else "Unordered"
-        button.style = discord.ButtonStyle.primary if self.channel_event["ordered"] else discord.ButtonStyle.grey
+        button.emoji = "🔢" if self.thread_event["ordered"] else "🎲"
+        button.label = "Ordered" if self.thread_event["ordered"] else "Unordered"
+        button.style = discord.ButtonStyle.primary if self.thread_event["ordered"] else discord.ButtonStyle.grey
 
         self.remove_item(button)
         self.add_item(button)
@@ -544,7 +544,8 @@ class EditChannelEventDetailsView(NavigateReactEmojiView):
     async def confirm(self, interaction: discord.Interaction, *_):
         if len(self.enabled_react_emojis) == 0:
             return await interaction.response.send_message(
-                content="Please ensure at least one react emoji is selected. If you wish to delete the channel event, use the `delete-thread-reaction-event` slash command instead.", ephemeral=True
+                content="Please ensure at least one react emoji is selected. If you wish to delete the channel event, use the `delete-thread-reaction-event` slash command instead.",
+                ephemeral=True,
             )
 
         await interaction.response.defer()

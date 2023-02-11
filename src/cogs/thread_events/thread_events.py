@@ -85,7 +85,7 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
         starter_message = await thread.fetch_message(thread.id)
 
         # Edit the message with the appropriate reactions
-        event = ThreadEventsConfig().get_channel_event(event=event_type, channel_id=thread.parent_id)
+        event = ThreadEventsConfig().get_thread_event(event=event_type, channel_id=thread.parent_id)
 
         if event:
             # If the `react_emoji` is an integer type, it means that it is a custom Discord emoji
@@ -158,7 +158,7 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
 
         replace_react_emoji_view = None
 
-        if te_conf.get_channel_event(
+        if te_conf.get_thread_event(
             event=event.value, channel_id=channel.id
         ):  # Check whether a corresponding channel event already exists or not
             # Send a message to confirm whether the user wants to replace reactions or add them onto the current reactions
@@ -185,7 +185,7 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
 
         try:
             emojis = await self.get_emojis_from_string(string=emoji_str, guild=interaction.guild)
-            te_conf.upsert_channel_event(
+            te_conf.upsert_thread_event(
                 event=event.value,
                 channel_id=channel.id,
                 ordered=True if ordered.value == 1 else False,
@@ -243,38 +243,35 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
                 - The channel of the thread or forum event to search for.
         """
         te_conf = ThreadEventsConfig()
-        channel_event = te_conf.get_channel_event(event=event.value, channel_id=channel.id)
+        thread_event = te_conf.get_thread_event(event=event.value, channel_id=channel.id)
 
-        if channel_event:
-            # Obtain all emojis from the `react_emojis` key from the `channel_event` variable and find their corresponding `discord.Emoji` object
+        if thread_event:
+            # Obtain all emojis from the `react_emojis` key from the `thread_event` variable and find their corresponding `discord.Emoji` object
             # - If the `react_emoji` is an integer object, it means that it is a Discord emoji, otherwise it is a unicode emoji
             react_emojis = [
                 await interaction.guild.fetch_emoji(react_emoji) if isinstance(react_emoji, int) else react_emoji
-                for react_emoji in channel_event["react_emojis"]
+                for react_emoji in thread_event["react_emojis"]
             ]
             await interaction.response.send_message(
                 embed=ChannelEventDetailsEmbed(
-                    interaction=interaction, react_emojis=react_emojis, ordered=channel_event["ordered"]
+                    interaction=interaction, react_emojis=react_emojis, ordered=thread_event["ordered"]
                 )
             )
 
             embedded_message = await interaction.original_response()  # Obtain the embedded message
 
             # Apply the EditChannelEventDetailsView to the embedded message
-            edit_channel_event_view = EditChannelEventDetailsView(
-                channel_event=channel_event,
+            edit_thread_event_view = EditChannelEventDetailsView(
+                thread_event=thread_event,
                 embedded_message=embedded_message,
                 react_emojis=react_emojis,
                 interaction_user=interaction.user,
                 timeout=180,
             )
-            await interaction.edit_original_response(view=edit_channel_event_view)
+            await interaction.edit_original_response(view=edit_thread_event_view)
 
-            # TODO: Handle when no emojis are selected. Either prompt user to delete thread event or impose a restriction that at least one emoji must be selected to continue
-            # TODO: I'd probably pick the latter
-
-            timeout = await edit_channel_event_view.wait()
-            if timeout or edit_channel_event_view.is_cancelled:  # On timeout or view cancel
+            timeout = await edit_thread_event_view.wait()
+            if timeout or edit_thread_event_view.is_cancelled:  # On timeout or view cancel
                 await asyncio.gather(
                     interaction.delete_original_response(),
                     interaction.followup.send(
@@ -285,11 +282,11 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
                     ),
                 )
             else:
-                te_conf.upsert_channel_event(
+                te_conf.upsert_thread_event(
                     event=event.value,
                     channel_id=channel.id,
-                    ordered=edit_channel_event_view.channel_event["ordered"],
-                    react_emojis=edit_channel_event_view.enabled_react_emojis,
+                    ordered=edit_thread_event_view.thread_event["ordered"],
+                    react_emojis=edit_thread_event_view.enabled_react_emojis,
                     replace_reactions=True,
                 )  # Update the channel event based on the interactions with the EditChannelEventDetailsView
 
@@ -321,10 +318,12 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
         event: app_commands.Choice[str],
         channel: Union[discord.TextChannel, discord.ForumChannel],
     ):
-        if ThreadEventsConfig().delete_channel_event(event=event.value, channel_id=channel.id):
+        if ThreadEventsConfig().delete_thread_event(event=event.value, channel_id=channel.id):
             await interaction.response.send_message(content="Successfully deleted thread event.", ephemeral=True)
         else:
-            await interaction.response.send_message(content="Failed to delete thread event. Thread event does not exist.", ephemeral=True)
+            await interaction.response.send_message(
+                content="Failed to delete thread event. Thread event does not exist.", ephemeral=True
+            )
 
     # =================================================================================================================
     # EVENT LISTENERS
