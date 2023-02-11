@@ -21,11 +21,6 @@ from src.utils.helper import send_or_edit_interaction_message
 class GoogleForms(commands.GroupCog, name="google"):
     def __init__(self, bot) -> None:
         self.bot = bot
-        self.setup_settings_callbacks = {
-            "upsert": self.manage_default_channel,
-            "delete": self.manage_default_channel,
-            "reset": self.reset_settings,
-        }
         self.manage_form_feed_callbacks = {
             "create": self.create_feed,
             "update": self.edit_feed,
@@ -45,7 +40,9 @@ class GoogleForms(commands.GroupCog, name="google"):
     )
 
     def cog_unload(self) -> None:
-        self.renew_watches_task.cancel()
+        """Overrides the `cog_unload` method which triggers when the cog is unloaded from the bot.
+        Typically triggered on bot shutdown."""
+        self.renew_watches_task.cancel()  # Stop the scheduled task from executing
 
     # =================================================================================================================
     # GENERAL FUNCTIONS
@@ -69,62 +66,6 @@ class GoogleForms(commands.GroupCog, name="google"):
         except IndexError:
             await interaction.response.send_message("Please ensure a valid form link is entered.", ephemeral=True)
             return None
-
-    # =================================================================================================================
-    # MANAGE DEFAULT SETTING FUNCTIONS
-    # =================================================================================================================
-    async def manage_default_channel(
-        self,
-        interaction: discord.Interaction,
-        action: Literal["upsert", "delete"],
-        channel: Optional[discord.TextChannel],
-    ):
-        """Allows the user to insert, update, and delete the default broadcast channel of the form feeds.
-
-        Parameters
-        ----------
-            * interaction: :class:`discord.Interaction`
-                - The interaction instance to send a response message.
-            * action: :class:`Literal["upsert", "delete"]`
-                - The action to perform on the default broadcast channel.
-            * channel: Optional[:class:`discord.TextChannel`]
-                - The channel to replace the default broadcast channel with. This argument must be provided to complete an `upsert` action.
-        """
-        gc_conf = GoogleCloudConfig()
-
-        if action == "upsert":
-            if not channel:  # Check whether channel is present during an `upsert` action
-                return await interaction.response.send_message(
-                    "To insert or update a form channel, please enter a Discord channel.", ephemeral=True
-                )
-            elif (
-                gc_conf.form_channel_id == channel.id
-            ):  # Check whether the current default broadcast channel is equal to the new broadcast channel
-                return await interaction.response.send_message(
-                    content="Channel is already set as the form channel ID.", ephemeral=True
-                )
-
-        # Update the `google_cloud.yaml` file
-        gc_conf.manage_channel(action=action, channel=channel)
-        await interaction.response.send_message(
-            content=f"The default channel has been successfully {'inserted or updated' if action == 'upsert' else 'deleted'}.",
-            ephemeral=True,
-        )
-
-    async def reset_settings(self, interaction: discord.Interaction, **_):
-        """Resets all default settings of the entire Google module - default broadcast channels, cached OAuth and service account credentials.
-
-        Parameters
-        ----------
-            * interaction: :class:`discord.Interaction`
-                - The interaction instance to send a response message.
-            * action: :class:`Literal["login", "logout"]`
-                - The action to perform on the Google account.
-        """
-        GoogleCloudConfig().manage_channel(action="delete", channel=None)
-        await send_or_edit_interaction_message(
-            interaction=interaction, content="Successfully reset default settings.", ephemeral=True
-        )
 
     # =================================================================================================================
     # MANAGE FEED FUNCTIONS
@@ -167,7 +108,7 @@ class GoogleForms(commands.GroupCog, name="google"):
             current_date = datetime.date.today()
             expiry_date = parser.parse(form_feed["expire_time"]).date()
 
-            delta_days = (expiry_date - current_date).days
+            delta_days = (expiry_date - current_date).days  # Get the difference in days for watches
 
             if delta_days < 0:
                 gc_conf.delete_form_watch(
@@ -182,7 +123,9 @@ class GoogleForms(commands.GroupCog, name="google"):
                     ephemeral=True,
                 )
 
-        oauth_cred = await GoogleCredentialsHelper.google_oauth_discord_flow(interaction=interaction)
+        oauth_cred = await GoogleCredentialsHelper.google_oauth_discord_flow(
+            interaction=interaction
+        )  # Get OAuth credentials
 
         if isinstance(oauth_cred, oauth2_credentials.Credentials):
             # Instantiate OAuth version of the GoogleFormsService class
@@ -322,29 +265,57 @@ class GoogleForms(commands.GroupCog, name="google"):
             )
 
     # =================================================================================================================
-    # GENERAL SLASH COMMANDS
+    # SLASH COMMANDS
     # =================================================================================================================
     @app_commands.command(
-        name="manage-default-settings", description="Setup default settings for the Google Workspace feature."
+        name="manage-default-channel", description="Setup default settings for the Google Workspace feature."
     )
     @app_commands.guild_only()
     @app_commands.describe(action="the action to execute", channel="the default channel where messages will be sent to")
     @app_commands.choices(
         action=[
-            app_commands.Choice(name="CHANNEL: set or update the default channel (channel required)", value="upsert"),
-            app_commands.Choice(name="CHANNEL: remove the default channel", value="delete"),
-            app_commands.Choice(name="reset default settings", value="reset"),
+            app_commands.Choice(name="set or update the default channel (channel required)", value="upsert"),
+            app_commands.Choice(name="remove the default channel", value="delete"),
         ]
     )
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def manage_settings(
+    async def manage_default_channel(
         self,
         interaction: discord.Interaction,
         action: app_commands.Choice[str],
         channel: Optional[discord.TextChannel] = None,
     ):
-        """A slash command that allows the user to manage the default settings of the Google module."""
-        await self.setup_settings_callbacks[action.value](interaction=interaction, action=action.value, channel=channel)
+        """A slash command that allows the user to insert, update, and delete the default broadcast channel of the form feeds.
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+                - The interaction instance to send a response message.
+            * action: :class:`Literal["upsert", "delete"]`
+                - The action to perform on the default broadcast channel.
+            * channel: Optional[:class:`discord.TextChannel`]
+                - The channel to replace the default broadcast channel with. This argument must be provided to complete an `upsert` action.
+        """
+        gc_conf = GoogleCloudConfig()
+
+        if action.value == "upsert":
+            if not channel:  # Check whether channel is present during an `upsert` action
+                return await interaction.response.send_message(
+                    "To insert or update a form channel, please enter a Discord channel.", ephemeral=True
+                )
+            elif (
+                gc_conf.form_channel_id == channel.id
+            ):  # Check whether the current default broadcast channel is equal to the new broadcast channel
+                return await interaction.response.send_message(
+                    content="Channel is already set as the form channel ID.", ephemeral=True
+                )
+
+        # Update the `google_cloud.yaml` file
+        gc_conf.manage_channel(action=action.value, channel=channel)
+        await interaction.response.send_message(
+            content=f"The default channel has been successfully {'inserted or updated' if action.value == 'upsert' else 'deleted'}.",
+            ephemeral=True,
+        )
 
     @app_commands.command(
         name="manage-topics", description="Manage the Google Pub/Sub topic that publishes messages to Discord channels."
@@ -375,10 +346,10 @@ class GoogleForms(commands.GroupCog, name="google"):
         gc_conf = GoogleCloudConfig()
 
         if action.value == "subscribe":
-            if gc_conf.subscribe_topic(topic_name=topic_name):
+            if gc_conf.subscribe_topic(topic_name=topic_name):  # Add subscription to `google_cloud.yaml`
                 self.bot.listener.start_stream(
                     topic_subscription_path=topic_name, client=self.bot, client_loop=self.bot.loop
-                )
+                )  # Start the stream on the Google Topic listener
                 await send_or_edit_interaction_message(
                     interaction=interaction, content="Successfully subscribed to topic", ephemeral=True
                 )
@@ -386,10 +357,11 @@ class GoogleForms(commands.GroupCog, name="google"):
                 await send_or_edit_interaction_message(
                     interaction=interaction, content="Topic is already subscribed to", ephemeral=True
                 )
-
         else:
             if gc_conf.unsubscribe_topic(topic_name=topic_name):
-                self.bot.listener.close_stream(topic_subscription_path=topic_name)
+                self.bot.listener.close_stream(
+                    topic_subscription_path=topic_name
+                )  # Close the stream on the Google Topic listener
                 await send_or_edit_interaction_message(
                     interaction=interaction, content="Successfully unsubscribed from topic", ephemeral=True
                 )
@@ -427,7 +399,20 @@ class GoogleForms(commands.GroupCog, name="google"):
         event: app_commands.Choice[str],
         channel: Optional[discord.TextChannel] = None,
     ):
-        """A slash command that allows the user to manage the form feeds."""
+        """A slash command that allows the user to manage the form feeds.
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+            * action: app_commands.Choice[:class:`str`]
+                - The action to perform on the provided topic.
+            * link: :class:`str`
+                - The editable Google Form link.
+            * event: app_commands.Choice[:class:`str`]
+                - The type of form event to listen to. "RESPONSES" listens for when a new response is received, and "SCHEMA" listens for form schema changes.
+            * channel: Optional[:class:`discord.TextChannel`] | None
+                - The Discord channel to send the notifications to when an event is triggered. If no channel is provided, it will use the default channel set in `google_cloud.yaml`.
+        """
         form_id = await self.get_form_id_from_link(interaction=interaction, link=link)
 
         if form_id:
@@ -479,18 +464,18 @@ class GoogleForms(commands.GroupCog, name="google"):
     # =================================================================================================================
     # ROUTINE TASK FUNCTIONS
     # =================================================================================================================
-    # This task updates every 24 hours, checks the google cloud yaml file for watches that are about to expire on that day, and then renew them
-    # It will do its job at 12:00:00 UTC+8 everyday
-    # Refer to this documentation https://discordpy.readthedocs.io/en/latest/ext/tasks/
+    # Routine task documentation https://discordpy.readthedocs.io/en/latest/ext/tasks/
     @tasks.loop(time=datetime.time(hour=12, minute=0, tzinfo=datetime.timezone(offset=datetime.timedelta(hours=8))))
     async def renew_watches_task(self):
-        form_service = GoogleFormsService.init_service_acc()
+        """A routine task that runs every 24 hours at 12 p.m. GMT+8.
+        It checks the `google_cloud.yaml` file for watches that are about to expire on the day and renew them."""
+        form_service = GoogleFormsService.init_service_acc()  # Initialize form service on service account credentials
 
+        # Get `google_cloud.yaml` data
         gc_conf = GoogleCloudConfig()
         data = gc_conf.get_data()
 
-        expired_watches_with_idx = []
-
+        expired_watches_with_idx = []  # List of expired watches
         for watches in gc_conf.active_form_watches.values():
             for idx, watch in enumerate(watches):
                 current_date = datetime.date.today()
@@ -498,31 +483,40 @@ class GoogleForms(commands.GroupCog, name="google"):
 
                 delta_days = (expiry_date - current_date).days
 
-                if delta_days < 0:
+                if delta_days < 0:  # Watch has already expired
                     expired_watches_with_idx.append([idx, watch])
-                elif delta_days <= 1:
+                elif delta_days <= 1:  # Watch is expiring today, renew the form watch
                     renewed_watch = form_service.renew_form_watch(form_id=watch["form_id"], watch_id=watch["watch_id"])
 
                     if renewed_watch:
-                        data[watch["form_id"]][idx]["expire_time"] = renewed_watch["expire_time"]
+                        data[watch["form_id"]][idx]["expire_time"] = renewed_watch[
+                            "expire_time"
+                        ]  # Update the expiry date for the renewed watch
                     else:
                         logging.info(f"Failed to renew watch with watch ID of {watch['watch_id']}")
 
         gc_conf.dump(data=data)
 
+        # Handle the the expired watches
         if len(expired_watches_with_idx) > 0:
             gc_conf = GoogleCloudConfig()
-            gc_conf.delete_form_watches_with_index(form_watches=expired_watches_with_idx)
+            gc_conf.delete_form_watches_with_index(
+                form_watches=expired_watches_with_idx
+            )  # Remove all expired form watches
 
-            if gc_conf.form_channel_id:
+            if (
+                gc_conf.form_channel_id
+            ):  # If the default broadcast channel is set, notify the channel of the expired watches
                 guild = await self.bot.fetch_guild(864118528134742026)
                 channel = await guild.fetch_channel(gc_conf.form_channel_id)
 
+                # Generate the embeds for the expired watches
                 _, expired_watches = zip(*expired_watches_with_idx)
                 expired_form_embeds = GoogleFormsHelper.generate_expired_form_watch_embeds(
                     expired_watches=expired_watches
                 )
 
+                # Send the expired watches embeds with a paginated view
                 await channel.send(
                     embed=expired_form_embeds[0],
                     view=None if len(expired_form_embeds) == 1 else PaginatedEmbedsView(embeds=expired_form_embeds),

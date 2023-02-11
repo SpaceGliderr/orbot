@@ -10,10 +10,15 @@ yaml = YAML(typ="safe")
 
 
 class GoogleCredentialsHelper:
+    """A class comprised of static resources to handle authentication using the Google APIs."""
+
+    # =================================================================================================================
+    # STATIC VARIABLES
+    # =================================================================================================================
     SERVICE_ACCOUNT_SCOPES = [
-        "https://www.googleapis.com/auth/forms.body",
-        "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/cloud-platform",
+        "https://www.googleapis.com/auth/forms.body",  # Used for accessing the Google Form
+        "https://www.googleapis.com/auth/drive",  # Used for accessing Google Sheets of the responses
+        "https://www.googleapis.com/auth/cloud-platform",  # Used for GCP and PubSub features
         "https://www.googleapis.com/auth/pubsub",
     ]
     OAUTH2_CLIENT_ID_SCOPES = [
@@ -21,29 +26,46 @@ class GoogleCredentialsHelper:
         "https://www.googleapis.com/auth/cloud-platform",
         "https://www.googleapis.com/auth/pubsub",
     ]
-    SUBSCRIBER_AUDIENCE = "https://pubsub.googleapis.com/google.pubsub.v1.Subscriber"
+    SUBSCRIBER_AUDIENCE = "https://pubsub.googleapis.com/google.pubsub.v1.Subscriber"  # Subscriber audience required for service account to subscribe to topic
+    SERVICE_ACCOUNT_CRED = None  # Store a static variable of the service account credential object for easy access
 
-    SERVICE_ACCOUNT_CRED = None
-
+    # =================================================================================================================
+    # SERVICE ACCOUNT CREDENTIALS
+    # =================================================================================================================
     @staticmethod
     def service_acc_cred():
-        """This function will help set the account service credentials before returning the service account credentials"""
+        """A static method that helps set the account service credentials and returns the service account credentials."""
         GoogleCredentialsHelper.set_service_acc_cred()
         return GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED
 
     @staticmethod
     def set_service_acc_cred():
+        """A static method that sets the account service credentials."""
         if not GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED or (
             GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED and not GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED.valid
-        ):
+        ):  # Check whether the static variable for the service account credential exists or not
             GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED = service_account.Credentials.from_service_account_file(
                 "service-account-info.json",
                 scopes=GoogleCredentialsHelper.SERVICE_ACCOUNT_SCOPES,
                 additional_claims={"audience": GoogleCredentialsHelper.SUBSCRIBER_AUDIENCE},
             )
 
+    # =================================================================================================================
+    # GOOGLE AUTHORIZATION FLOW
+    # =================================================================================================================
+    # Obtain the Google authentication flow
+    # - The authentication flow is a sequence of actions that will allow a user to generate an auth token using their Google account
+    # - Authentication flow:
+    #   (1) Generate authentication URL and Flow object
+    #   (2) Redirect user to the authentication URL
+    #   (3) User logs in and approves permissions (in external browser)
+    #   (4) Authentication code is generated
+    #   (5) User enters authentication code in a Discord modal
+    #   (6) Authentication token is generated and given to the Flow object
+    #   (7) A valid OAuth Credential is generated and can be used
     @staticmethod
     def get_authorization_url():
+        """A static method that obtains the authorization URL to authenticate a Google account. Obtains Step (1) and (2) of the authentication flow."""
         auth_flow = flow.Flow.from_client_secrets_file(
             "oauth2-client-id.json",
             scopes=GoogleCredentialsHelper.OAUTH2_CLIENT_ID_SCOPES,
@@ -56,13 +78,23 @@ class GoogleCredentialsHelper:
 
     @staticmethod
     async def send_enter_auth_code_view(interaction: discord.Interaction, auth_url: str):
+        """A static method that sends a `AuthenticationLinkView` which will obtain the generated authentication code from Step (4) of the authentication flow through a modal.
+        It is the start of Step (5) in the authentication flow.
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+            * auth_url: :class:`str`
+                - The authentication URL that the user will be redirected to.
+        """
         auth_code_embed = discord.Embed(
             title="Enter Authentication Code",
             description='To authenticate your Google account:\n1️⃣ Click on the "Authenticate with Google" button\n2️⃣ Once you are redirected to the authentication portal, select an account and approve all permissions. Then, copy the authentication code.\n3️⃣ Click the "Enter Authentication Code" button and paste the authentication code.',
         )
         auth_code_embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar)
 
-        auth_link_view = AuthenticationLinkView(auth_url=auth_url, timeout=120)
+        auth_link_view = AuthenticationLinkView(auth_url=auth_url, timeout=120)  # Send authentication code modal
+
         auth_message = await send_or_edit_interaction_message(
             interaction=interaction, embed=auth_code_embed, view=auth_link_view, ephemeral=True
         )
@@ -71,15 +103,32 @@ class GoogleCredentialsHelper:
 
     @staticmethod
     async def google_oauth_discord_flow(interaction: discord.Interaction):
-        # 1. Get authorization URL
+        """A static method that gets the OAuth Google Account Credentials via Discord.
+
+        Authentication Flow
+        ----------
+        1. Generate authentication URL and Flow object
+        2. Redirect user to the authentication URL
+        3. User logs in and approves permissions (in external browser)
+        4. Authentication code is generated
+        5. User enters authentication code in a Discord modal
+        6. Authentication token is generated and given to the Flow object
+        7. A valid OAuth Credential is generated and can be used
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+                - To send the messages to Discord.
+        """
+        # Step 1
         auth_url, auth_flow = GoogleCredentialsHelper.get_authorization_url()
 
-        # 2. Send Discord message and wait for user to enter the authentication code
+        # Step 2, 3, and 4
         _, auth_link_view = await GoogleCredentialsHelper.send_enter_auth_code_view(
             interaction=interaction, auth_url=auth_url
         )
 
-        # 3. Handle user inputted authentication code
+        # Step 5
         timeout = await auth_link_view.wait()
         if timeout or auth_link_view.is_cancelled:
             return await send_or_edit_interaction_message(
@@ -93,10 +142,9 @@ class GoogleCredentialsHelper:
                 ephemeral=True,
             )
 
-        # 4. Fetch token and return credentials
-        try:
+        # Step 6 and 7
+        try:  # If anything goes wrong when fetching the token from the Flow object
             auth_flow.fetch_token(code=auth_link_view.auth_code)
-
             await send_or_edit_interaction_message(
                 interaction=interaction,
                 edit_original_response=True,
@@ -105,7 +153,6 @@ class GoogleCredentialsHelper:
                 embed=None,
                 ephemeral=True,
             )
-
             return auth_flow.credentials
         except:
             await send_or_edit_interaction_message(
@@ -116,5 +163,4 @@ class GoogleCredentialsHelper:
                 embed=None,
                 ephemeral=True,
             )
-
             return None
