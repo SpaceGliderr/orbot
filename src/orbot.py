@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 
@@ -75,7 +74,7 @@ class Orbot(commands.Bot):
         # TODO: Uncomment twitter stream initialise after testing topic listeners
         # self.twitter_stream = await TwitterFeed.init_then_start(client=self)
         GoogleCredentialsHelper.set_service_acc_cred()
-        self.setup_form_listeners()
+        self.setup_google_topic_listeners()
         logging.info("Orbot is ready")
 
     async def reactivate_persistent_views(self):
@@ -95,7 +94,7 @@ class Orbot(commands.Bot):
 
             self.add_view(PersistentTweetView(message=message, files=files, tweet_details=tweet_details, bot=self))
 
-    def setup_form_listeners(self):
+    def setup_google_topic_listeners(self):
         topics = GoogleCloudConfig().topics
         self.listener = GoogleTopicListenerManager.init_and_run(
             topic_names=topics if topics else [], client=self, client_loop=self.loop
