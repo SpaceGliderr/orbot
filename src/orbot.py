@@ -6,8 +6,10 @@ from discord.ext import commands
 
 from src.cogs.content_poster.ui.views.persistent import PersistentTweetView
 from src.cogs.role_picker.ui import PersistentRolePickerView
+from src.modules.auth.google_credentials import GoogleCredentialsHelper
+from src.modules.google_forms.topic_listener import GoogleTopicListenerManager
 from src.modules.twitter.feed import TwitterFeed
-from src.utils.config import ContentPosterConfig
+from src.utils.config import ContentPosterConfig, GoogleCloudConfig
 
 intents = discord.Intents(
     guilds=True,
@@ -27,6 +29,7 @@ class Orbot(commands.Bot):
         self.cogs_path = "src/cogs"
         self.cogs_ext_prefix = "src.cogs."
         self.twitter_stream = None
+        self.listener = None
 
     def run(self):
         super().run(os.getenv("DEV_TOKEN"))
@@ -38,6 +41,10 @@ class Orbot(commands.Bot):
     async def close(self):
         if self.twitter_stream is not None and self.twitter_stream.stream is not None:
             await self.twitter_stream.close()
+
+        if self.listener:
+            self.listener.close_all_streams()
+            logging.info("All streams shut down successfully")
 
         logging.info("Orbot is shutting down... Goodbye!")
         await super().close()
@@ -64,7 +71,10 @@ class Orbot(commands.Bot):
             await self.load_extension(extension)
 
     async def on_ready(self):
-        self.twitter_stream = await TwitterFeed.init_then_start(client=self)
+        # TODO: Uncomment twitter stream initialise after testing topic listeners
+        # self.twitter_stream = await TwitterFeed.init_then_start(client=self)
+        GoogleCredentialsHelper.set_service_acc_cred()
+        self.setup_google_topic_listeners()
         logging.info("Orbot is ready")
 
     async def reactivate_persistent_views(self):
@@ -83,6 +93,13 @@ class Orbot(commands.Bot):
             files = [await attachment.to_file() for attachment in message.attachments]
 
             self.add_view(PersistentTweetView(message=message, files=files, tweet_details=tweet_details, bot=self))
+
+    def setup_google_topic_listeners(self):
+        topics = GoogleCloudConfig().topics
+        self.listener = GoogleTopicListenerManager.init_and_run(
+            topic_names=topics if topics else [], client=self, client_loop=self.loop
+        )
+        logging.info("Topic manager set up successfully")
 
 
 client = Orbot()

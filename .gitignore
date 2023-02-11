@@ -142,6 +142,6 @@ dmypy.json
 # Node modules
 node_modules/
 .DS_Store
-# TODO: Remove this when done testing
-loonatheworld/
-testing.py
+service-account-info.json
+token.json
+oauth2-client-id.json

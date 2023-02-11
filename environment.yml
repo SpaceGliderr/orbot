@@ -13,4 +13,9 @@ dependencies:
       - typing-extensions
       - black
       - isort
+      - google-api-python-client
+      - google-auth-httplib2
+      - google-auth-oauthlib
+      - google-auth
+      - google-cloud-pubsub
       - emoji
