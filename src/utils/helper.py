@@ -92,6 +92,16 @@ async def send_or_edit_interaction_message(
     delete_after: Optional[float] = None,
     attachments: Optional[Sequence[discord.Attachment | discord.File]] = MISSING,
 ):
+    """Sends or edits a message for a `discord.Interaction` object.
+
+    Additional Parameters
+    ----------
+        * interaction: :class:`discord.Interaction`
+        * edit_original_response: Optional[:class:`bool`] | False
+            - The list of files to compress into a ZIP file.
+    """
+    # Get the keyword arguments
+    # - Need to get the keywords this way because certain attributes do not allow `None` type if it was not set prior
     kwargs = {}
 
     if not isinstance(view, _MISSING_TYPE):
@@ -103,17 +113,20 @@ async def send_or_edit_interaction_message(
     if not isinstance(embeds, _MISSING_TYPE):
         kwargs["embeds"] = embeds
 
+    # Need to check whether interaction response was not responded to before and not to be edited
+    # - `file` and `files` only work in new interaction messages and followup messages
     if not isinstance(file, _MISSING_TYPE) and (not interaction.response.is_done() or not edit_original_response):
         kwargs["file"] = file
 
     if not isinstance(files, _MISSING_TYPE) and (not interaction.response.is_done() or not edit_original_response):
         kwargs["files"] = files
 
+    # `attachments` attribute only works when interaction is responded to before and to be edited
     if not isinstance(attachments, _MISSING_TYPE) and interaction.response.is_done() and edit_original_response:
         kwargs["attachments"] = attachments
 
     try:
-        if not interaction.response.is_done():
+        if not interaction.response.is_done():  # Send a new message using the interaction
             await interaction.response.send_message(
                 content=content,
                 tts=tts,
@@ -125,10 +138,10 @@ async def send_or_edit_interaction_message(
             )
             return await interaction.original_response()
         elif edit_original_response:
-            try:
+            try:  # Edit the original response of the interaction
                 await interaction.edit_original_response(content=content, allowed_mentions=allowed_mentions, **kwargs)
                 return await interaction.original_response()
-            except discord.errors.NotFound:
+            except discord.errors.NotFound:  # If it doesn't work, it means that the message was deleted, so send a followup message instead
                 return await interaction.followup.send(
                     content=content,
                     wait=True,
@@ -139,6 +152,7 @@ async def send_or_edit_interaction_message(
                     **kwargs,
                 )
         else:
+            # Send followup message
             return await interaction.followup.send(
                 content=content,
                 wait=True,
@@ -148,7 +162,7 @@ async def send_or_edit_interaction_message(
                 suppress_embeds=suppress_embeds,
                 **kwargs,
             )
-    except Exception as e:
+    except Exception:  # To handle any errors that occurs
         if not interaction.response.is_done():
             await interaction.response.send_message(
                 content="Error occurred while sending a message.", ephemeral=True, delete_after=10

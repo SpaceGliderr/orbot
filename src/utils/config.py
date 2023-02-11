@@ -301,21 +301,21 @@ class GoogleCloudConfig:
 
     @property
     def active_form_schemas(self) -> dict | None:
+        """Get the list of active form schemas."""
         return get_from_dict(self._data, ["active_form_schemas"])
 
     @property
     def form_channel_id(self):
+        """Get the default broadcast channel ID."""
         return get_from_dict(self._data, ["form_channel_id"])
 
     @property
     def topics(self):
+        """Get the list of Google Topic subscription paths."""
         return get_from_dict(self._data, ["topics"])
 
-    @property
-    def default_topic(self):
-        return get_from_dict(self._data, ["default_topic"])
-
     def get_question_details(self, question_id: str, form_id: str):
+        """Get the question title based on the question ID and form ID."""
         form_schema = get_from_dict(self.active_form_schemas, [form_id])
         if form_schema:
             return get_from_dict(form_schema["questions"], [question_id])
@@ -328,6 +328,7 @@ class GoogleCloudConfig:
         event_type: Optional[str] = None,
         topic_name: Optional[str] = None,
     ):
+        """Search the `google_cloud.yaml` file for an active form watch."""
         result = get_from_dict(self.active_form_watches, [form_id])
 
         def is_valid(watch: dict):
@@ -350,9 +351,11 @@ class GoogleCloudConfig:
         return result
 
     def search_active_form_watches(self, form_id: str):
+        """Search the `google_cloud.yaml` file for all form watches under a specific form ID."""
         return get_from_dict(self.active_form_watches, [form_id])
 
     def insert_new_form_watch(self, result: dict, form_id: str, channel_id: str):
+        """Insert a new form watch object into the `google_cloud.yaml` file."""
         data = self.get_data()
         new_form = {
             "form_id": form_id,
@@ -371,6 +374,7 @@ class GoogleCloudConfig:
         self.dump(data)
 
     def update_form_watch(self, form_id: str, channel_id: str, event_type: Optional[str] = None):
+        """Update a form watch object in the `google_cloud.yaml` file."""
         idx, watch = self.search_active_form_watch(form_id=form_id, event_type=event_type)
 
         data = self.get_data()
@@ -385,6 +389,7 @@ class GoogleCloudConfig:
         event_type: Optional[str] = None,
         topic_name: Optional[str] = None,
     ):
+        """Delete a form watch object in the `google_cloud.yaml` file based on form ID, watch ID, event type and topic name."""
         result = self.search_active_form_watch(
             form_id=form_id, watch_id=watch_id, event_type=event_type, topic_name=topic_name
         )
@@ -397,6 +402,7 @@ class GoogleCloudConfig:
         return result == None
 
     def delete_form_watches_with_index(self, form_watches: List[Tuple[int, dict]]):
+        """Delete a form watch object in the `google_cloud.yaml` file based on the index under a specific form ID."""
         data = self.get_data()
 
         for idx, watch in form_watches:
@@ -408,11 +414,13 @@ class GoogleCloudConfig:
         self.dump(data=data)
 
     def upsert_form_schema(self, form_id: str, schema: dict):
+        """Insert or update a form schema object in the `google_cloud.yaml` file."""
         data = self.get_data()
         data["active_form_schemas"][form_id] = schema
         self.dump(data)
 
     def delete_form_schema(self, form_id: str):
+        """Delete a form schema object in the `google_cloud.yaml` file."""
         if get_from_dict(self.active_form_schemas, [form_id]):
             data = self.get_data()
             del data[form_id]
@@ -421,6 +429,7 @@ class GoogleCloudConfig:
         return False
 
     def subscribe_topic(self, topic_name: str):
+        """Subscribe to a Google topic path in the `google_cloud.yaml` file."""
         if topic_name not in self.topics:
             data = self.get_data()
             data["topics"].append(topic_name)
@@ -429,6 +438,7 @@ class GoogleCloudConfig:
         return False
 
     def unsubscribe_topic(self, topic_name: str):
+        """Unsubscribe from a Google topic path in the `google_cloud.yaml` file."""
         if topic_name in self.topics:
             data = self.get_data()
             data["topics"].remove(topic_name)
@@ -436,12 +446,8 @@ class GoogleCloudConfig:
             return True
         return False
 
-    def set_default_topic(self, topic_name: Optional[str]):
-        data = self.get_data()
-        data["default_topic"] = topic_name
-        self.dump(data)
-
     def manage_channel(self, action: Literal["upsert", "delete"], channel: Optional[discord.TextChannel]):
+        """Insert, update or delete the default broadcast channel."""
         data = self.get_data()
         data["form_channel_id"] = None if action == "delete" else channel.id if channel else self.form_channel_id
         self.dump(data)
@@ -461,18 +467,20 @@ class ThreadEventsConfig:
 
     @property
     def events(self):
+        """Get the list of thread events."""
         return get_from_dict(self._data, ["events"])
 
     def get_data(self):
         """Get a copied version of the extracted data."""
         return self._data.copy()
 
-    def get_channel_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
+    def get_thread_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
+        """Get a specific thread event based on the provided event and channel ID."""
         event = get_from_dict(self._data, ["events", event])
         channel = get_from_dict(event, [channel_id])
         return channel if channel else None
 
-    def upsert_channel_event(
+    def upsert_thread_event(
         self,
         event: Literal["on_thread_create", "on_thread_update"],
         channel_id: int,
@@ -480,20 +488,22 @@ class ThreadEventsConfig:
         react_emojis: List[int | str],
         replace_reactions: bool,
     ):
+        """Insert or update a thread event object in the `google_cloud.yaml` file."""
         data = self.get_data()
 
-        channel_event = get_from_dict(data, ["events", event, channel_id])
+        thread_event = get_from_dict(data, ["events", event, channel_id])
 
-        if channel_event:
+        if thread_event:
             if replace_reactions:
-                channel_event["react_emojis"] = react_emojis
+                thread_event["react_emojis"] = react_emojis
             else:
-                channel_event["react_emojis"] = list(set(channel_event["react_emojis"]).union(set(react_emojis)))
+                thread_event["react_emojis"] = list(set(thread_event["react_emojis"]).union(set(react_emojis)))
         else:
             data["events"][event][channel_id] = {"ordered": ordered, "react_emojis": react_emojis}
         self.dump(data)
 
-    def delete_channel_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
+    def delete_thread_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
+        """Delete a thread event object from the `google_cloud.yaml` file."""
         try:
             data = self.get_data()
             del data["events"][event][channel_id]

@@ -61,6 +61,8 @@ class PaginatedEmbedsView(View):
 
 
 class ConfirmationView(View):
+    """Creates a view with a yes and no button by inheriting the `View` class."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_confirmed = False
