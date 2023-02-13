@@ -314,6 +314,10 @@ class GoogleCloudConfig:
         """Get the list of Google Topic subscription paths."""
         return get_from_dict(self._data, ["topics"])
 
+    def get_data(self):
+        """Get a copied version of the extracted data."""
+        return self._data.copy()
+
     def get_question_details(self, question_id: str, form_id: str):
         """Get the question title based on the question ID and form ID."""
         form_schema = get_from_dict(self.active_form_schemas, [form_id])
@@ -398,7 +402,11 @@ class GoogleCloudConfig:
             data = self.get_data()
             del data["active_form_watches"][form_id][result[0]]
 
-        self.dump(data=data)
+            if len(data["active_form_watches"][form_id]) == 0:
+                del data["active_form_watches"][form_id]
+
+            self.dump(data=data)
+
         return result == None
 
     def delete_form_watches_with_index(self, form_watches: List[Tuple[int, dict]]):
@@ -423,7 +431,7 @@ class GoogleCloudConfig:
         """Delete a form schema object in the `google_cloud.yaml` file."""
         if get_from_dict(self.active_form_schemas, [form_id]):
             data = self.get_data()
-            del data[form_id]
+            del data["active_form_schemas"][form_id]
             self.dump(data)
             return True
         return False
