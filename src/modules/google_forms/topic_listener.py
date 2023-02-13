@@ -86,9 +86,11 @@ class GoogleTopicHandler:
 
     def execute(self):
         """A method that extracts relevant information from the Google Topic response and triggers the `form_watch_callback` method."""
-        form_id = get_from_dict(self.message.attributes, ["formId"])
-        watch_id = get_from_dict(self.message.attributes, ["watchId"])
-        event_type = get_from_dict(self.message.attributes, ["eventType"])
+        attributes = {k: v for k, v in self.message.attributes.items()}  # Convert the attributes `ScalarMapContainer` into `dict`
+
+        form_id = get_from_dict(attributes, ["formId"])
+        watch_id = get_from_dict(attributes, ["watchId"])
+        event_type = get_from_dict(attributes, ["eventType"])
 
         if form_id and watch_id and event_type:
             self.form_watch_callback(form_id=form_id, watch_id=watch_id, event_type=event_type)
@@ -192,13 +194,14 @@ class GoogleTopicListenerManager:
         if existing_thread:
             if not existing_thread.is_alive():  # If there are inactive threads, remove the thread instance
                 del self.listener_threads[topic_subscription_path]
-            return
+            else:
+                return
 
         # Create thread listener and start the listener
         self.listener_threads[topic_subscription_path] = GoogleTopicListenerThread(
             topic_subscription_path=topic_subscription_path, client=client, client_loop=client_loop
         )
-        self.listener_threads[topic_subscription_path].run()
+        self.listener_threads[topic_subscription_path].start()
 
     def close_stream(self, topic_subscription_path: str):
         """A method that searches for a topic listener thread and closes it.
@@ -209,7 +212,7 @@ class GoogleTopicListenerManager:
                 - The topic name to unsubscribe from.
         """
         # Find the listener thread
-        stream = get_from_dict(self.listener_threads, topic_subscription_path)
+        stream = get_from_dict(self.listener_threads, [topic_subscription_path])
 
         if stream:
             stream.close()  # Close the thread
