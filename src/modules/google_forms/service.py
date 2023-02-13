@@ -18,8 +18,8 @@ class GoogleFormsService:
 
     def __init__(self, credentials) -> None:
         self.credentials = credentials
-        self.forms_service = discovery.build("forms", "v1", credentials=credentials)
-        self.sheets_service = discovery.build("sheets", "v4", credentials=credentials)
+        self.forms_service = discovery.build("forms", "v1", credentials=credentials, cache_discovery=False)
+        self.sheets_service = discovery.build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
     @classmethod
     def init_service_acc(cls):
