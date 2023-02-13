@@ -240,7 +240,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         )
 
     async def delete_feed(
-        self, interaction: discord.Interaction, form_id: str, event: Literal["RESPONSES", "SCHEMA"], *_
+        self, interaction: discord.Interaction, form_id: str, event: Literal["RESPONSES", "SCHEMA"], **_
     ):
         """Deletes a form feed and form schema from the `google_cloud.yaml` file. This does not delete the form watch itself.
 
@@ -253,13 +253,19 @@ class GoogleForms(commands.GroupCog, name="google"):
             * event: :class:`Literal["RESPONSES", "SCHEMA"]`
         """
         try:
-            gc_conf = GoogleCloudConfig()
-            gc_conf.delete_form_watch(form_id=form_id, event_type=event)
-            gc_conf.delete_form_schema(form_id=form_id)
+            _, form_watch = GoogleCloudConfig().search_active_form_watch(form_id=form_id, event_type=event)
+
+            if form_watch:
+                GoogleFormsService.init_service_acc().delete_form_watch(form_id=form_id, watch_id=form_watch["watch_id"])
+                GoogleCloudConfig().delete_form_watch(form_id=form_id, event_type=event)
+                GoogleCloudConfig().delete_form_schema(form_id=form_id)
+                return await interaction.response.send_message(
+                    content="Successfully deleted form feed and form schema.", ephemeral=True
+                )
             await interaction.response.send_message(
-                content="Successfully deleted form feed and form schema.", ephemeral=True
+                content="Could not find the form watch to delete.", ephemeral=True
             )
-        except:
+        except Exception as e:
             await interaction.response.send_message(
                 content="Failed to delete form feed and form schema.", ephemeral=True
             )
@@ -327,8 +333,8 @@ class GoogleForms(commands.GroupCog, name="google"):
     )
     @app_commands.choices(
         action=[
-            app_commands.Choice(name="enter a new subscription (topic name required)", value="subscribe"),
-            app_commands.Choice(name="replace the default subscription", value="unsubscribe"),
+            app_commands.Choice(name="subscribe to a new topic", value="subscribe"),
+            app_commands.Choice(name="unsubscribe from a topic", value="unsubscribe"),
         ]
     )
     @app_commands.checks.has_permissions()
@@ -340,9 +346,11 @@ class GoogleForms(commands.GroupCog, name="google"):
             * interaction: :class:`discord.Interaction`
             * action: app_commands.Choice[:class:`str`]
                 - The action to perform on the provided topic.
-            * topic_name: Optional[:class:`str`]
+            * topic_name: :class:`str`
                 - The topic name to carry out the action on. To subscribe, a `topic_name` must be provided.
         """
+        await interaction.response.defer(ephemeral=True)
+
         gc_conf = GoogleCloudConfig()
 
         if action.value == "subscribe":
@@ -370,7 +378,7 @@ class GoogleForms(commands.GroupCog, name="google"):
                     interaction=interaction, content="Topic is not subscribed to", ephemeral=True
                 )
 
-    @forms_group.command(name="manage-feed")
+    @forms_group.command(name="manage-form-watch")
     @app_commands.guild_only()
     @app_commands.rename(link="form_link", event="listen_to", channel="broadcast_channel")
     @app_commands.describe(
@@ -391,7 +399,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         ],
     )
     @app_commands.checks.has_permissions(manage_messages=True)
-    async def manage_form_feed(
+    async def manage_form_watch(
         self,
         interaction: discord.Interaction,
         action: app_commands.Choice[str],
@@ -458,7 +466,10 @@ class GoogleForms(commands.GroupCog, name="google"):
                     content="Form schema refresh has failed. Could not find form details.", ephemeral=True
                 )
 
-    async def view_active_form_watches(self, interaction: discord.Interaction):
+    async def view_form_watches(self, interaction: discord.Interaction):
+        pass
+
+    async def view_topics(self, interaction: discord.Interaction):
         pass
 
     # =================================================================================================================
