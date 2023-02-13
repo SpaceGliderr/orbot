@@ -182,6 +182,8 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
                     view=None,
                     embed=None,
                 )
+        else:
+            await interaction.response.defer(ephemeral=True)
 
         try:
             emojis = await self.get_emojis_from_string(string=emoji_str, guild=interaction.guild)
@@ -330,11 +332,11 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
     # =================================================================================================================
     @commands.Cog.listener()
     async def on_thread_create(self, thread: discord.Thread):
-        self.add_reactions_to_thread(thread=thread, event_type="on_thread_create")
+        await self.add_reactions_to_thread(thread=thread, event_type="on_thread_create")
 
     @commands.Cog.listener()
-    async def on_thread_update(self, thread: discord.Thread):
-        self.add_reactions_to_thread(thread=thread, event_type="on_thread_update")
+    async def on_thread_update(self, thread: discord.Thread, *_):
+        await self.add_reactions_to_thread(thread=thread, event_type="on_thread_update")
 
 
 async def setup(bot):
