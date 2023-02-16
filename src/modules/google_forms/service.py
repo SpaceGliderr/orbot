@@ -182,7 +182,7 @@ class GoogleFormsService:
         except:
             return None
 
-    def get_latest_form_response(self, form_id: str, sheet_id: str):
+    def get_latest_form_response(self, form_id: str, sheet_id: Optional[str] = None):
         """A method that obtains the latest form response from a linked Google Sheet or from the Google Forms API.
 
         Parameters
@@ -192,14 +192,15 @@ class GoogleFormsService:
             * sheet_id: :class:`str`
                 - The Google Sheet ID to obtain the latest form response from.
         """
-        # Use Google Sheets API to get the latest response
-        sheet = self.get_sheet(sheet_id)
-        sheet_responses = get_from_dict(sheet, ["values"])
+        if sheet_id:
+            # Use Google Sheets API to get the latest response
+            sheet = self.get_sheet(sheet_id)
+            sheet_responses = get_from_dict(sheet, ["values"])
 
-        if sheet_responses and len(sheet_responses) > 1:
-            questions = sheet_responses[0]
-            answers = sheet_responses[-1]
-            return [{str(question): answer} for question, answer in zip(questions, answers)]
+            if sheet_responses and len(sheet_responses) > 1:
+                questions = sheet_responses[0]
+                answers = sheet_responses[-1]
+                return [{str(question): answer} for question, answer in zip(questions, answers)]
 
         # Use Google Forms API to get the latest response
         form_responses = self.forms_service.forms().responses().list(formId=form_id).execute()
