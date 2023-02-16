@@ -138,7 +138,7 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
         self,
         interaction: discord.Interaction,
         event: app_commands.Choice[str],
-        channel: Union[discord.TextChannel, discord.ForumChannel],
+        channel: Union[discord.TextChannel, discord.ForumChannel, discord.Thread],
         ordered: app_commands.Choice[int],
         emoji_str: str,
     ):
@@ -149,7 +149,7 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
             * interaction: :class:`discord.Interaction`
             * event: app_commands.Choice[:class:`str`]
                 - The type of thread or forum event that would be responded to. Reactions will be added either when the thread is created or when the thread is updated.
-            * channel: Union[:class:`discord.TextChannel`, :class:`discord.ForumChannel`]
+            * channel: Union[:class:`discord.TextChannel`, :class:`discord.ForumChannel`, :class:`discord.Thread`]
                 - Channel to listen to for the event.
             * ordered: app_commands.Choice[:class:`int`]
                 - Whether the emojis will be in the order it is entered in the `emoji_str` or not.
@@ -234,16 +234,16 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
         self,
         interaction: discord.Interaction,
         event: app_commands.Choice[str],
-        channel: Union[discord.TextChannel, discord.ForumChannel],
+        channel: Union[discord.TextChannel, discord.ForumChannel, discord.Thread],
     ):
-        """A slash command that allows the user to create a thread or forum event that adds reactions to the original thread message.
+        """A slash command that allows the user to edit a thread or forum event.
 
         Parameters
         ----------
             * interaction: :class:`discord.Interaction`
             * event: app_commands.Choice[:class:`str`]
                 - The type of thread or forum event to search for.
-            * channel: Union[:class:`discord.TextChannel`, :class:`discord.ForumChannel`]
+            * channel: Union[:class:`discord.TextChannel`, :class:`discord.ForumChannel`, :class:`discord.Thread`]
                 - The channel of the thread or forum event to search for.
         """
         te_conf = ThreadEventsConfig()
@@ -320,8 +320,18 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
         self,
         interaction: discord.Interaction,
         event: app_commands.Choice[str],
-        channel: Union[discord.TextChannel, discord.ForumChannel],
+        channel: Union[discord.TextChannel, discord.ForumChannel, discord.Thread],
     ):
+        """A slash command that allows the user to delete a thread or forum event.
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+            * event: app_commands.Choice[:class:`str`]
+                - The type of thread or forum event to search for.
+            * channel: Union[:class:`discord.TextChannel`, :class:`discord.ForumChannel`, :class:`discord.Thread`]
+                - The channel of the thread or forum event to search for.
+        """
         if ThreadEventsConfig().delete_thread_event(event=event.value, channel_id=channel.id):
             await interaction.response.send_message(content="Successfully deleted thread event.", ephemeral=True)
         else:
@@ -348,8 +358,18 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
         self,
         interaction: discord.Interaction,
         event: Optional[app_commands.Choice[str]] = None,
-        channel: Optional[Union[discord.Thread, discord.ForumChannel]] = None,
+        channel: Optional[Union[discord.Thread, discord.ForumChannel, discord.TextChannel]] = None,
     ):
+        """A slash command that allows the user to view a list thread or forum events.
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+            * event: Optional[app_commands.Choice[:class:`str`]] | None
+                - The type of thread or forum event to search for.
+            * channel: Optional[Union[:class:`discord.TextChannel`, :class:`discord.ForumChannel`, :class:`discord.Thread`]] | None
+                - The channel of the thread or forum event to search for.
+        """
         te_conf = ThreadEventsConfig()
 
         if not channel and not event:
@@ -357,11 +377,10 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
                 content="Please filter by either an event or channel.", ephemeral=True
             )
 
+        event_types = []
         if channel and event:
             thread_event = te_conf.get_thread_event(event=event.value, channel_id=channel.id)
-            react_emojis = await self.get_emojis_from_string(
-                string=thread_event["react_emojis"], guild=interaction.guild
-            )
+            react_emojis = [await interaction.guild.fetch_emoji(emoji) if isinstance(emoji, int) else emoji for emoji in thread_event["react_emojis"]]
             return await interaction.response.send_message(
                 embed=ChannelEventDetailsEmbed(
                     interaction=interaction, react_emojis=react_emojis, ordered=thread_event["ordered"]
@@ -375,9 +394,11 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
 
             if on_create_thread:
                 thread_events.append((channel.id, on_create_thread))
+                event_types.append("on_thread_create")
 
             if on_update_thread:
                 thread_events.append((channel.id, on_update_thread))
+                event_types.append("on_thread_update")
         else:
             thread_events = list(te_conf.events[event.value].items())
 
@@ -387,17 +408,19 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
         embeds = [
             await ChannelEventsEmbed.init(
                 thread_events=thread_events[idx : idx + 25],
-                get_emojis_from_string=self.get_emojis_from_string,
                 guild=interaction.guild,
+                event_types=event_types[idx : idx + 25],
+                channel_id=channel.id if channel else None,
+                event_type=event.value if event else None,
             )
-            for idx in range(1, len(thread_events), 25)
+            for idx in range(0, len(thread_events), 25)
         ]
 
-        paginated_embed_view = PaginatedEmbedsView(embeds=embeds, timeout=180)
-
-        await interaction.response.send_message(embed=embeds[0], view=paginated_embed_view if len(embeds) > 1 else None)
-        await paginated_embed_view.wait()
-        await interaction.edit_original_response(view=None)
+        if len(embeds) > 1:
+            paginated_embed_view = PaginatedEmbedsView(embeds=embeds, timeout=180)
+            await interaction.response.send_message(embed=embeds[0], view=paginated_embed_view)
+        else:
+            await interaction.response.send_message(embed=embeds[0])
 
     # =================================================================================================================
     # EVENT LISTENERS
