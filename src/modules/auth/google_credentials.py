@@ -3,7 +3,7 @@ from google.oauth2 import service_account
 from google_auth_oauthlib import flow
 from ruamel.yaml import YAML
 
-from src.cogs.google_forms.ui.views import AuthenticationLinkView
+from src.cogs.google_forms.ui.view import AuthenticationLinkView
 from src.utils.helper import send_or_edit_interaction_message
 
 yaml = YAML(typ="safe")
