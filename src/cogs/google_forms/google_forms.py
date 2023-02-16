@@ -91,6 +91,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         interaction: discord.Interaction,
         form_id: str,
         event: Literal["RESPONSES", "SCHEMA"],
+        topic_name: str,
         channel: Optional[discord.TextChannel],
     ):
         """Handles creating a Google form watch, retrieving the form schema, and updating relevant information if it already exists.
@@ -117,7 +118,7 @@ class GoogleForms(commands.GroupCog, name="google"):
             )
 
         _, form_feed = gc_conf.search_active_form_watch(
-            form_id=form_id, event_type=event
+            form_id=form_id, event_type=event, topic_name=topic_name
         )  # Search for currently active form feeds
 
         if form_feed:  # If the feed already exists, redirect the user to use the `update` command instead
@@ -152,8 +153,8 @@ class GoogleForms(commands.GroupCog, name="google"):
 
             # Create form watch using the form service
             form_watch = form_service.create_form_watch(
-                form_id=form_id, event_type=event, topic_name=os.getenv("DEFAULT_FORMS_TOPIC_NAME")
-            )  # TODO: Make sure to add topic name selection
+                form_id=form_id, event_type=event, topic_name=topic_name
+            )
 
             content = "Failed to create form feed and retrieve form schema."  # Keep track of the return message
 
@@ -183,6 +184,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         interaction: discord.Interaction,
         form_id: str,
         event: Literal["RESPONSES", "SCHEMA"],
+        topic_name: str,
         channel: Optional[discord.TextChannel],
     ):
         """Handles creating a Google form watch, retrieving the form schema, and updating relevant information if it already exists.
@@ -203,7 +205,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         gc_conf = GoogleCloudConfig()
 
         form_feed = gc_conf.search_active_form_watch(
-            form_id=form_id, event_type=event
+            form_id=form_id, event_type=event, topic_name=topic_name
         )  # Search for currently active form feeds
 
         if not form_feed:
@@ -268,7 +270,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         )
 
     async def delete_feed(
-        self, interaction: discord.Interaction, form_id: str, event: Literal["RESPONSES", "SCHEMA"], **_
+        self, interaction: discord.Interaction, form_id: str, event: Literal["RESPONSES", "SCHEMA"], topic_name: str, **_
     ):
         """Deletes a form feed and form schema from the `google_cloud.yaml` file. This does not delete the form watch itself.
 
@@ -281,7 +283,7 @@ class GoogleForms(commands.GroupCog, name="google"):
             * event: :class:`Literal["RESPONSES", "SCHEMA"]`
         """
         try:
-            _, form_watch = GoogleCloudConfig().search_active_form_watch(form_id=form_id, event_type=event)
+            _, form_watch = GoogleCloudConfig().search_active_form_watch(form_id=form_id, event_type=event, topic_name=topic_name)
 
             if form_watch:
                 GoogleFormsService.init_service_acc().delete_form_watch(
@@ -408,11 +410,12 @@ class GoogleForms(commands.GroupCog, name="google"):
 
     @forms_group.command(name="manage-form-watch")
     @app_commands.guild_only()
-    @app_commands.rename(link="form_link", event="listen_to", channel="broadcast_channel")
+    @app_commands.rename(link="form_link", event="listen_to", topic_name="pubsub_topic_name", channel="broadcast_channel")
     @app_commands.describe(
         action="the action to perform on the provided Google Form",
         link="**edit link** for the Google Forms",
         event="form events to be broadcasted to the broadcast channel",
+        topic_name="the topic to broadcast to (default is `projects/loonacord/topics/form-responses`)",
         channel="the broadcast location (if no channels are given, the default channel set using `setup` is used)",
     )
     @app_commands.choices(
@@ -434,6 +437,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         link: str,
         event: app_commands.Choice[str],
         channel: Optional[discord.TextChannel] = None,
+        topic_name: Optional[str] = "projects/loonacord/topics/form-responses",
     ):
         """A slash command that allows the user to manage the form feeds.
 
@@ -453,7 +457,7 @@ class GoogleForms(commands.GroupCog, name="google"):
 
         if form_id:
             await self.manage_form_feed_callbacks[action.value](
-                interaction=interaction, form_id=form_id, event=event.value, channel=channel
+                interaction=interaction, form_id=form_id, event=event.value, topic_name=topic_name, channel=channel
             )
 
     @forms_group.command(name="refresh-schema")
