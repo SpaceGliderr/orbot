@@ -38,17 +38,33 @@ class GoogleTopicHandler:
 
         self.form_service = GoogleFormsService.init_service_acc()
 
+    async def on_form_watch_error(
+        self,
+        form_id: str,
+        watch_id: str,
+        broadcast_channel_id: int | str,
+        client: discord.Client,
+        client_loop: asyncio.AbstractEventLoop,
+    ):
+        """A method used to handle the errors thrown when the `on_form_watch_error` is called."""
+        broadcast_channel = await client.fetch_channel(int(broadcast_channel_id))
+
+        # Send using `run_coroutine_threadsafe` because it must be sent in the client loop instead of whatever thread it is running in
+        asyncio.run_coroutine_threadsafe(
+            broadcast_channel.send(
+                content=f"Failed to retrieve form response with form ID of `{form_id}` and watch ID of `{watch_id}`. Please check with the developer or check the permissions of the Google Form or Google Sheets."
+            ),
+            client_loop,
+        )
+
     def form_watch_callback(self, form_id: str, watch_id: str):
         """A callback method that handles the form watch response from the subscribed Google Topic. Sends a notification to the broadcast channel based on the received form watch response.
 
         Parameters
         ----------
             * form_id: :class:`str`
-                - The Google Form ID to use the request on.
             * watch_id: :class:`str`
-                - The watch ID to renew.
             * event_type: :class:`Literal["RESPONSES", "SCHEMA"]`
-                - The watch event to search for.
         """
         # Obtain the form schema
         form_schema = get_from_dict(GoogleCloudConfig().active_form_schemas, [form_id])
@@ -63,28 +79,46 @@ class GoogleTopicHandler:
                 raise Exception("Failed to retrieve schema")
 
         # Obtain the latest response for the form
-        latest_response = self.form_service.get_latest_form_response(
-            form_id=form_id, sheet_id=get_from_dict(form_schema, ["linked_sheet_id"])
-        )
+        try:
+            latest_response = self.form_service.get_latest_form_response(
+                form_id=form_id, sheet_id=get_from_dict(form_schema, ["linked_sheet_id"])
+            )
 
-        # Obtain the form watch details
-        _, watch = GoogleCloudConfig().search_active_form_watch(
-            form_id=form_id, watch_id=watch_id, event_type="RESPONSES"
-        )
+            # Obtain the form watch details
+            _, watch = GoogleCloudConfig().search_active_form_watch(
+                form_id=form_id, watch_id=watch_id, event_type="RESPONSES"
+            )
 
-        # Broadcast the notification to the Discord channel
-        asyncio.run_coroutine_threadsafe(
-            GoogleFormsHelper.broadcast_form_response_to_channel(
-                form_id=form_id,
-                form_response=latest_response,
-                broadcast_channel_id=watch["broadcast_channel_id"],
-                client=self.client,
-                client_loop=self.client_loop,
-            ),
-            self.client_loop,
-        )
+            # Broadcast the notification to the Discord channel
+            asyncio.run_coroutine_threadsafe(
+                GoogleFormsHelper.broadcast_form_response_to_channel(
+                    form_id=form_id,
+                    form_response=latest_response,
+                    broadcast_channel_id=watch["broadcast_channel_id"],
+                    client=self.client,
+                    client_loop=self.client_loop,
+                ),
+                self.client_loop,
+            )
+        except:
+            asyncio.run_coroutine_threadsafe(
+                self.on_form_watch_error(
+                    form_id=form_id,
+                    watch_id=watch_id,
+                    broadcast_channel_id=GoogleCloudConfig().form_channel_id,
+                    client=self.client,
+                    client_loop=self.client_loop,
+                )
+            )
 
     def form_schema_callback(self, form_id: str, watch_id: str):
+        """A callback method that handles the form schema response from the subscribed Google Topic. Sends a notification to the broadcast channel based on the received form schema response.
+
+        Parameters
+        ----------
+            * form_id: :class:`str`
+            * watch_id: :class:`str`
+        """
         form_details = self.form_service.get_form_details(form_id=form_id)
         if not form_details:
             raise Exception("Failed to retrieve form details")
