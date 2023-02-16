@@ -1,14 +1,83 @@
 active_posts:
-  '1039815936380780555':
-    url: https://twitter.com/ddaIang/status/1590256509283627009
-    user: {id: '1005014669591961600', name: 🌈 tiny❤️ petite🐰 🏳️‍🌈 😄, username: N_0_3_01}
+  '1041653814379425822':
+    url: https://twitter.com/loonatheworld/status/1592095017426120705
+    user: {id: '770959712791597056', name: 이달의 소녀(LOOΠΔ), username: loonatheworld}
+  '1041653817940377642':
+    url: https://twitter.com/loonatheworld/status/1592095017426120705
+    user: {id: '770959712791597056', name: 이달의 소녀(LOOΠΔ), username: loonatheworld}
+  '1041657141481709610':
+    url: https://twitter.com/loonatheworld/status/1592098341340733440
+    user: {id: '770959712791597056', name: 이달의 소녀(LOOΠΔ), username: loonatheworld}
+  '1041736336173961296':
+    url: https://twitter.com/HJMAOo/status/1592170516601008131
+    user: {id: '1205358290227494912', name: 애옹, username: HJMAOo}
+  '1041968966177927229':
+    url: https://twitter.com/sheoru/status/1592409943046770693
+    user: {id: '1442107752', name: sheol, username: sheoru}
+  '1042059543061995522':
+    url: https://twitter.com/3eultaku/status/1592489226318548994
+    user: {id: '1559695841564426240', name: '38', username: 3eultaku}
+  '1042059931433582694':
+    url: https://twitter.com/3eultaku/status/1592489348297285632
+    user: {id: '1559695841564426240', name: '38', username: 3eultaku}
+  '1042080002411343882':
+    url: https://twitter.com/CLOVER4HJ/status/1592511768404058118
+    user: {id: '1569355158538309633', name: '11', username: CLOVER4HJ}
+  '1048593728828350565':
+    url: https://twitter.com/terrace_on/status/1598678350234456064
+    user: {id: '1582242714703519746', name: 테라스온(TERRACE-ON), username: terrace_on}
+  '1049608335785201714':
+    url: https://twitter.com/kitty_nim_/status/1600028938285494272
+    user: {id: '135162392', name: 🐈, username: kitty_nim_}
+  '1050691646028787732':
+    url: https://twitter.com/sbsnoriter/status/1601132040434458624
+    user: {id: '1130755875210088448', name: SBS 인기가요 (SBS Inkigayo), username: sbsnoriter}
+  '1052600940823314543':
+    url: https://twitter.com/being9_ms/status/1603042129710034945
+    user: {id: '4875795840', name: Being9, username: being9_ms}
+  '1052602185940221962':
+    url: https://twitter.com/on_loona_side/status/1603043383257157632
+    user: {id: '808326655366135808', name: ON LOOΠΔ SIDE, username: on_loona_side}
+  '1052607705585569922':
+    url: https://twitter.com/Seulshine818/status/1603042150756716550
+    user: {id: '1556657092362383366', name: 𝐒𝐞𝐮𝐥𝐬𝐡𝐢𝐧𝐞., username: Seulshine818}
+  '1055503802586898462':
+    url: https://twitter.com/loonatheworld/status/1605945002546298882
+    user: {id: '770959712791597056', name: 이달의 소녀(LOOΠΔ), username: loonatheworld}
+  '1056454695062868049':
+    url: https://twitter.com/loonatheworld/status/1606895893076221955
+    user: {id: '770959712791597056', name: 이달의 소녀(LOOΠΔ), username: loonatheworld}
+  '1057339214867472394':
+    url: https://twitter.com/l00na__wow
+    user: {id: '1254433400632434693', name: 𝙗𝙖𝙤𝙗𝙚̀𝙞𝙞, username: kissyour__}
+  '1057585240681492541':
+    url: https://twitter.com/loonatheworld/status/1608026441115119617
+    user: {id: '770959712791597056', name: 이달의 소녀(LOOΠΔ), username: loonatheworld}
+  '1058772675465576510':
+    url: https://twitter.com/HlmlLove/status/1609209714344357888
+    user: {id: '1358408494601310214', name: 미쁜2i.., username: HlmlLove}
+  '1058785135111192626':
+    url: https://twitter.com/ddaIang/status/1609226334991179776
+    user: {id: '1008244517152047104', name: 딸랑, username: ddaIang}
+  '1074294320716316692':
+    url: https://twitter.com/ddaIang/status/1624735519145099268
+    user: {id: '1008244517152047104', name: 딸랑, username: ddaIang}
+  '1075685729541312632':
+    url: https://twitter.com/Gogogo_GoWon/status/1626109580265791488
+    user: {id: '1003932071788625920', name: 작은새 ことり, username: Gogogo_GoWon}
+  '1075685733492334633':
+    url: https://twitter.com/Gogogo_GoWon/status/1626109580265791488
+    user: {id: '1003932071788625920', name: 작은새 ことり, username: Gogogo_GoWon}
+  '1075733441317965904':
+    url: https://twitter.com/loonaJPofficial/status/1626174638635225089
+    user: {id: '1407603879026462722', name: loonatheworld_jp_official, username: loonaJPofficial}
 config:
   feed_channel_id: 1027862290155978762
   hashtag_filters:
     blacklist: []
     whitelist: [loona, 이달의소녀, heejin, 희진, hyunjin, 현진, haseul, 하슬, yeojin, 여진, vivi,
       비비, kimlip, 김립, jinsoul, 진솔, choerry, 최리, yves, 이브, chuu, 츄, gowon, 고원, oliviahye,
-      올리비아혜]
+      올리비아혜, Happy_ViVi_Day, 1209_HBD_ViVi]
   post_channels:
   - {id: 482760247933403136, label: 🌙  Group, name: 🌙___group}
   - {id: 482760413436444672, label: 🐰  Heejin, name: 🐰___heejin}
