@@ -43,18 +43,16 @@ class GoogleTopicHandler:
         form_id: str,
         watch_id: str,
         broadcast_channel_id: int | str,
-        client: discord.Client,
-        client_loop: asyncio.AbstractEventLoop,
     ):
         """A method used to handle the errors thrown when the `on_form_watch_error` is called."""
-        broadcast_channel = await client.fetch_channel(int(broadcast_channel_id))
+        broadcast_channel = await self.client.fetch_channel(int(broadcast_channel_id))
 
         # Send using `run_coroutine_threadsafe` because it must be sent in the client loop instead of whatever thread it is running in
         asyncio.run_coroutine_threadsafe(
             broadcast_channel.send(
                 content=f"Failed to retrieve form response with form ID of `{form_id}` and watch ID of `{watch_id}`. Please check with the developer or check the permissions of the Google Form or Google Sheets."
             ),
-            client_loop,
+            self.client_loop,
         )
 
     def form_watch_callback(self, form_id: str, watch_id: str):
@@ -106,9 +104,8 @@ class GoogleTopicHandler:
                     form_id=form_id,
                     watch_id=watch_id,
                     broadcast_channel_id=GoogleCloudConfig().form_channel_id,
-                    client=self.client,
-                    client_loop=self.client_loop,
-                )
+                ),
+                self.client_loop
             )
 
     def form_schema_callback(self, form_id: str, watch_id: str):
@@ -187,7 +184,6 @@ class GoogleTopicListenerThread(threading.Thread):
                 - The response of the Google Topic.
         """
         message.ack()
-        print("Message >>> ", message)
         GoogleTopicHandler(message=message, client=self.client, client_loop=self.client_loop).execute()
 
     def run(self):
