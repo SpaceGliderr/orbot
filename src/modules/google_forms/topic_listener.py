@@ -64,49 +64,48 @@ class GoogleTopicHandler:
             * watch_id: :class:`str`
             * event_type: :class:`Literal["RESPONSES", "SCHEMA"]`
         """
-        # Obtain the form schema
-        form_schema = get_from_dict(GoogleCloudConfig().active_form_schemas, [form_id])
+        _, watch = GoogleCloudConfig().search_active_form_watch(
+            form_id=form_id, watch_id=watch_id, event_type="RESPONSES"
+        )
 
-        if not form_schema:  # If no form schema was saved prior, try retrieving the form schema
-            form_details = self.form_service.get_form_details(form_id=form_id)
+        if watch:
+            form_schema = get_from_dict(GoogleCloudConfig().active_form_schemas, [form_id])
 
-            if form_details:
-                form_schema = GoogleFormsHelper.generate_schema(response=form_details)
-                GoogleCloudConfig().upsert_form_schema(form_id=form_id, schema=form_schema)
-            else:
-                raise Exception("Failed to retrieve schema")
+            if not form_schema:  # If no form schema was saved prior, try retrieving the form schema
+                form_details = self.form_service.get_form_details(form_id=form_id)
 
-        # Obtain the latest response for the form
-        try:
-            latest_response = self.form_service.get_latest_form_response(
-                form_id=form_id, sheet_id=get_from_dict(form_schema, ["linked_sheet_id"])
-            )
+                if form_details:
+                    form_schema = GoogleFormsHelper.generate_schema(response=form_details)
+                    GoogleCloudConfig().upsert_form_schema(form_id=form_id, schema=form_schema)
+                else:
+                    raise Exception("Failed to retrieve schema")
 
-            # Obtain the form watch details
-            _, watch = GoogleCloudConfig().search_active_form_watch(
-                form_id=form_id, watch_id=watch_id, event_type="RESPONSES"
-            )
+            # Obtain the latest response for the form
+            try:
+                latest_response = self.form_service.get_latest_form_response(
+                    form_id=form_id, sheet_id=get_from_dict(form_schema, ["linked_sheet_id"])
+                )
 
-            # Broadcast the notification to the Discord channel
-            asyncio.run_coroutine_threadsafe(
-                GoogleFormsHelper.broadcast_form_response_to_channel(
-                    form_id=form_id,
-                    form_response=latest_response,
-                    broadcast_channel_id=watch["broadcast_channel_id"],
-                    client=self.client,
-                    client_loop=self.client_loop,
-                ),
-                self.client_loop,
-            )
-        except:
-            asyncio.run_coroutine_threadsafe(
-                self.on_form_watch_error(
-                    form_id=form_id,
-                    watch_id=watch_id,
-                    broadcast_channel_id=GoogleCloudConfig().form_channel_id,
-                ),
-                self.client_loop
-            )
+                # Broadcast the notification to the Discord channel
+                asyncio.run_coroutine_threadsafe(
+                    GoogleFormsHelper.broadcast_form_response_to_channel(
+                        form_id=form_id,
+                        form_response=latest_response,
+                        broadcast_channel_id=watch["broadcast_channel_id"],
+                        client=self.client,
+                        client_loop=self.client_loop,
+                    ),
+                    self.client_loop,
+                )
+            except:
+                asyncio.run_coroutine_threadsafe(
+                    self.on_form_watch_error(
+                        form_id=form_id,
+                        watch_id=watch_id,
+                        broadcast_channel_id=GoogleCloudConfig().form_channel_id,
+                    ),
+                    self.client_loop
+                )
 
     def form_schema_callback(self, form_id: str, watch_id: str):
         """A callback method that handles the form schema response from the subscribed Google Topic. Sends a notification to the broadcast channel based on the received form schema response.
@@ -116,25 +115,26 @@ class GoogleTopicHandler:
             * form_id: :class:`str`
             * watch_id: :class:`str`
         """
-        form_details = self.form_service.get_form_details(form_id=form_id)
-        if not form_details:
-            raise Exception("Failed to retrieve form details")
-
-        schema = GoogleFormsHelper.generate_schema(response=form_details)
-        GoogleCloudConfig().upsert_form_schema(form_id=form_id, schema=schema)
-
         _, watch = GoogleCloudConfig().search_active_form_watch(form_id=form_id, watch_id=watch_id, event_type="SCHEMA")
 
-        asyncio.run_coroutine_threadsafe(
-            GoogleFormsHelper.broadcast_form_schema_to_channel(
-                form_id=form_id,
-                form_schema=schema,
-                broadcast_channel_id=watch["broadcast_channel_id"],
-                client=self.client,
-                client_loop=self.client_loop,
-            ),
-            self.client_loop,
-        )
+        if watch:
+            form_details = self.form_service.get_form_details(form_id=form_id)
+            if not form_details:
+                raise Exception("Failed to retrieve form details")
+
+            schema = GoogleFormsHelper.generate_schema(response=form_details)
+            GoogleCloudConfig().upsert_form_schema(form_id=form_id, schema=schema)
+
+            asyncio.run_coroutine_threadsafe(
+                GoogleFormsHelper.broadcast_form_schema_to_channel(
+                    form_id=form_id,
+                    form_schema=schema,
+                    broadcast_channel_id=watch["broadcast_channel_id"],
+                    client=self.client,
+                    client_loop=self.client_loop,
+                ),
+                self.client_loop,
+            )
 
     def execute(self):
         """A method that extracts relevant information from the Google Topic response and triggers the `form_watch_callback` method."""

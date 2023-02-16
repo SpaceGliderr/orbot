@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import os
 from typing import List, Literal, Optional
 
 import discord
@@ -8,6 +7,7 @@ from dateutil import parser
 from discord import Permissions, app_commands
 from discord.ext import commands, tasks
 from google.oauth2 import credentials as oauth2_credentials
+from src.orbot import MY_GUILD
 
 from src.cogs.google_forms.ui.view import (
     FormSchemaInfoEmbed,
@@ -715,7 +715,7 @@ class GoogleForms(commands.GroupCog, name="google"):
     # ROUTINE TASK FUNCTIONS
     # =================================================================================================================
     # Routine task documentation https://discordpy.readthedocs.io/en/latest/ext/tasks/
-    @tasks.loop(time=datetime.time(hour=18, minute=9, tzinfo=datetime.timezone(offset=datetime.timedelta(hours=8))))
+    @tasks.loop(time=datetime.time(hour=12, minute=0, tzinfo=datetime.timezone(offset=datetime.timedelta(hours=8))))
     async def renew_watches_task(self):
         """A routine task that runs every 24 hours at 12 p.m. GMT+8.
         It checks the `google_cloud.yaml` file for watches that are about to expire on the day and renew them."""
@@ -739,7 +739,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         if len(renewable_watches_with_idx) > 0:
             # To renew a form watch and not have the watch become SUSPENDED, we need to use an OAuth2 credential
             # The only way to do this is to ping the developer, a.k.a me, and login with my Google account
-            guild = await self.bot.fetch_guild(864118528134742026)
+            guild = await self.bot.fetch_guild(MY_GUILD)
             channel = await guild.fetch_channel(gc_conf.form_channel_id)
 
             view = View().add_item(Button(label="Renew", style=discord.ButtonStyle.green, emoji="🔄", stop_view=True))
@@ -783,7 +783,7 @@ class GoogleForms(commands.GroupCog, name="google"):
                 form_watches=expired_watches_with_idx
             )  # Remove all expired form watches
 
-            guild = await self.bot.fetch_guild(864118528134742026)
+            guild = await self.bot.fetch_guild(MY_GUILD)
             channel = await guild.fetch_channel(gc_conf.form_channel_id)
 
             # Generate the embeds for the expired watches
