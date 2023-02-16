@@ -7,6 +7,25 @@ from src.modules.ui.common import Button, View
 from src.utils.helper import send_or_edit_interaction_message
 
 
+class ChannelEventsEmbed(discord.Embed):
+    @classmethod
+    async def init(
+        cls, thread_events: List[tuple], get_emojis_from_string: Awaitable, guild: discord.Guild, *args, **kwargs
+    ):
+
+        embed = cls(title="", description="", *args, **kwargs)
+
+        for channel_id, thread_event in thread_events:
+            react_emojis = await get_emojis_from_string(string=thread_event["react_emojis"], guild=guild)
+
+            embed.add_field(
+                name=f"<#{channel_id}>",
+                value=f"**Reactions:** {', '.join([str(react_emoji) for react_emoji in react_emojis])}\n**Ordered:** {'Yes' if thread_event['ordered'] else 'No'}",
+            )
+
+        return embed
+
+
 class ReactEmojiEmbed(discord.Embed):
     """Creates an embed that renders the Discord emojis by inheriting the `discord.Embed` class.
 

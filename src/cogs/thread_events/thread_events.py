@@ -1,6 +1,6 @@
 import asyncio
 import re
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 import discord
 import emoji
@@ -9,9 +9,11 @@ from discord.ext import commands
 
 from src.cogs.thread_events.view import (
     ChannelEventDetailsEmbed,
+    ChannelEventsEmbed,
     EditChannelEventDetailsView,
     ReplaceReactEmojiView,
 )
+from src.modules.ui.custom import PaginatedEmbedsView
 from src.utils.config import ThreadEventsConfig
 from src.utils.helper import send_or_edit_interaction_message
 
@@ -326,6 +328,76 @@ class ThreadEvents(commands.GroupCog, name="thread-event"):
             await interaction.response.send_message(
                 content="Failed to delete thread event. Thread event does not exist.", ephemeral=True
             )
+
+    @app_commands.command(
+        name="view-thread-reaction-event",
+        description="View thread or forum post events.",
+    )
+    @app_commands.guild_only()
+    @app_commands.choices(
+        event=[
+            app_commands.Choice(
+                name="when a thread or forum post is created",
+                value="on_thread_create",
+            ),
+            app_commands.Choice(name="when a thread or forum post is updated", value="on_thread_update"),
+        ],
+    )
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def view_thread_reaction_events(
+        self,
+        interaction: discord.Interaction,
+        event: Optional[app_commands.Choice[str]] = None,
+        channel: Optional[Union[discord.Thread, discord.ForumChannel]] = None,
+    ):
+        te_conf = ThreadEventsConfig()
+
+        if not channel and not event:
+            return await interaction.response.send_message(
+                content="Please filter by either an event or channel.", ephemeral=True
+            )
+
+        if channel and event:
+            thread_event = te_conf.get_thread_event(event=event.value, channel_id=channel.id)
+            react_emojis = await self.get_emojis_from_string(
+                string=thread_event["react_emojis"], guild=interaction.guild
+            )
+            return await interaction.response.send_message(
+                embed=ChannelEventDetailsEmbed(
+                    interaction=interaction, react_emojis=react_emojis, ordered=thread_event["ordered"]
+                )
+            )
+        elif channel and not event:
+            thread_events = []
+
+            on_create_thread = te_conf.get_thread_event(event="on_thread_create", channel_id=channel.id)
+            on_update_thread = te_conf.get_thread_event(event="on_thread_update", channel_id=channel.id)
+
+            if on_create_thread:
+                thread_events.append((channel.id, on_create_thread))
+
+            if on_update_thread:
+                thread_events.append((channel.id, on_update_thread))
+        else:
+            thread_events = list(te_conf.events[event.value].items())
+
+        if len(thread_events) == 0:
+            return await interaction.response.send_message(content="No thread events found.", ephemeral=True)
+
+        embeds = [
+            await ChannelEventsEmbed.init(
+                thread_events=thread_events[idx : idx + 25],
+                get_emojis_from_string=self.get_emojis_from_string,
+                guild=interaction.guild,
+            )
+            for idx in range(1, len(thread_events), 25)
+        ]
+
+        paginated_embed_view = PaginatedEmbedsView(embeds=embeds, timeout=180)
+
+        await interaction.response.send_message(embed=embeds[0], view=paginated_embed_view if len(embeds) > 1 else None)
+        await paginated_embed_view.wait()
+        await interaction.edit_original_response(view=None)
 
     # =================================================================================================================
     # EVENT LISTENERS
