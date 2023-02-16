@@ -739,7 +739,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         if len(renewable_watches_with_idx) > 0:
             # To renew a form watch and not have the watch become SUSPENDED, we need to use an OAuth2 credential
             # The only way to do this is to ping the developer, a.k.a me, and login with my Google account
-            guild = await self.bot.fetch_guild(MY_GUILD)
+            guild = await self.bot.fetch_guild(MY_GUILD.id)
             channel = await guild.fetch_channel(gc_conf.form_channel_id)
 
             view = View().add_item(Button(label="Renew", style=discord.ButtonStyle.green, emoji="🔄", stop_view=True))
@@ -783,7 +783,7 @@ class GoogleForms(commands.GroupCog, name="google"):
                 form_watches=expired_watches_with_idx
             )  # Remove all expired form watches
 
-            guild = await self.bot.fetch_guild(MY_GUILD)
+            guild = await self.bot.fetch_guild(MY_GUILD.id)
             channel = await guild.fetch_channel(gc_conf.form_channel_id)
 
             # Generate the embeds for the expired watches
