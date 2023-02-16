@@ -203,4 +203,8 @@ class GoogleFormsService:
 
         # Use Google Forms API to get the latest response
         form_responses = self.forms_service.forms().responses().list(formId=form_id).execute()
-        return form_responses["responses"][0] if len(form_responses) > 0 else None
+        return (
+            max(form_responses["responses"], key=lambda response: response["lastSubmittedTime"])
+            if len(form_responses) > 0
+            else None
+        )
