@@ -1,7 +1,8 @@
 import io
 import zipfile
+from dataclasses import _MISSING_TYPE, MISSING
 from functools import reduce
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import aiohttp
 import discord
@@ -73,3 +74,101 @@ async def convert_files_to_zip(files: List[discord.File], filename: Optional[str
     zip_buffer.seek(0)
     filename = f"{filename}.zip" if filename is not None else "images.zip"
     return discord.File(zip_buffer, filename)
+
+
+async def send_or_edit_interaction_message(
+    interaction: discord.Interaction,
+    edit_original_response: Optional[bool] = False,
+    content: Optional[str] = None,
+    embed: Optional[discord.Embed] = MISSING,
+    embeds: Optional[List[discord.Embed]] = MISSING,
+    file: Optional[discord.File] = MISSING,
+    files: Optional[List[discord.File]] = MISSING,
+    tts: Optional[bool] = False,
+    view: Optional[discord.ui.View] = MISSING,
+    ephemeral: Optional[bool] = False,
+    allowed_mentions: Optional[discord.AllowedMentions] = None,
+    suppress_embeds: Optional[bool] = False,
+    delete_after: Optional[float] = None,
+    attachments: Optional[Sequence[discord.Attachment | discord.File]] = MISSING,
+):
+    """Sends or edits a message for a `discord.Interaction` object.
+
+    Additional Parameters
+    ----------
+        * interaction: :class:`discord.Interaction`
+        * edit_original_response: Optional[:class:`bool`] | False
+            - The list of files to compress into a ZIP file.
+    """
+    # Get the keyword arguments
+    # - Need to get the keywords this way because certain attributes do not allow `None` type if it was not set prior
+    kwargs = {}
+
+    if not isinstance(view, _MISSING_TYPE):
+        kwargs["view"] = view
+
+    if not isinstance(embed, _MISSING_TYPE):
+        kwargs["embed"] = embed
+
+    if not isinstance(embeds, _MISSING_TYPE):
+        kwargs["embeds"] = embeds
+
+    # Need to check whether interaction response was not responded to before and not to be edited
+    # - `file` and `files` only work in new interaction messages and followup messages
+    if not isinstance(file, _MISSING_TYPE) and (not interaction.response.is_done() or not edit_original_response):
+        kwargs["file"] = file
+
+    if not isinstance(files, _MISSING_TYPE) and (not interaction.response.is_done() or not edit_original_response):
+        kwargs["files"] = files
+
+    # `attachments` attribute only works when interaction is responded to before and to be edited
+    if not isinstance(attachments, _MISSING_TYPE) and interaction.response.is_done() and edit_original_response:
+        kwargs["attachments"] = attachments
+
+    try:
+        if not interaction.response.is_done():  # Send a new message using the interaction
+            await interaction.response.send_message(
+                content=content,
+                tts=tts,
+                ephemeral=ephemeral,
+                allowed_mentions=allowed_mentions,
+                suppress_embeds=suppress_embeds,
+                delete_after=delete_after,
+                **kwargs,
+            )
+            return await interaction.original_response()
+        elif edit_original_response:
+            try:  # Edit the original response of the interaction
+                await interaction.edit_original_response(content=content, allowed_mentions=allowed_mentions, **kwargs)
+                return await interaction.original_response()
+            except discord.errors.NotFound:  # If it doesn't work, it means that the message was deleted, so send a followup message instead
+                return await interaction.followup.send(
+                    content=content,
+                    wait=True,
+                    tts=tts,
+                    ephemeral=ephemeral,
+                    allowed_mentions=allowed_mentions,
+                    suppress_embeds=suppress_embeds,
+                    **kwargs,
+                )
+        else:
+            # Send followup message
+            return await interaction.followup.send(
+                content=content,
+                wait=True,
+                tts=tts,
+                ephemeral=ephemeral,
+                allowed_mentions=allowed_mentions,
+                suppress_embeds=suppress_embeds,
+                **kwargs,
+            )
+    except Exception:  # To handle any errors that occurs
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                content="Error occurred while sending a message.", ephemeral=True, delete_after=10
+            )
+            return await interaction.original_response()
+        else:
+            return await interaction.followup.send(
+                content="Error occurred while sending a message.", wait=True, ephemeral=True
+            )

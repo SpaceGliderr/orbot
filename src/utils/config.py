@@ -1,5 +1,5 @@
 import re
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Literal, Optional, Tuple
 
 import discord
 from ruamel.yaml import YAML
@@ -285,3 +285,244 @@ class ContentPosterConfig:
         """Dump data into the `content_poster.yaml` file."""
         with open("src/data/content_poster.yaml", "w") as content_poster_file:
             yaml.dump(data, content_poster_file)
+
+
+class GoogleCloudConfig:
+    """The GoogleCloudConfig class helps load the `google_cloud.yaml` file and provides other util methods to manipulate the extracted data."""
+
+    def __init__(self) -> None:
+        with open("src/data/google_cloud.yaml", "r") as google_cloud_file:
+            self._data = yaml.load(google_cloud_file)
+
+    @property
+    def active_form_watches(self) -> dict | None:
+        """Get the list of active form watches."""
+        return get_from_dict(self._data, ["active_form_watches"])
+
+    @property
+    def active_form_schemas(self) -> dict | None:
+        """Get the list of active form schemas."""
+        return get_from_dict(self._data, ["active_form_schemas"])
+
+    @property
+    def form_channel_id(self):
+        """Get the default broadcast channel ID."""
+        return get_from_dict(self._data, ["form_channel_id"])
+
+    @property
+    def topics(self):
+        """Get the list of Google Topic subscription paths."""
+        return get_from_dict(self._data, ["topics"])
+
+    def get_data(self):
+        """Get a copied version of the extracted data."""
+        return self._data.copy()
+
+    def get_question_details(self, question_id: str, form_id: str):
+        """Get the question title based on the question ID and form ID."""
+        form_schema = get_from_dict(self.active_form_schemas, [form_id])
+        if form_schema:
+            return get_from_dict(form_schema["questions"], [question_id])
+        return None
+
+    def search_active_form_watch(
+        self,
+        form_id: str,
+        watch_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        topic_name: Optional[str] = None,
+    ):
+        """Search the `google_cloud.yaml` file for an active form watch."""
+        result = get_from_dict(self.active_form_watches, [form_id])
+
+        def is_valid(watch: dict):
+            if watch["form_id"] != form_id:
+                return False
+            if watch_id and not watch["watch_id"] == watch_id:
+                return False
+            if event_type and not watch["event_type"] == event_type:
+                return False
+            if topic_name and not watch["topic_name"] == topic_name:
+                return False
+            # TODO: Double check the expiry date with the current date
+            return True
+
+        if result:
+            result = next(
+                ((idx, watch) for idx, watch in enumerate(result) if is_valid(watch)),
+                (None, None),
+            )
+        else:
+            result = (None, None)
+        return result
+
+    def search_active_form_watches(self, form_id: str):
+        """Search the `google_cloud.yaml` file for all form watches under a specific form ID."""
+        return get_from_dict(self.active_form_watches, [form_id])
+
+    def insert_new_form_watch(self, result: dict, form_id: str, channel_id: str):
+        """Insert a new form watch object into the `google_cloud.yaml` file."""
+        data = self.get_data()
+        new_form = {
+            "form_id": form_id,
+            "watch_id": result["id"],
+            "event_type": result["eventType"],
+            "topic_name": get_from_dict(result, ["target", "topic", "topicName"]),
+            "expire_time": result["expireTime"],
+            "broadcast_channel_id": channel_id,
+        }
+
+        if self.search_active_form_watches(form_id=form_id):
+            data["active_form_watches"][form_id].append(new_form)
+        else:
+            data["active_form_watches"][form_id] = [new_form]
+
+        self.dump(data)
+
+    def update_form_watch(self, form_id: str, channel_id: str, event_type: Optional[str] = None):
+        """Update a form watch object in the `google_cloud.yaml` file."""
+        idx, watch = self.search_active_form_watch(form_id=form_id, event_type=event_type)
+
+        data = self.get_data()
+        data["active_form_watches"][form_id][idx] = {**watch, "broadcast_channel_id": channel_id}
+
+        self.dump(data)
+
+    def delete_form_watch(
+        self,
+        form_id: str,
+        watch_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        topic_name: Optional[str] = None,
+    ):
+        """Delete a form watch object in the `google_cloud.yaml` file based on form ID, watch ID, event type and topic name."""
+        delete_idx, _ = self.search_active_form_watch(
+            form_id=form_id, watch_id=watch_id, event_type=event_type, topic_name=topic_name
+        )
+
+        if delete_idx is not None:
+            data = self.get_data()
+            del data["active_form_watches"][form_id][delete_idx]
+
+            if len(data["active_form_watches"][form_id]) == 0:
+                del data["active_form_watches"][form_id]
+
+            self.dump(data=data)
+
+        return delete_idx == None
+
+    def delete_form_watches_with_index(self, form_watches: List[Tuple[int, dict]]):
+        """Delete a form watch object in the `google_cloud.yaml` file based on the index under a specific form ID."""
+        data = self.get_data()
+
+        for idx, watch in form_watches:
+            del data["active_form_watches"][watch["form_id"]][idx]
+
+            if len(data["active_form_watches"][watch["form_id"]]) == 0:
+                del data["active_form_watches"][watch["form_id"]]
+
+        self.dump(data=data)
+
+    def upsert_form_schema(self, form_id: str, schema: dict):
+        """Insert or update a form schema object in the `google_cloud.yaml` file."""
+        data = self.get_data()
+        data["active_form_schemas"][form_id] = schema
+        self.dump(data)
+
+    def delete_form_schema(self, form_id: str):
+        """Delete a form schema object in the `google_cloud.yaml` file."""
+        if get_from_dict(self.active_form_schemas, [form_id]):
+            data = self.get_data()
+            del data["active_form_schemas"][form_id]
+            self.dump(data)
+            return True
+        return False
+
+    def subscribe_topic(self, topic_name: str):
+        """Subscribe to a Google topic path in the `google_cloud.yaml` file."""
+        if topic_name not in self.topics:
+            data = self.get_data()
+            data["topics"].append(topic_name)
+            self.dump(data)
+            return True
+        return False
+
+    def unsubscribe_topic(self, topic_name: str):
+        """Unsubscribe from a Google topic path in the `google_cloud.yaml` file."""
+        if topic_name in self.topics:
+            data = self.get_data()
+            data["topics"].remove(topic_name)
+            self.dump(data)
+            return True
+        return False
+
+    def manage_channel(self, action: Literal["upsert", "delete"], channel: Optional[discord.TextChannel]):
+        """Insert, update or delete the default broadcast channel."""
+        data = self.get_data()
+        data["form_channel_id"] = None if action == "delete" else channel.id if channel else self.form_channel_id
+        self.dump(data)
+
+    def dump(self, data):
+        """Dump data into the `google_cloud.yaml` file."""
+        with open("src/data/google_cloud.yaml", "w") as google_cloud_file:
+            yaml.dump(data, google_cloud_file)
+
+
+class ThreadEventsConfig:
+    """The ThreadEventsConfig class helps load the `thread_events.yaml` file and provides other util methods to manipulate the extracted data."""
+
+    def __init__(self) -> None:
+        with open("src/data/thread_events.yaml", "r") as forum_events_file:
+            self._data = yaml.load(forum_events_file)
+
+    @property
+    def events(self):
+        """Get the list of thread events."""
+        return get_from_dict(self._data, ["events"])
+
+    def get_data(self):
+        """Get a copied version of the extracted data."""
+        return self._data.copy()
+
+    def get_thread_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
+        """Get a specific thread event based on the provided event and channel ID."""
+        event = get_from_dict(self._data, ["events", event])
+        channel = get_from_dict(event, [channel_id])
+        return channel if channel else None
+
+    def upsert_thread_event(
+        self,
+        event: Literal["on_thread_create", "on_thread_update"],
+        channel_id: int,
+        ordered: bool,
+        react_emojis: List[int | str],
+        replace_reactions: bool,
+    ):
+        """Insert or update a thread event object in the `google_cloud.yaml` file."""
+        data = self.get_data()
+
+        thread_event = get_from_dict(data, ["events", event, channel_id])
+
+        if thread_event:
+            if replace_reactions:
+                thread_event["react_emojis"] = react_emojis
+            else:
+                thread_event["react_emojis"] = list(set(thread_event["react_emojis"]).union(set(react_emojis)))
+        else:
+            data["events"][event][channel_id] = {"ordered": ordered, "react_emojis": react_emojis}
+        self.dump(data)
+
+    def delete_thread_event(self, event: Literal["on_thread_create", "on_thread_update"], channel_id: int):
+        """Delete a thread event object from the `google_cloud.yaml` file."""
+        try:
+            data = self.get_data()
+            del data["events"][event][channel_id]
+            self.dump(data=data)
+            return True
+        except:
+            return False
+
+    def dump(self, data):
+        """Dump data into the `thread_events.yaml` file."""
+        with open("src/data/thread_events.yaml", "w") as forum_events_file:
+            yaml.dump(data, forum_events_file)

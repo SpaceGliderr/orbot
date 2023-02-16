@@ -58,3 +58,22 @@ class PaginatedEmbedsView(View):
     async def lock(self, interaction: discord.Interaction, *_):
         self.stop()
         await interaction.response.edit_message(view=None)
+
+
+class ConfirmationView(View):
+    """Creates a view with a yes and no button by inheriting the `View` class."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.is_confirmed = False
+
+    @discord.ui.button(label="Yes", style=discord.ButtonStyle.green, emoji="⬅️")
+    async def yes(self, interaction: discord.Interaction, *_):
+        await interaction.response.defer()
+        self.is_confirmed = True
+        self.stop()
+
+    @discord.ui.button(label="No", style=discord.ButtonStyle.red, emoji="➡️")
+    async def no(self, interaction: discord.Interaction, *_):
+        await interaction.response.defer()
+        self.stop()
