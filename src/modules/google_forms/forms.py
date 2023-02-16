@@ -3,6 +3,7 @@ from typing import List, Optional, Union
 
 import discord
 
+from src.cogs.google_forms.ui.view import FormSchemaInfoEmbed, FormSchemaQuestionsEmbed
 from src.modules.ui.custom import PaginatedEmbedsView
 from src.utils.config import GoogleCloudConfig
 from src.utils.helper import get_from_dict
@@ -36,6 +37,53 @@ class GoogleFormsHelper:
             schema["questions"][question_id] = {"id": question_id, "title": question["title"]}
 
         return schema
+
+    @staticmethod
+    async def broadcast_form_schema_to_channel(
+        form_id: str,
+        form_schema: dict,
+        broadcast_channel_id: int | str,
+        client: discord.Client,
+        client_loop: asyncio.AbstractEventLoop,
+    ):
+        """A method to send the generated form schema embeds to a given Discord channel.
+
+        Parameters
+        ----------
+            * form_id: :class:`str`
+                - The Google Form ID.
+            * form_schema: :class:`dict`
+                - The form schema object.
+            * broadcast_channel_id: :class:`int` | :class:`str`
+                - The Discord channel ID to send the embeds to.
+            * client: :class:`discord.Client`
+                - The client instance that will be used to send messages.
+            * client_loop: :class:`asyncio.AbstractEventLoop`
+                - The main running event loop.
+        """
+        broadcast_channel = await client.fetch_channel(int(broadcast_channel_id))
+
+        questions = list(get_from_dict(form_schema, ["questions"]).values())
+
+        embeds = [
+            FormSchemaInfoEmbed(form_schema=form_schema, form_id=form_id),
+            *[
+                FormSchemaQuestionsEmbed(
+                    form_title=form_schema["info"]["title"], form_id=form_id, questions=questions[idx : idx + 25]
+                )
+                for idx in range(0, len(questions), 25)
+            ],
+        ]
+
+        # Send using `run_coroutine_threadsafe` because it must be sent in the client loop instead of whatever thread it is running in
+        asyncio.run_coroutine_threadsafe(
+            broadcast_channel.send(
+                content="⚠️ A form's content was updated!\n",
+                embed=embeds[0],
+                view=PaginatedEmbedsView(embeds=embeds) if len(embeds) > 1 else None,
+            ),
+            client_loop,
+        )
 
     # =================================================================================================================
     # FORM RESPONSE METHODS
@@ -156,9 +204,9 @@ class GoogleFormsHelper:
 
         # Send using `run_coroutine_threadsafe` because it must be sent in the client loop instead of whatever thread it is running in
         asyncio.run_coroutine_threadsafe(
-            broadcast_channel.send(
-                embed=embeds[0], view=PaginatedEmbedsView(embeds=embeds) if len(embeds) > 1 else None
-            ),
+            broadcast_channel.send(embed=embeds[0], view=PaginatedEmbedsView(embeds=embeds))
+            if len(embeds) > 1
+            else None,
             client_loop,
         )
 

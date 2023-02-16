@@ -1,10 +1,62 @@
 import asyncio
-from typing import Awaitable, List, Optional, Union
+from typing import Awaitable, List, Literal, Optional, Union
 
 import discord
 
 from src.modules.ui.common import Button, View
 from src.utils.helper import send_or_edit_interaction_message
+
+
+class ChannelEventsEmbed(discord.Embed):
+    """Creates an embed that renders a list of thread event details under a thread event by inheriting the `discord.Embed` class.
+
+    Parameters
+    ----------
+        * thread_events: List[:class:`tuple`]
+            - The thread events to render in the embed fields.
+        * guild: :class:`discord.Guild`
+        * event_types: List[:class:str]
+            - The event types of the thread events (only applicable if the channel is selected as a filter).
+        * channel_id: Optional[:class:int] | None
+            - Used to generate the embed description.
+        * event_type: Optional[:class:`Literal["on_thread_create", "on_thread_update"]`] | None
+            - Used to generate the embed description.
+    """
+
+    @classmethod
+    async def init(
+        cls,
+        thread_events: List[tuple],
+        guild: discord.Guild,
+        event_types: List[str],
+        channel_id: Optional[int] = None,
+        event_type: Optional[Literal["on_thread_create", "on_thread_update"]] = None,
+        *args,
+        **kwargs,
+    ):
+        embed = cls(
+            title="List of Thread Events",
+            description="{channel_id}{newline}{event_type}".format(
+                channel_id=f"**Channel:** <#{channel_id}>" if channel_id else "",
+                newline="\n" if channel_id and event_type else "",
+                event_type=f"**Event Type:** `{event_type}`" if event_type else "",
+            )
+            if channel_id or event_type
+            else "Shows all the thread events for the server.",
+            *args,
+            **kwargs,
+        )
+
+        for idx, (thread_event_channel_id, thread_event) in enumerate(thread_events):
+            react_emojis = [await guild.fetch_emoji(emoji) if isinstance(emoji, int) else emoji for emoji in thread_event["react_emojis"]]
+
+            embed.add_field(
+                name=f"`{event_types[idx]}`" if channel_id else f"<#{thread_event_channel_id}>",
+                value=f"**Reactions:** {', '.join([str(react_emoji) for react_emoji in react_emojis])}\n**Ordered:** {'Yes' if thread_event['ordered'] else 'No'}",
+                inline=False
+            )
+
+        return embed
 
 
 class ReactEmojiEmbed(discord.Embed):

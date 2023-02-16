@@ -3,7 +3,7 @@ from google.oauth2 import service_account
 from google_auth_oauthlib import flow
 from ruamel.yaml import YAML
 
-from src.cogs.google_forms.ui.views import AuthenticationLinkView
+from src.cogs.google_forms.ui.view import AuthenticationLinkView
 from src.utils.helper import send_or_edit_interaction_message
 
 yaml = YAML(typ="safe")
@@ -15,15 +15,10 @@ class GoogleCredentialsHelper:
     # =================================================================================================================
     # STATIC VARIABLES
     # =================================================================================================================
-    SERVICE_ACCOUNT_SCOPES = [
+    CREDENTIAL_SCOPES = [
         "https://www.googleapis.com/auth/forms.body",  # Used for accessing the Google Form
         "https://www.googleapis.com/auth/drive",  # Used for accessing Google Sheets of the responses
         "https://www.googleapis.com/auth/cloud-platform",  # Used for GCP and PubSub features
-        "https://www.googleapis.com/auth/pubsub",
-    ]
-    OAUTH2_CLIENT_ID_SCOPES = [
-        "https://www.googleapis.com/auth/forms.body",
-        "https://www.googleapis.com/auth/cloud-platform",
         "https://www.googleapis.com/auth/pubsub",
     ]
     SUBSCRIBER_AUDIENCE = "https://pubsub.googleapis.com/google.pubsub.v1.Subscriber"  # Subscriber audience required for service account to subscribe to topic
@@ -46,7 +41,7 @@ class GoogleCredentialsHelper:
         ):  # Check whether the static variable for the service account credential exists or not
             GoogleCredentialsHelper.SERVICE_ACCOUNT_CRED = service_account.Credentials.from_service_account_file(
                 "service-account-info.json",
-                scopes=GoogleCredentialsHelper.SERVICE_ACCOUNT_SCOPES,
+                scopes=GoogleCredentialsHelper.CREDENTIAL_SCOPES,
                 additional_claims={"audience": GoogleCredentialsHelper.SUBSCRIBER_AUDIENCE},
             )
 
@@ -68,7 +63,7 @@ class GoogleCredentialsHelper:
         """A static method that obtains the authorization URL to authenticate a Google account. Obtains Step (1) and (2) of the authentication flow."""
         auth_flow = flow.Flow.from_client_secrets_file(
             "oauth2-client-id.json",
-            scopes=GoogleCredentialsHelper.OAUTH2_CLIENT_ID_SCOPES,
+            scopes=GoogleCredentialsHelper.CREDENTIAL_SCOPES,
             redirect_uri="urn:ietf:wg:oauth:2.0:oob",
         )
         auth_url, _ = auth_flow.authorization_url(

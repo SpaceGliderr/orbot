@@ -7,6 +7,13 @@ from src.orbot import client
 
 
 async def send_save_message_dm(interaction: discord.Interaction, message: discord.Message):
+    """A method that sends a `SaveMessageEmbed` to the DMs of the user which triggered the interaction.
+
+    Parameters
+    ----------
+        * interaction: :class:`discord.Interaction`
+        * message: :class:`discord.Message`
+    """
     if not interaction.response.is_done():
         await interaction.response.defer(ephemeral=True)
 
@@ -22,6 +29,7 @@ async def send_save_message_dm(interaction: discord.Interaction, message: discor
 @client.tree.context_menu(name="Save Message")
 @app_commands.guild_only()
 async def save_message(interaction: discord.Interaction, message: discord.Message):
+    """A context menu that saves a user selected message."""
     await send_save_message_dm(interaction=interaction, message=message)
 
 
@@ -33,6 +41,7 @@ class SaveMessage(commands.GroupCog):
     @app_commands.guild_only()
     @app_commands.describe(message_link="the link to the message to save")
     async def save_message(self, interaction: discord.Interaction, message_link: str):
+        """A slash command that saves a user selected message."""
         await interaction.response.defer(ephemeral=True)
 
         # 1. Get guild ID and channel ID from message link
