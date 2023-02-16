@@ -9,7 +9,7 @@ from discord import Permissions, app_commands
 from discord.ext import commands, tasks
 from google.oauth2 import credentials as oauth2_credentials
 
-from src.cogs.google_forms.ui.views import (
+from src.cogs.google_forms.ui.view import (
     FormSchemaInfoEmbed,
     FormSchemaQuestionsEmbed,
     FormWatchDetailsEmbed,
