@@ -71,8 +71,7 @@ class Orbot(commands.Bot):
             await self.load_extension(extension)
 
     async def on_ready(self):
-        # TODO: Uncomment twitter stream initialise after testing topic listeners
-        # self.twitter_stream = await TwitterFeed.init_then_start(client=self)
+        self.twitter_stream = await TwitterFeed.init_then_start(client=self)
         GoogleCredentialsHelper.set_service_acc_cred()
         self.setup_google_topic_listeners()
         logging.info("Orbot is ready")
