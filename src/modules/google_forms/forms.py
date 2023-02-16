@@ -46,6 +46,21 @@ class GoogleFormsHelper:
         client: discord.Client,
         client_loop: asyncio.AbstractEventLoop,
     ):
+        """A method to send the generated form schema embeds to a given Discord channel.
+
+        Parameters
+        ----------
+            * form_id: :class:`str`
+                - The Google Form ID.
+            * form_schema: :class:`dict`
+                - The form schema object.
+            * broadcast_channel_id: :class:`int` | :class:`str`
+                - The Discord channel ID to send the embeds to.
+            * client: :class:`discord.Client`
+                - The client instance that will be used to send messages.
+            * client_loop: :class:`asyncio.AbstractEventLoop`
+                - The main running event loop.
+        """
         broadcast_channel = await client.fetch_channel(int(broadcast_channel_id))
 
         questions = list(get_from_dict(form_schema, ["questions"]).values())
