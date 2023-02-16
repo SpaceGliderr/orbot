@@ -1,8 +1,7 @@
 import asyncio
 import datetime
-import logging
 import os
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 import discord
 from dateutil import parser
@@ -10,12 +9,19 @@ from discord import Permissions, app_commands
 from discord.ext import commands, tasks
 from google.oauth2 import credentials as oauth2_credentials
 
+from src.cogs.google_forms.ui.views import (
+    FormSchemaInfoEmbed,
+    FormSchemaQuestionsEmbed,
+    FormWatchDetailsEmbed,
+    GoogleTopicStatusEmbed,
+)
 from src.modules.auth.google_credentials import GoogleCredentialsHelper
 from src.modules.google_forms.forms import GoogleFormsHelper
 from src.modules.google_forms.service import GoogleFormsService
+from src.modules.ui.common import Button, View
 from src.modules.ui.custom import ConfirmationView, PaginatedEmbedsView
 from src.utils.config import GoogleCloudConfig
-from src.utils.helper import send_or_edit_interaction_message
+from src.utils.helper import get_from_dict, send_or_edit_interaction_message
 
 
 class GoogleForms(commands.GroupCog, name="google"):
@@ -67,6 +73,16 @@ class GoogleForms(commands.GroupCog, name="google"):
             await interaction.response.send_message("Please ensure a valid form link is entered.", ephemeral=True)
             return None
 
+    async def send_paginated_embed_view(self, interaction: discord.Interaction, embeds: List[discord.Embed]):
+        paginated_embed_view = PaginatedEmbedsView(embeds=embeds)
+
+        if len(embeds) > 1:
+            await interaction.response.send_message(embed=embeds[0], view=paginated_embed_view)
+            await paginated_embed_view.wait()
+            await interaction.edit_original_response(view=None)
+        else:
+            await interaction.response.send_message(embed=embeds[0])
+
     # =================================================================================================================
     # MANAGE FEED FUNCTIONS
     # =================================================================================================================
@@ -100,7 +116,7 @@ class GoogleForms(commands.GroupCog, name="google"):
                 ephemeral=True,
             )
 
-        form_feed = gc_conf.search_active_form_watch(
+        _, form_feed = gc_conf.search_active_form_watch(
             form_id=form_id, event_type=event
         )  # Search for currently active form feeds
 
@@ -137,7 +153,7 @@ class GoogleForms(commands.GroupCog, name="google"):
             # Create form watch using the form service
             form_watch = form_service.create_form_watch(
                 form_id=form_id, event_type=event, topic_name=os.getenv("DEFAULT_FORMS_TOPIC_NAME")
-            )
+            )  # TODO: Make sure to add topic name selection
 
             content = "Failed to create form feed and retrieve form schema."  # Keep track of the return message
 
@@ -182,6 +198,8 @@ class GoogleForms(commands.GroupCog, name="google"):
             * channel: Optional[:class:`discord.TextChannel`]
                 - Broadcast channel for the responses of the listened form event. If `None` is provided, it uses the default broadcast channel set in the `google_cloud.yaml` file. Otherwise, it will not create the form feed.
         """
+        await interaction.response.defer(ephemeral=True)
+
         gc_conf = GoogleCloudConfig()
 
         form_feed = gc_conf.search_active_form_watch(
@@ -189,7 +207,9 @@ class GoogleForms(commands.GroupCog, name="google"):
         )  # Search for currently active form feeds
 
         if not form_feed:
-            return await interaction.response.send_message(
+            return await send_or_edit_interaction_message(
+                interaction=interaction,
+                edit_original_response=True,
                 content="A feed for the form and specific form event does not exist. Please use the `create form` command to create a new feed.",
                 ephemeral=True,
             )
@@ -197,7 +217,9 @@ class GoogleForms(commands.GroupCog, name="google"):
         if (
             not channel and not gc_conf.default_topic
         ):  # Ensure that a default channel exists if there is no `channel` provided
-            return await interaction.response.send_message(
+            return await send_or_edit_interaction_message(
+                interaction=interaction,
+                edit_original_response=True,
                 content="To update feed please provide a Discord channel or set the default channel using the `setup` command.",
                 ephemeral=True,
             )
@@ -211,7 +233,13 @@ class GoogleForms(commands.GroupCog, name="google"):
             )
             confirmation_view = ConfirmationView(timeout=180)
             await asyncio.gather(
-                interaction.response.send_message(embed=confirmation_embed, view=confirmation_view, ephemeral=True),
+                send_or_edit_interaction_message(
+                    interaction=interaction,
+                    edit_original_response=True,
+                    embed=confirmation_embed,
+                    view=confirmation_view,
+                    ephemeral=True,
+                ),
                 confirmation_view.wait(),
             )
 
@@ -256,15 +284,15 @@ class GoogleForms(commands.GroupCog, name="google"):
             _, form_watch = GoogleCloudConfig().search_active_form_watch(form_id=form_id, event_type=event)
 
             if form_watch:
-                GoogleFormsService.init_service_acc().delete_form_watch(form_id=form_id, watch_id=form_watch["watch_id"])
+                GoogleFormsService.init_service_acc().delete_form_watch(
+                    form_id=form_id, watch_id=form_watch["watch_id"]
+                )
                 GoogleCloudConfig().delete_form_watch(form_id=form_id, event_type=event)
                 GoogleCloudConfig().delete_form_schema(form_id=form_id)
                 return await interaction.response.send_message(
                     content="Successfully deleted form feed and form schema.", ephemeral=True
                 )
-            await interaction.response.send_message(
-                content="Could not find the form watch to delete.", ephemeral=True
-            )
+            await interaction.response.send_message(content="Could not find the form watch to delete.", ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(
                 content="Failed to delete form feed and form schema.", ephemeral=True
@@ -327,7 +355,7 @@ class GoogleForms(commands.GroupCog, name="google"):
         name="manage-topics", description="Manage the Google Pub/Sub topic that publishes messages to Discord channels."
     )
     @app_commands.guild_only()
-    @app_commands.rename(topic_name="topic")
+    @app_commands.rename(topic_name="topic_subscription_path")
     @app_commands.describe(
         action="the action to execute", topic_name="the Google Pub/Sub topic to subscribe/unsubscribe to"
     )
@@ -456,6 +484,7 @@ class GoogleForms(commands.GroupCog, name="google"):
                 form_schema = GoogleFormsHelper.generate_schema(
                     response=form_details
                 )  # Generate the schema from the form details
+
                 gc_conf.upsert_form_schema(
                     form_id=form_id, schema=form_schema
                 )  # Upsert the schema into the `google_cloud.yaml` file
@@ -466,27 +495,178 @@ class GoogleForms(commands.GroupCog, name="google"):
                     content="Form schema refresh has failed. Could not find form details.", ephemeral=True
                 )
 
-    async def view_form_watches(self, interaction: discord.Interaction):
-        pass
+    @forms_group.command(name="view-form-watches")
+    @app_commands.guild_only()
+    @app_commands.rename(link="form_link")
+    @app_commands.describe(link="Google Form link to search for (not entering this displays all form watches)")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def view_form_watches(self, interaction: discord.Interaction, link: Optional[str] = None):
+        # Generate embeds based on type of form watch -> RESPONSES or SCHEMA
+        gc_conf = GoogleCloudConfig()
 
-    async def view_topics(self, interaction: discord.Interaction):
-        pass
+        if not gc_conf.active_form_watches or gc_conf.active_form_watches == {}:
+            return await interaction.response.send_message(content="No form watches found.", ephemeral=True)
+
+        if link:
+            form_id = await self.get_form_id_from_link(interaction=interaction, link=link)
+
+            if form_id:
+                form_watches = get_from_dict(gc_conf.active_form_watches, [form_id])
+
+                if form_watches:
+                    return await interaction.response.send_message(
+                        embeds=[
+                            FormWatchDetailsEmbed(
+                                form_watch=form_watch, form_schema=get_from_dict(gc_conf.active_form_schemas, [form_id])
+                            )
+                            for form_watch in form_watches
+                        ]
+                    )
+                else:
+                    return await interaction.response.send_message(content="Could not find form watch.", ephemeral=True)
+            else:
+                return await interaction.response.send_message(
+                    content="Please enter a valid Google Form link.", ephemeral=True
+                )
+        else:
+            await self.send_paginated_embed_view(
+                interaction=interaction,
+                embeds=[
+                    FormWatchDetailsEmbed(
+                        form_watch=form_watch,
+                        form_schema=get_from_dict(gc_conf.active_form_schemas, [form_watch["form_id"]]),
+                    )
+                    for form_watches in list(gc_conf.active_form_watches.values())
+                    for form_watch in form_watches
+                ],
+            )
+
+    @forms_group.command(name="view-form-schema")
+    @app_commands.guild_only()
+    @app_commands.rename(link="form_link")
+    @app_commands.describe(link="Google Form link to search for")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def view_form_schema(self, interaction: discord.Interaction, link: str):
+        form_id = await self.get_form_id_from_link(interaction=interaction, link=link)
+
+        gc_conf = GoogleCloudConfig()
+        form_schema = get_from_dict(gc_conf.active_form_schemas, [form_id])
+
+        if not form_schema:
+            return await interaction.response.send_message(content="No form schema found.", ephemeral=True)
+
+        questions = list(form_schema["questions"].values())
+
+        await self.send_paginated_embed_view(
+            interaction=interaction,
+            embeds=[
+                FormSchemaInfoEmbed(form_schema=form_schema, form_id=form_id),
+                *[
+                    FormSchemaQuestionsEmbed(
+                        form_title=form_schema["info"]["title"], form_id=form_id, questions=questions[idx : idx + 25]
+                    )
+                    for idx in range(0, len(questions), 25)
+                ],
+            ],
+        )
+
+    @forms_group.command(name="view-topics-statuses")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def view_topics_statuses(self, interaction: discord.Interaction):
+        # Generate embeds based on topics, and then include the status of the topic -> active or inactive
+        topic_listeners = list(self.bot.listener.listener_threads.items())
+
+        if len(topic_listeners) == 0:
+            return await interaction.response.send_message(content="No topic listeners active.", ephemeral=True)
+
+        await self.send_paginated_embed_view(
+            interaction=interaction,
+            embeds=[
+                GoogleTopicStatusEmbed(topic_listeners=topic_listeners[idx : idx + 25])
+                for idx in range(0, len(topic_listeners), 25)
+            ],
+        )
+
+    @forms_group.command(name="renew-form-watch")
+    @app_commands.guild_only()
+    @app_commands.rename(link="form_link", event="listen_to")
+    @app_commands.describe(
+        link="**edit link** for the Google Forms",
+        event="form events to be broadcasted to the broadcast channel",
+    )
+    @app_commands.choices(
+        event=[
+            app_commands.Choice(name="new responses being submitted", value="RESPONSES"),
+            app_commands.Choice(name="form schema changes", value="SCHEMA"),
+        ],
+    )
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def renew_form_watch(
+        self,
+        interaction: discord.Interaction,
+        link: str,
+        event: app_commands.Choice[str],
+    ):
+        """A slash command that allows the user to manage the form feeds.
+
+        Parameters
+        ----------
+            * interaction: :class:`discord.Interaction`
+            * action: app_commands.Choice[:class:`str`]
+                - The action to perform on the provided topic.
+            * link: :class:`str`
+                - The editable Google Form link.
+            * event: app_commands.Choice[:class:`str`]
+                - The type of form event to listen to. "RESPONSES" listens for when a new response is received, and "SCHEMA" listens for form schema changes.
+            * channel: Optional[:class:`discord.TextChannel`] | None
+                - The Discord channel to send the notifications to when an event is triggered. If no channel is provided, it will use the default channel set in `google_cloud.yaml`.
+        """
+        form_id = await self.get_form_id_from_link(interaction=interaction, link=link)
+        gc_conf = GoogleCloudConfig()
+
+        if form_id:
+            idx, form_watch = gc_conf.search_active_form_watch(form_id=form_id, event_type=event.value)
+
+            if form_watch:
+                oauth_cred = await GoogleCredentialsHelper.google_oauth_discord_flow(
+                    interaction=interaction
+                )  # Get OAuth credentials
+
+                if isinstance(oauth_cred, oauth2_credentials.Credentials):
+                    data = gc_conf.get_data()
+                    form_service = GoogleFormsService(credentials=oauth_cred)
+                    renewed_watch = form_service.renew_form_watch(form_id=form_id, watch_id=form_watch["watch_id"])
+
+                    if renewed_watch:
+                        data["active_form_watches"][form_id][idx]["expire_time"] = renewed_watch[
+                            "expireTime"
+                        ]  # Update the expiry date for the renewed watch
+                        await send_or_edit_interaction_message(
+                            interaction=interaction, content="Successfully renewed form watch."
+                        )
+                    else:
+                        await send_or_edit_interaction_message(
+                            interaction=interaction, content="Failed to renew form watch."
+                        )
+            else:
+                await send_or_edit_interaction_message(
+                    interaction=interaction, content="Could not find the form watch."
+                )
 
     # =================================================================================================================
     # ROUTINE TASK FUNCTIONS
     # =================================================================================================================
     # Routine task documentation https://discordpy.readthedocs.io/en/latest/ext/tasks/
-    @tasks.loop(time=datetime.time(hour=12, minute=0, tzinfo=datetime.timezone(offset=datetime.timedelta(hours=8))))
+    @tasks.loop(time=datetime.time(hour=18, minute=9, tzinfo=datetime.timezone(offset=datetime.timedelta(hours=8))))
     async def renew_watches_task(self):
         """A routine task that runs every 24 hours at 12 p.m. GMT+8.
         It checks the `google_cloud.yaml` file for watches that are about to expire on the day and renew them."""
-        form_service = GoogleFormsService.init_service_acc()  # Initialize form service on service account credentials
-
         # Get `google_cloud.yaml` data
         gc_conf = GoogleCloudConfig()
-        data = gc_conf.get_data()
 
         expired_watches_with_idx = []  # List of expired watches
+        renewable_watches_with_idx = []
         for watches in gc_conf.active_form_watches.values():
             for idx, watch in enumerate(watches):
                 current_date = datetime.date.today()
@@ -497,16 +677,43 @@ class GoogleForms(commands.GroupCog, name="google"):
                 if delta_days < 0:  # Watch has already expired
                     expired_watches_with_idx.append([idx, watch])
                 elif delta_days <= 1:  # Watch is expiring today, renew the form watch
+                    renewable_watches_with_idx.append([idx, watch])
+
+        if len(renewable_watches_with_idx) > 0:
+            guild = await self.bot.fetch_guild(864118528134742026)
+            channel = await guild.fetch_channel(gc_conf.form_channel_id)
+
+            view = View().add_item(Button(label="Renew", style=discord.ButtonStyle.green, emoji="🔄", stop_view=True))
+
+            message = await channel.send(
+                content="Hey developer man <@295531373387841536>, it's time to renew the form watches.", view=view
+            )
+            await view.wait()
+            await message.delete()
+
+            oauth_cred = await GoogleCredentialsHelper.google_oauth_discord_flow(interaction=view.interaction)
+
+            if isinstance(oauth_cred, oauth2_credentials.Credentials):
+                data = gc_conf.get_data()
+                form_service = GoogleFormsService(credentials=oauth_cred)
+
+                nonrenewable_watch_ids = []
+                for idx, watch in renewable_watches_with_idx:
                     renewed_watch = form_service.renew_form_watch(form_id=watch["form_id"], watch_id=watch["watch_id"])
 
                     if renewed_watch:
-                        data[watch["form_id"]][idx]["expire_time"] = renewed_watch[
-                            "expire_time"
+                        data["active_form_watches"][watch["form_id"]][idx]["expire_time"] = renewed_watch[
+                            "expireTime"
                         ]  # Update the expiry date for the renewed watch
                     else:
-                        logging.info(f"Failed to renew watch with watch ID of {watch['watch_id']}")
+                        nonrenewable_watch_ids.append(f"`{watch['watch_id']}`")
 
-        gc_conf.dump(data=data)
+                gc_conf.dump(data=data)
+
+                await send_or_edit_interaction_message(
+                    interaction=view.interaction,
+                    content=f"Could not renew watches for the following watch IDs: {', '.join(nonrenewable_watch_ids)}",
+                )
 
         # Handle the the expired watches
         if len(expired_watches_with_idx) > 0:
