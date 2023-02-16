@@ -9,6 +9,16 @@ from src.utils.helper import get_from_dict
 
 
 class FormWatchDetailsEmbed(discord.Embed):
+    """Creates an embed that displays the configuration information of a Google Form watch.
+
+    Parameters
+    ----------
+        * form_watch: :class:`dict`
+            - The form watch object saved in the `google_cloud.yaml` file.
+        * form_schema: Optional[:class:`dict`]
+            - The form schema. If no form schema is provided, it will just show the form ID.
+    """
+
     def __init__(self, form_watch: dict, form_schema: Optional[dict], *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -29,6 +39,14 @@ class FormWatchDetailsEmbed(discord.Embed):
 
 
 class FormSchemaInfoEmbed(discord.Embed):
+    """Creates an embed that displays the form schema details of a Google Form.
+
+    Parameters
+    ----------
+        * form_schema: :class:`dict`
+        * form_id: :class:`str`
+    """
+
     def __init__(self, form_schema: dict, form_id: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -49,6 +67,16 @@ class FormSchemaInfoEmbed(discord.Embed):
 
 
 class FormSchemaQuestionsEmbed(discord.Embed):
+    """Creates an embed that displays the form schema questions of a Google Form.
+
+    Parameters
+    ----------
+        * form_title: :class:`str`
+        * form_id: :class:`str`
+        * questions: List[:class: dict]
+            - The questions to display in the embed fields.
+    """
+
     def __init__(self, form_title: str, form_id: str, questions: List[dict], *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -62,6 +90,13 @@ class FormSchemaQuestionsEmbed(discord.Embed):
 
 
 class GoogleTopicStatusEmbed(discord.Embed):
+    """Creates an embed that displays the thread statuses of the Google Topic Listeners.
+
+    Parameters
+    ----------
+        * topic_listeners: List[:class: tuple]
+    """
+
     def __init__(self, topic_listeners: List[tuple], *args, **kwargs):
         super().__init__(*args, **kwargs)
 
