@@ -189,9 +189,9 @@ class GoogleFormsHelper:
 
         # Send using `run_coroutine_threadsafe` because it must be sent in the client loop instead of whatever thread it is running in
         asyncio.run_coroutine_threadsafe(
-            broadcast_channel.send(
-                embed=embeds[0], view=PaginatedEmbedsView(embeds=embeds) if len(embeds) > 1 else None
-            ),
+            broadcast_channel.send(embed=embeds[0], view=PaginatedEmbedsView(embeds=embeds))
+            if len(embeds) > 1
+            else None,
             client_loop,
         )
 

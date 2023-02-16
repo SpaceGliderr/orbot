@@ -152,9 +152,7 @@ class GoogleForms(commands.GroupCog, name="google"):
             form_service = GoogleFormsService(credentials=oauth_cred)
 
             # Create form watch using the form service
-            form_watch = form_service.create_form_watch(
-                form_id=form_id, event_type=event, topic_name=topic_name
-            )
+            form_watch = form_service.create_form_watch(form_id=form_id, event_type=event, topic_name=topic_name)
 
             content = "Failed to create form feed and retrieve form schema."  # Keep track of the return message
 
@@ -204,7 +202,7 @@ class GoogleForms(commands.GroupCog, name="google"):
 
         gc_conf = GoogleCloudConfig()
 
-        form_feed = gc_conf.search_active_form_watch(
+        _, form_feed = gc_conf.search_active_form_watch(
             form_id=form_id, event_type=event, topic_name=topic_name
         )  # Search for currently active form feeds
 
@@ -270,7 +268,12 @@ class GoogleForms(commands.GroupCog, name="google"):
         )
 
     async def delete_feed(
-        self, interaction: discord.Interaction, form_id: str, event: Literal["RESPONSES", "SCHEMA"], topic_name: str, **_
+        self,
+        interaction: discord.Interaction,
+        form_id: str,
+        event: Literal["RESPONSES", "SCHEMA"],
+        topic_name: str,
+        **_,
     ):
         """Deletes a form feed and form schema from the `google_cloud.yaml` file. This does not delete the form watch itself.
 
@@ -283,7 +286,9 @@ class GoogleForms(commands.GroupCog, name="google"):
             * event: :class:`Literal["RESPONSES", "SCHEMA"]`
         """
         try:
-            _, form_watch = GoogleCloudConfig().search_active_form_watch(form_id=form_id, event_type=event, topic_name=topic_name)
+            _, form_watch = GoogleCloudConfig().search_active_form_watch(
+                form_id=form_id, event_type=event, topic_name=topic_name
+            )
 
             if form_watch:
                 GoogleFormsService.init_service_acc().delete_form_watch(
@@ -410,7 +415,9 @@ class GoogleForms(commands.GroupCog, name="google"):
 
     @forms_group.command(name="manage-form-watch")
     @app_commands.guild_only()
-    @app_commands.rename(link="form_link", event="listen_to", topic_name="pubsub_topic_name", channel="broadcast_channel")
+    @app_commands.rename(
+        link="form_link", event="listen_to", topic_name="pubsub_topic_name", channel="broadcast_channel"
+    )
     @app_commands.describe(
         action="the action to perform on the provided Google Form",
         link="**edit link** for the Google Forms",

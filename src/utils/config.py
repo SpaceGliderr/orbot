@@ -350,8 +350,10 @@ class GoogleCloudConfig:
         if result:
             result = next(
                 ((idx, watch) for idx, watch in enumerate(result) if is_valid(watch)),
-                None,
+                (None, None),
             )
+        else:
+            result = (None, None)
         return result
 
     def search_active_form_watches(self, form_id: str):
@@ -394,20 +396,20 @@ class GoogleCloudConfig:
         topic_name: Optional[str] = None,
     ):
         """Delete a form watch object in the `google_cloud.yaml` file based on form ID, watch ID, event type and topic name."""
-        result = self.search_active_form_watch(
+        delete_idx, _ = self.search_active_form_watch(
             form_id=form_id, watch_id=watch_id, event_type=event_type, topic_name=topic_name
         )
 
-        if result:
+        if delete_idx is not None:
             data = self.get_data()
-            del data["active_form_watches"][form_id][result[0]]
+            del data["active_form_watches"][form_id][delete_idx]
 
             if len(data["active_form_watches"][form_id]) == 0:
                 del data["active_form_watches"][form_id]
 
             self.dump(data=data)
 
-        return result == None
+        return delete_idx == None
 
     def delete_form_watches_with_index(self, form_watches: List[Tuple[int, dict]]):
         """Delete a form watch object in the `google_cloud.yaml` file based on the index under a specific form ID."""
