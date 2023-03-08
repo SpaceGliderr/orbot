@@ -1,62 +1,25 @@
 active_posts:
-  "1075685733492334633":
+  '1075685733492334633':
     url: https://twitter.com/Gogogo_GoWon/status/1626109580265791488
-    user:
-      { id: "1003932071788625920", name: 작은새 ことり, username: Gogogo_GoWon }
-  "1075733441317965904":
-    url: https://twitter.com/loonaJPofficial/status/1626174638635225089
-    user:
-      {
-        id: "1407603879026462722",
-        name: loonatheworld_jp_official,
-        username: loonaJPofficial,
-      }
+    user: {id: '1003932071788625920', name: 작은새 ことり, username: Gogogo_GoWon}
 config:
   feed_channel_id: 1027862290155978762
   hashtag_filters:
     blacklist: []
-    whitelist:
-      [
-        loona,
-        이달의소녀,
-        heejin,
-        희진,
-        hyunjin,
-        현진,
-        haseul,
-        하슬,
-        yeojin,
-        여진,
-        vivi,
-        비비,
-        kimlip,
-        김립,
-        jinsoul,
-        진솔,
-        choerry,
-        최리,
-        yves,
-        이브,
-        chuu,
-        츄,
-        gowon,
-        고원,
-        oliviahye,
-        올리비아혜,
-        Happy_ViVi_Day,
-        1209_HBD_ViVi,
-      ]
+    whitelist: [loona, 이달의소녀, heejin, 희진, hyunjin, 현진, haseul, 하슬, yeojin, 여진, vivi,
+      비비, kimlip, 김립, jinsoul, 진솔, choerry, 최리, yves, 이브, chuu, 츄, gowon, 고원, oliviahye,
+      올리비아혜, Happy_ViVi_Day, 1209_HBD_ViVi]
   post_channels:
-    - { id: 482760247933403136, label: 🌙  Group, name: 🌙___group }
-    - { id: 482760413436444672, label: 🐰  Heejin, name: 🐰___heejin }
-    - { id: 482760568437211186, label: 🐱  Hyunjin, name: 🐱___hyunjin }
-    - { id: 482760649236021248, label: 🐦  Haseul, name: 🐦___haseul }
-    - { id: 482760722095538176, label: 🐸  Yeojin, name: 🐸___yeojin }
-    - { id: 482760787388137474, label: 🦌  Vivi, name: 🦌___vivi }
-    - { id: 482760862235623434, label: 🦉  Kim Lip, name: 🦉___kim__lip }
-    - { id: 482760948688617504, label: 🐟  Jinsoul, name: 🐟___jinsoul }
-    - { id: 482761037377044481, label: 🦇  Choerry, name: 🦇___choerry }
-    - { id: 482761112610275343, label: 🦢  Yves, name: 🦢___yves }
-    - { id: 482761204868317199, label: 🐧  Chuu, name: 🐧___chuu }
-    - { id: 482761294923956234, label: 🦋  Go Won, name: 🦋___go__won }
-    - { id: 482761388356534273, label: 🐺  Olivia Hye, name: 🐺___olivia__hye }
+  - {id: 482760247933403136, label: 🌙  Group, name: 🌙___group}
+  - {id: 482760413436444672, label: 🐰  Heejin, name: 🐰___heejin}
+  - {id: 482760568437211186, label: 🐱  Hyunjin, name: 🐱___hyunjin}
+  - {id: 482760649236021248, label: 🐦  Haseul, name: 🐦___haseul}
+  - {id: 482760722095538176, label: 🐸  Yeojin, name: 🐸___yeojin}
+  - {id: 482760787388137474, label: 🦌  Vivi, name: 🦌___vivi}
+  - {id: 482760862235623434, label: 🦉  Kim Lip, name: 🦉___kim__lip}
+  - {id: 482760948688617504, label: 🐟  Jinsoul, name: 🐟___jinsoul}
+  - {id: 482761037377044481, label: 🦇  Choerry, name: 🦇___choerry}
+  - {id: 482761112610275343, label: 🦢  Yves, name: 🦢___yves}
+  - {id: 482761204868317199, label: 🐧  Chuu, name: 🐧___chuu}
+  - {id: 482761294923956234, label: 🦋  Go Won, name: 🦋___go__won}
+  - {id: 482761388356534273, label: 🐺  Olivia Hye, name: 🐺___olivia__hye}

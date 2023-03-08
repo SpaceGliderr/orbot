@@ -1,3 +1,9 @@
 events:
-  on_thread_create: {}
+  on_thread_create:
+    1025687344235413545:
+      ordered: true
+      react_emojis: [✅, ❌]
+    1038516861739995237:
+      ordered: true
+      react_emojis: [✅, ❌]
   on_thread_update: {}
