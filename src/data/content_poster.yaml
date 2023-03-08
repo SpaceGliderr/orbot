@@ -8,7 +8,7 @@ config:
     blacklist: []
     whitelist: [loona, 이달의소녀, heejin, 희진, hyunjin, 현진, haseul, 하슬, yeojin, 여진, vivi,
       비비, kimlip, 김립, jinsoul, 진솔, choerry, 최리, yves, 이브, chuu, 츄, gowon, 고원, oliviahye,
-      올리비아혜, Happy_ViVi_Day, 1209_HBD_ViVi]
+      올리비아혜]
   post_channels:
   - {id: 482760247933403136, label: 🌙  Group, name: 🌙___group}
   - {id: 482760413436444672, label: 🐰  Heejin, name: 🐰___heejin}
