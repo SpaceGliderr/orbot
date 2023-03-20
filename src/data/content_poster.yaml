@@ -2,6 +2,9 @@ active_posts:
   '1075685733492334633':
     url: https://twitter.com/Gogogo_GoWon/status/1626109580265791488
     user: {id: '1003932071788625920', name: 작은새 ことり, username: Gogogo_GoWon}
+  '1083568521671352381':
+    url: https://twitter.com/bori__________/status/1633999002088902657
+    user: {id: '1501039119836745734', name: 너보리, username: bori__________}
 config:
   feed_channel_id: 1027862290155978762
   hashtag_filters:
